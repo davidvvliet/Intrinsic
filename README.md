@@ -1,4 +1,4 @@
-** Intrinsic **
+**Intrinsic**
 
 Discover real value.
 
