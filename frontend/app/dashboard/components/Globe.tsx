@@ -73,7 +73,9 @@ const drawGeoJsonContoursAndFill = (
           new THREE.LineBasicMaterial({
             color: outlineColor,
             transparent: true,
-            opacity: outlineOpacity
+            opacity: outlineOpacity,
+            depthWrite: true,
+            depthTest: true
           })
         );
         group.add(line);
@@ -103,10 +105,12 @@ const drawGeoJsonContoursAndFill = (
               color: fillColor,
               transparent: true,
               opacity: fillOpacity,
-              depthWrite: false,
-              side: THREE.DoubleSide,
+              depthWrite: true,
+              depthTest: true,
+              side: THREE.FrontSide,
             })
           );
+          mesh.renderOrder = 1;
           group.add(mesh);
         }
       });
@@ -194,19 +198,10 @@ export function ThreeJSGlobeWithDots({
     // Add Earth's realistic tilt (23.5 degrees)
     globeGroup.rotation.x = Math.PI * (23.5 / 180); // Convert degrees to radians
 
-    // Create solid sphere
-    const globeRadius = 1.3;
-    const sphereRadius = 1.3; // Slightly smaller than globeRadius so continents are visible
-    const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
-    const sphereMaterial = new THREE.MeshBasicMaterial({
-      color: color,
-      transparent: false
-    });
-    const solidSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-    globeGroup.add(solidSphere);
-
     // Create wireframe sphere
+    const globeRadius = 1.3;
     if (showWireframe) {
+      const sphereGeometry = new THREE.SphereGeometry(globeRadius, 32, 32);
       const wireframeMaterial = new THREE.MeshBasicMaterial({
         color: color,
         wireframe: true,

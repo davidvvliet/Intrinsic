@@ -21,7 +21,7 @@ export default function Dashboard() {
         )}
         <div className={styles.middleColumn}>
           <div className={styles.globeContainer}>
-            <Globe size={650} color="#0066ff" speed={0.003} />
+            <Globe size={650} color="#000000" speed={0.003} />
           </div>
         </div>
         {!columnMinimize.rightMinimized && (
