@@ -2,15 +2,25 @@
 
 import React from 'react';
 import pageStyles from './page.module.css';
+import Navbar from './components/Navbar';
 
 export default function Landing() {
   return (
     <div id="main-grid-container" className={pageStyles.gridContainer}>
       {/* Row 1: Navbar */}
-      <div className={pageStyles.navbarCell}></div>
+      <div className={pageStyles.navbarCell}>
+        <Navbar />
+      </div>
       
       {/* Row 2: Hero section */}
-      <div className={pageStyles.heroSection}></div>
+      <div className={pageStyles.heroSection}>
+        <div className={pageStyles.heroText}>Unlock real value</div>
+        <div className={pageStyles.heroSubheader}>Automated fundamental analysis</div>
+        <div className={pageStyles.heroButtons}>
+          <button className={pageStyles.heroButtonFilled}>Get started</button>
+          <button className={pageStyles.heroButtonTransparent}>Book a demo</button>
+        </div>
+      </div>
 
       {/* Row 3: Single full-width cell */}
       <div className={pageStyles.row3Cell}></div>

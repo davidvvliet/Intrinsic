@@ -4,19 +4,68 @@
     grid-template-rows: 60px 75vh 20vh 80vh 60vh 75vh 75vh 50vh 40vh 150px;
     height: 100vh;
     overflow: auto;
-    background-color: #0a0a0a;
-    color: #ffffff;
+    background-color: #ffffe3;
+    color: #000000;
   }
   
   .navbarCell {
     grid-row: 1;
     grid-column: 1 / -1;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
   }
   
   .heroSection {
     grid-row: 2;
     grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  
+  .heroText {
+    font-family: 'Helvetica', Arial, sans-serif;
+    font-weight: 550;
+    font-size: 44px;
+    padding-top: 40px;
+  }
+  
+  .heroSubheader {
+    font-family: 'Helvetica', Arial, sans-serif;
+    font-weight: 525;
+    font-size: 20px;
+    padding-top: 2px;
+    color: #6d8196;
+  }
+  
+  .heroButtons {
+    display: flex;
+    gap: 16px;
+    padding-top: 32px;
+  }
+  
+  .heroButtonTransparent {
+    background-color: transparent;
+    color: #000000;
+    border: 1px solid #000000;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 0;
+    font-family: 'Helvetica', Arial, sans-serif;
+  }
+  
+  .heroButtonFilled {
+    background-color: #6d8196;
+    color: #ffffff;
+    border: none;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 0;
+    font-family: 'Helvetica', Arial, sans-serif;
   }
   
   .leftCell {
@@ -24,16 +73,16 @@
     flex-direction: column;
     align-items: flex-start;
     justify-content: center;
-    padding: 0rem 1rem 0rem 3rem;
-    border-right: 1px solid rgba(255, 255, 255, 0.3);
-    gap: 2rem;
+    padding: 0px 16px 0px 48px;
+    border-right: 1px solid rgba(0, 0, 0, 0.2);
+    gap: 32px;
   }
   
   .rightCell {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
+    padding: 32px;
     overflow: hidden;
   }
   
@@ -43,8 +92,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 32px;
+    border-top: 1px solid rgba(0, 0, 0, 0.2);
     position: relative;
   }
   
@@ -55,7 +104,7 @@
     top: 0;
     bottom: 0;
     width: 1px;
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(0, 0, 0, 0.2);
   }
   
   .row3Cell::after {
@@ -65,7 +114,7 @@
     top: 0;
     bottom: 0;
     width: 1px;
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(0, 0, 0, 0.2);
   }
   
   .row4Container {
@@ -73,7 +122,7 @@
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    border-top: 1px solid rgba(0, 0, 0, 0.2);
     scroll-margin-top: 60px;
   }
   
@@ -82,9 +131,9 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    padding: 2rem;
-    border-right: 1px solid rgba(255, 255, 255, 0.3);
-    gap: 1.5rem;
+    padding: 32px;
+    border-right: 1px solid rgba(0, 0, 0, 0.2);
+    gap: 24px;
     overflow: hidden;
   }
   
@@ -93,8 +142,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    padding: 2rem;
-    gap: 1.5rem;
+    padding: 32px;
+    gap: 24px;
     overflow: hidden;
   }
   
@@ -104,8 +153,8 @@
     display: flex;
     align-items: flex-start;
     justify-content: flex-start;
-    padding: 2rem 5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 32px 80px;
+    border-top: 1px solid rgba(0, 0, 0, 0.2);
   }
   
   .row6LeftCell {
@@ -113,7 +162,7 @@
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: 1.618fr 1fr;
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    border-top: 1px solid rgba(0, 0, 0, 0.2);
     scroll-margin-top: 60px;
   }
   
@@ -121,9 +170,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
+    padding: 32px;
     overflow: hidden;
-    border-right: 1px solid rgba(255, 255, 255, 0.3);
+    border-right: 1px solid rgba(0, 0, 0, 0.2);
   }
   
   .row6RightInnerCell {
@@ -131,8 +180,8 @@
     flex-direction: column;
     align-items: flex-start;
     justify-content: center;
-    padding: 2rem 3rem;
-    gap: 2rem;
+    padding: 32px 48px;
+    gap: 32px;
   }
   
   .row7Cell {
@@ -140,7 +189,7 @@
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: 1fr 1.618fr;
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    border-top: 1px solid rgba(0, 0, 0, 0.2);
   }
   
   .row7LeftInnerCell {
@@ -148,16 +197,16 @@
     flex-direction: column;
     align-items: flex-start;
     justify-content: center;
-    padding: 2rem 3rem;
-    gap: 2rem;
-    border-right: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 32px 48px;
+    gap: 32px;
+    border-right: 1px solid rgba(0, 0, 0, 0.2);
   }
   
   .row7RightInnerCell {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
+    padding: 32px;
     overflow: hidden;
   }
   
@@ -166,16 +215,16 @@
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: 20vh 1fr 20vh;
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    border-top: 1px solid rgba(0, 0, 0, 0.2);
     scroll-margin-top: 60px;
   }
   
   .faqRowLeftSideCell {
-    border-right: 1px solid rgba(255, 255, 255, 0.3);
+    border-right: 1px solid rgba(0, 0, 0, 0.2);
   }
   
   .faqRowRightSideCell {
-    border-left: 1px solid rgba(255, 255, 255, 0.3);
+    border-left: 1px solid rgba(0, 0, 0, 0.2);
   }
   
   .faqRowStackedContainer {
@@ -190,16 +239,16 @@
     flex-direction: column;
     align-items: flex-start;
     justify-content: flex-start;
-    padding: 1rem;
-    border-right: 1px solid rgba(255, 255, 255, 0.3);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 16px;
+    border-right: 1px solid rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
     transition: background-color 0.2s ease;
     cursor: pointer;
-    gap: 1rem;
+    gap: 16px;
   }
   
   .faqRowStackedItem:hover {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: rgba(0, 0, 0, 0.05);
   }
   
   .faqRowStackedItem:nth-child(2n) {
@@ -217,8 +266,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    gap: 32px;
+    border-top: 1px solid rgba(0, 0, 0, 0.2);
   }
   
   .footerCell {
@@ -239,19 +288,19 @@
     }
   
     .leftCell {
-      padding: 2rem 1.5rem;
+      padding: 32px 24px;
       border-right: none;
       border-bottom: none;
-      gap: 1.5rem;
+      gap: 24px;
     }
   
     .rightCell {
-      padding: 2rem 1rem;
+      padding: 32px 16px;
       min-height: 300px;
     }
   
     .row3Cell {
-      padding: 1.5rem 1rem;
+      padding: 24px 16px;
       min-height: 80px;
     }
   
@@ -266,18 +315,18 @@
   
     .row4LeftCell {
       border-right: none;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-      padding: 1.5rem 1rem 0.5rem 1rem;
-      gap: 1rem;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+      padding: 24px 16px 8px 16px;
+      gap: 16px;
     }
   
     .row4RightCell {
-      padding: 1.5rem 1rem 0.5rem 1rem;
-      gap: 1rem;
+      padding: 24px 16px 8px 16px;
+      gap: 16px;
     }
   
     .row5Cell {
-      padding: 2rem 1.5rem;
+      padding: 32px 24px;
     }
   
     .row6LeftCell {
@@ -288,14 +337,14 @@
       order: 2;
       border-right: none;
       border-bottom: none;
-      padding: 1.5rem 1rem;
+      padding: 24px 16px;
       min-height: 250px;
     }
   
     .row6RightInnerCell {
       order: 1;
-      padding: 2rem 1.5rem;
-      gap: 1.5rem;
+      padding: 32px 24px;
+      gap: 24px;
     }
   
     .row7Cell {
@@ -305,12 +354,12 @@
     .row7LeftInnerCell {
       border-right: none;
       border-bottom: none;
-      padding: 2rem 1.5rem;
-      gap: 1.5rem;
+      padding: 32px 24px;
+      gap: 24px;
     }
   
     .row7RightInnerCell {
-      padding: 1.5rem 1rem;
+      padding: 24px 16px;
       min-height: 250px;
     }
   
@@ -330,7 +379,7 @@
   
     .faqRowStackedItem {
       border-right: none;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.2);
     }
   
     .faqRowStackedItem:nth-child(2n) {
@@ -338,7 +387,7 @@
     }
   
     .faqRowStackedItem:nth-child(n+5) {
-      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.2);
     }
   
     .faqRowStackedItem:last-child {
@@ -346,7 +395,7 @@
     }
   
     .ctaSection {
-      padding: 2rem 1.5rem;
-      gap: 1.5rem;
+      padding: 32px 24px;
+      gap: 24px;
     }
   }

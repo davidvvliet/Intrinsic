@@ -1,0 +1,79 @@
+.navbar {
+  position: sticky;
+  top: 0;
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2rem;
+  padding: 0 2rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+  background-color: #ffffe3;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 1000;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-weight: 550;
+  font-size: 24px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.navLinks {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin-left: 75px;
+}
+
+.navLink {
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 525;
+  font-family: 'Helvetica', Arial, sans-serif;
+  text-decoration: none;
+  color: inherit;
+}
+
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.5rem;
+  color: inherit;
+  margin-left: auto;
+}
+
+.signInButton {
+  background-color: #6d8196;
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 0;
+  font-family: 'Helvetica', Arial, sans-serif;
+  text-decoration: none;
+  display: inline-block;
+  margin-left: auto;
+}
+
+@media (max-width: 768px) {
+  .hamburger {
+    display: block;
+  }
+  
+  .navLinks {
+    display: none;
+  }
+}
