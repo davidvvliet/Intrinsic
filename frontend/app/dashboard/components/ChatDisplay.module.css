@@ -1,0 +1,106 @@
+.chatContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 0 0 48px 0;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+    
+  .message {
+    display: flex;
+    flex-direction: column;
+    padding-left: 6px;
+  }
+  
+  .messageContent {
+    color: #ffffff;
+    font-size: 13px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    font-family: 'Helvetica', Arial, sans-serif;
+  }
+  
+  /* Markdown styling for assistant messages */
+  .messageContent :global(strong) {
+    font-weight: 600;
+  }
+  
+  .messageContent :global(h1),
+  .messageContent :global(h2),
+  .messageContent :global(h3),
+  .messageContent :global(h4),
+  .messageContent :global(h5),
+  .messageContent :global(h6) {
+    font-weight: 600;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    color: #ffffff;
+  }
+  
+  .messageContent :global(h1:first-child),
+  .messageContent :global(h2:first-child),
+  .messageContent :global(h3:first-child),
+  .messageContent :global(h4:first-child),
+  .messageContent :global(h5:first-child),
+  .messageContent :global(h6:first-child) {
+    margin-top: 0;
+  }
+  
+  .messageContent :global(ul),
+  .messageContent :global(ol) {
+    padding-left: 24px;
+    margin: 8px 0;
+  }
+  
+  .messageContent :global(li) {
+    margin: 4px 0;
+  }
+  
+  .toolCallMessage {
+    color: transparent;
+    background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    font-weight: 500;
+    display: block;
+    font-size: 12px;
+    margin: 12px 0px;
+  }
+  
+  .messageContent :global(ul ul),
+  .messageContent :global(ol ol),
+  .messageContent :global(ul ol),
+  .messageContent :global(ol ul) {
+    padding-left: 20px;
+    margin-top: 4px;
+  }
+  
+  .userMessage {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 6px 10px;
+  }
+  
+  .loadingContainer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .loadingText {
+    color: transparent;
+    background: linear-gradient(90deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,1) 50%, rgba(255,255,255,0.3) 100%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: shimmer 1s linear infinite;
+    font-size: 13px;
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+  }

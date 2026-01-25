@@ -42,6 +42,17 @@
   height: 100%;
 }
 
+.rightColumnContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.searchInputWrapper {
+  flex-shrink: 0;
+}
+
 .hidden {
   overflow: hidden;
   visibility: hidden;
