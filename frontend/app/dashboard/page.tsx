@@ -16,17 +16,17 @@ export default function Dashboard() {
         className={styles.dashboardContainer}
         style={{ gridTemplateColumns: columnMinimize.getGridTemplateColumns() }}
       >
-        {!columnMinimize.leftMinimized && (
-          <div className={styles.leftColumn}></div>
-        )}
+        <div 
+          className={`${styles.leftColumn} ${columnMinimize.leftMinimized ? styles.hidden : ''}`}
+        ></div>
         <div className={styles.middleColumn}>
           <div className={styles.globeContainer}>
             <Globe size={650} color="#000000" speed={0.003} />
           </div>
         </div>
-        {!columnMinimize.rightMinimized && (
-          <div className={styles.rightColumn}></div>
-        )}
+        <div 
+          className={`${styles.rightColumn} ${columnMinimize.rightMinimized ? styles.hidden : ''}`}
+        ></div>
         <button
           className={`${styles.minimizeButton} ${
             columnMinimize.leftMinimized 

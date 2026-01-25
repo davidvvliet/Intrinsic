@@ -42,6 +42,12 @@
   height: 100%;
 }
 
+.hidden {
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .minimizeButton {
   position: fixed;
   width: 15px;
