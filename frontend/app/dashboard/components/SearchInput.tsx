@@ -18,7 +18,7 @@ export default function SearchInput({
   onSearch,
   onCancel,
   loading,
-  placeholder = "Voice AI for outbound sales"
+  placeholder = "Ask Intrinsic"
 }: SearchInputProps) {
   const queryRef = useRef<HTMLTextAreaElement | null>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -85,7 +85,7 @@ export default function SearchInput({
               className={styles.icon}
               viewBox="0 0 24 24" 
               fill="none" 
-              stroke="#ffffff" 
+              stroke="#000000" 
               strokeWidth="2"
             >
               <path d="M18 6L6 18M6 6l12 12" />
@@ -97,7 +97,7 @@ export default function SearchInput({
               className={styles.icon}
               viewBox="0 0 24 24" 
               fill="none" 
-              stroke={!query.trim() ? '#999999' : '#ffffff'} 
+              stroke={!query.trim() ? '#999999' : '#000000'} 
               strokeWidth="2"
             >
               <path d="M12 19V5M5 12l7-7 7 7" />

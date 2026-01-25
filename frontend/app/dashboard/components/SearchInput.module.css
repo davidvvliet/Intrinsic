@@ -13,11 +13,11 @@
 
 .textarea {
   width: 100%;
-  background-color: #1a1a1a;
+  background-color: #e8e8c8;
   border: 1px solid #333333;
   border-radius: 8px;
   padding: 12px;
-  color: #ffffff;
+  color: #000000;
   font-size: 14px;
   font-family: 'Helvetica', Arial, sans-serif;
   resize: none;
@@ -58,24 +58,24 @@
 }
 
 .buttonCircle {
-  border: 2px solid #ffffff;
-  background-color: #2a2a2a;
+  border: 2px solid #000000;
+  background-color: #f0f0d0;
   opacity: 1;
 }
 
 .buttonCircle:hover:not(.buttonCircleEmpty):not(.buttonCircleDisabled):not(.buttonCircleLoading) {
-  background-color: #333333;
+  background-color: #e0e0c0;
 }
 
 .buttonCircleEmpty {
   border: none;
-  background-color: #555555;
+  background-color: #d0d0b0;
   cursor: not-allowed;
 }
 
 .buttonCircleLoading {
-  border: 2px solid #ffffff;
-  background-color: #2a2a2a;
+  border: 2px solid #000000;
+  background-color: #f0f0d0;
   opacity: 0.5;
 }
 
@@ -94,13 +94,13 @@
   width: 16px;
   height: 16px;
   border: 2px solid transparent;
-  border-top-color: #ffffff;
+  border-top-color: #000000;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
 .spinnerGray {
-  border-top-color: #999999;
+  border-top-color: #666666;
 }
 
 @keyframes spin {
