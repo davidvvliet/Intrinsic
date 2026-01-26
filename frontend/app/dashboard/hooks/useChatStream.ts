@@ -9,18 +9,24 @@ export function useChatStream(
   const [isToolCalling, setIsToolCalling] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendMessage = useCallback(async (message: string, conversationHistory: ChatMessage[]) => {
+  const sendMessage = useCallback(async (message: string, conversationHistory: ChatMessage[], accessToken: string | null) => {
     setIsStreaming(true);
     setIsToolCalling(false);
     setStreamingText('');
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8000/api/chat', {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
+      const response = await fetch('http://localhost:8001/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           message,
           conversation_history: conversationHistory,
@@ -53,24 +59,31 @@ export function useChatStream(
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
             
-            if (data === '[DONE]') {
-              setIsStreaming(false);
-              setIsToolCalling(false);
-              onMessageComplete(fullMessage);
-              setStreamingText('');
-              return;
-            }
-
             try {
               const parsed = JSON.parse(data);
               
-              if (parsed.text) {
-                fullMessage += parsed.text;
+              if (parsed.content) {
+                fullMessage += parsed.content;
                 setStreamingText(fullMessage);
               }
 
-              if (parsed.is_tool_calling !== undefined) {
-                setIsToolCalling(parsed.is_tool_calling);
+              if (parsed.tool_call_start) {
+                setIsToolCalling(true);
+              }
+
+              if (parsed.done) {
+                setIsStreaming(false);
+                setIsToolCalling(false);
+                onMessageComplete(fullMessage);
+                setStreamingText('');
+                return;
+              }
+
+              if (parsed.error) {
+                setError(parsed.error);
+                setIsStreaming(false);
+                setIsToolCalling(false);
+                return;
               }
             } catch (e) {
               // If not JSON, treat as plain text
@@ -80,6 +93,11 @@ export function useChatStream(
           }
         }
       }
+
+      // Reset state if stream ended without explicit 'done' event
+      setIsStreaming(false);
+      setIsToolCalling(false);
+      setStreamingText('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setIsStreaming(false);

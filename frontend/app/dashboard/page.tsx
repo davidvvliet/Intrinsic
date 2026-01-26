@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from 'react';
+import { useAccessToken } from '@workos-inc/authkit-nextjs/components';
 import DashboardNavbar from './components/DashboardNavbar';
 import Globe from './components/Globe';
 import ChatDisplay from './components/ChatDisplay';
@@ -12,6 +13,7 @@ import styles from './page.module.css';
 
 export default function Dashboard() {
   const columnMinimize = useColumnMinimize();
+  const { accessToken } = useAccessToken();
   
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [query, setQuery] = useState<string>('');
@@ -29,8 +31,8 @@ export default function Dashboard() {
     const updatedMessages = [...chatMessages, userMessage];
     setChatMessages(updatedMessages);
     setQuery('');
-    sendMessage(query.trim(), updatedMessages);
-  }, [query, chatMessages, sendMessage]);
+    sendMessage(query.trim(), updatedMessages, accessToken ?? null);
+  }, [query, chatMessages, sendMessage, accessToken]);
 
   return (
     <div className={styles.dashboard}>
