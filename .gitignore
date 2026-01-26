@@ -23,7 +23,7 @@ dist/
 docker-compose.yml
 docker-compose.override.yml
 .dockerignore
-**/Dockerfile
+frontend/Dockerfile
 **/Dockerfile.*
 **/.dockerignore
 
