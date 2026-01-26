@@ -33,28 +33,33 @@ async def generate_chat_stream(request: ChatRequest, user):
     try:
         print(f"[CHAT] Calling OpenAI with {len(messages)} messages")
         # Call OpenAI API with streaming
-        stream = await client.chat.completions.create(
-            model="gpt-5.2",
-            messages=messages,
-            stream=True
+        stream = await client.responses.create(
+            model="gpt-5.1",
+            input=messages,
+            stream=True,
+            max_output_tokens=300
         )
-        print(f"[CHAT] Stream created successfully")
+        print(f"[CHAT] Stream created successfully", flush=True)
         
-        async for chunk in stream:
-            if chunk.choices and len(chunk.choices) > 0:
-                delta = chunk.choices[0].delta
-                
-                # Check for tool calls
-                if delta.tool_calls:
-                    for tool_call in delta.tool_calls:
-                        if tool_call.function:
-                            yield f"data: {json.dumps({'tool_call_start': {'name': tool_call.function.name}})}\n\n"
-                
-                # Extract text content
-                if delta.content:
-                    content = delta.content
+        # Stream responses using event-based format
+        async for event in stream:
+            # Handle tool call events
+            if event.type == 'response.output_item.added':
+                if hasattr(event, 'item'):
+                    item = event.item
+                    if hasattr(item, 'type') and item.type == 'function_call':
+                        tool_name = getattr(item, 'name', '')
+                        print(f"[CHAT] Tool call started: {tool_name}", flush=True)
+                        yield f"data: {json.dumps({'tool_call_start': {'name': tool_name}})}\n\n"
+            
+            # Handle content/text output
+            elif event.type == 'response.output_text.delta':
+                if hasattr(event, 'delta'):
+                    content = event.delta
+                    print(f"[CHAT] Content chunk: {content[:50]}...", flush=True)
                     yield f"data: {json.dumps({'content': content})}\n\n"
         
+        print(f"[CHAT] Stream complete", flush=True)
         # Send completion event
         yield f"data: {json.dumps({'done': True})}\n\n"
         
