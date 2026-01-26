@@ -24,7 +24,7 @@ export function useChatStream(
         headers['Authorization'] = `Bearer ${accessToken}`;
       }
 
-      const response = await fetch('http://localhost:8001/api/chat', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
