@@ -1,21 +1,36 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import DashboardNavbar from './components/DashboardNavbar';
 import Globe from './components/Globe';
 import ChatDisplay from './components/ChatDisplay';
 import SearchInput from './components/SearchInput';
 import { useColumnMinimize } from './hooks/useColumnMinimize';
+import { useChatStream } from './hooks/useChatStream';
+import { ChatMessage } from './types/chat';
 import styles from './page.module.css';
 
 export default function Dashboard() {
   const columnMinimize = useColumnMinimize();
   
-  const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
-  const [streamingText, setStreamingText] = useState<string>('');
-  const [isStreaming, setIsStreaming] = useState<boolean>(false);
-  const [isToolCalling, setIsToolCalling] = useState<boolean>(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [query, setQuery] = useState<string>('');
+
+  const handleMessageComplete = useCallback((message: string) => {
+    setChatMessages(prev => [...prev, { role: 'assistant', content: message }]);
+  }, []);
+
+  const { streamingText, isStreaming, isToolCalling, sendMessage } = useChatStream(handleMessageComplete);
+
+  const handleSearch = useCallback(() => {
+    if (!query.trim()) return;
+
+    const userMessage: ChatMessage = { role: 'user', content: query.trim() };
+    const updatedMessages = [...chatMessages, userMessage];
+    setChatMessages(updatedMessages);
+    setQuery('');
+    sendMessage(query.trim(), updatedMessages);
+  }, [query, chatMessages, sendMessage]);
 
   return (
     <div className={styles.dashboard}>
@@ -48,7 +63,7 @@ export default function Dashboard() {
               <SearchInput
                 query={query}
                 setQuery={setQuery}
-                onSearch={() => {}}
+                onSearch={handleSearch}
                 loading={isStreaming || isToolCalling}
               />
             </div>

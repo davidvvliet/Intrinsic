@@ -29,9 +29,9 @@ export default function Navbar() {
       >
         ☰
       </button>
-      <button className={styles.signInButton}>
+      <a href="/login" className={styles.signInButton}>
         Sign in
-      </button>
+      </a>
     </div>
   );
 }
