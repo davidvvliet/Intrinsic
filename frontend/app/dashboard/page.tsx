@@ -43,11 +43,12 @@ export default function Dashboard() {
       >
         <div 
           className={`${styles.leftColumn} ${columnMinimize.leftMinimized ? styles.hidden : ''}`}
-        ></div>
-        <div className={styles.middleColumn}>
+        >
           <div className={styles.globeContainer}>
-            <Globe size={650} color="#000000" speed={0.003} />
+            <Globe size={250} color="#000000" speed={0.003} />
           </div>
+        </div>
+        <div className={styles.middleColumn}>
         </div>
         <div 
           className={`${styles.rightColumn} ${columnMinimize.rightMinimized ? styles.hidden : ''}`}

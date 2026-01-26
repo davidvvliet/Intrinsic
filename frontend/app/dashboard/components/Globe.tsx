@@ -94,7 +94,7 @@ const drawGeoJsonContoursAndFill = (
           for (let index = 0; index < positionArray.length; index += 3) {
             const lambda = positionArray[index];
             const phi = positionArray[index + 1];
-            const r = radius - 0.01;
+            const r = radius;
             positionArray[index]     = r * Math.sin(phi) * Math.cos(lambda);
             positionArray[index + 1] = r * Math.cos(phi);
             positionArray[index + 2] = r * Math.sin(phi) * Math.sin(lambda);
