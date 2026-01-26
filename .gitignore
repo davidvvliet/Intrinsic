@@ -20,7 +20,6 @@ dist/
 .env.production.local
 
 # Docker
-docker-compose.yml
 docker-compose.override.yml
 .dockerignore
 frontend/Dockerfile
