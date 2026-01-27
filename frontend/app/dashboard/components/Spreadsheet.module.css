@@ -4,6 +4,7 @@
   position: relative;
   overflow: auto;
   outline: none;
+  overscroll-behavior-x: contain;
 }
 
 .scrollArea {
