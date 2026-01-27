@@ -1,8 +1,16 @@
 export type CellType = 'text' | 'number' | 'formula';
 
+export type CellFormat = {
+  bold?: boolean;
+  italic?: boolean;
+  strikethrough?: boolean;
+  textColor?: string;
+};
+
 export type CellValue = {
   raw: string;
   type: CellType;
+  format?: CellFormat;
 };
 
 export type CellData = Map<string, CellValue>;

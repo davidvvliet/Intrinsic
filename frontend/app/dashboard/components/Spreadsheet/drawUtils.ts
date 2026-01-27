@@ -160,14 +160,52 @@ export function drawGrid({
         ctx.rect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
         ctx.clip();
         
+        // Apply formatting
+        const format = cellValue.format || {};
+        const fontParts: string[] = [];
+        if (format.italic) fontParts.push('italic');
+        if (format.bold) fontParts.push('bold');
+        fontParts.push(`${CELL_FONT_SIZE * zoom}px`);
+        fontParts.push('Arial');
+        ctx.font = fontParts.join(' ');
+        
+        // Apply text color
+        ctx.fillStyle = format.textColor || TEXT_COLOR;
+        
         // Right-align numbers, left-align text
+        let textX: number;
         if (cellValue.type === 'number') {
           ctx.textAlign = 'right';
-          ctx.fillText(cellValue.raw, x + cellWidth - CELL_TEXT_PADDING * zoom, y + cellHeight / 2);
-          ctx.textAlign = 'left';
+          textX = x + cellWidth - CELL_TEXT_PADDING * zoom;
         } else {
-          ctx.fillText(cellValue.raw, x + CELL_TEXT_PADDING * zoom, y + cellHeight / 2);
+          ctx.textAlign = 'left';
+          textX = x + CELL_TEXT_PADDING * zoom;
         }
+        const textY = y + cellHeight / 2;
+        
+        ctx.fillText(cellValue.raw, textX, textY);
+        
+        // Draw strikethrough if needed
+        if (format.strikethrough) {
+          const textWidth = ctx.measureText(cellValue.raw).width;
+          const lineY = textY;
+          let lineStartX: number;
+          if (cellValue.type === 'number') {
+            lineStartX = textX - textWidth;
+          } else {
+            lineStartX = textX;
+          }
+          ctx.beginPath();
+          ctx.moveTo(lineStartX, lineY);
+          ctx.lineTo(lineStartX + textWidth, lineY);
+          ctx.strokeStyle = format.textColor || TEXT_COLOR;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+        
+        // Reset text align and fill style
+        ctx.textAlign = 'left';
+        ctx.fillStyle = TEXT_COLOR;
         ctx.restore();
       }
     }
