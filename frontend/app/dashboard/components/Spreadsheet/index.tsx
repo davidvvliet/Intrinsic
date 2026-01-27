@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback } from 'react';
 import { useSpreadsheet } from '../../hooks/useSpreadsheet';
 import { useKeyboard } from './useKeyboard';
+import { useMouse } from './useMouse';
 import styles from './Spreadsheet.module.css';
 import {
   CELL_WIDTH,
@@ -135,29 +136,20 @@ export default function Spreadsheet() {
     }
   }, [isEditing, saveCurrentCell, cellData]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const cell = getCellFromEvent(e);
-    if (!cell) return;
-
-    if (e.shiftKey && selection) {
-      // Shift+click: extend selection from anchor
-      setSelection(prev => prev ? { start: prev.start, end: cell } : null);
-    } else {
-      // Normal click: new selection
-      if (isEditing) saveCurrentCell();
-      setSelection({ start: cell, end: cell });
-      setInputValue(cellData.get(getCellKey(cell.row, cell.col)) || '');
-      setIsEditing(false);
-    }
-    setIsDragging(true);
-    containerRef.current?.focus();
-  }, [getCellFromEvent, selection, isEditing, saveCurrentCell, cellData]);
-
-  const handleCanvasDoubleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const cell = getCellFromEvent(e);
-    if (!cell) return;
-    moveToCell(cell.row, cell.col, true); // Edit mode
-  }, [getCellFromEvent, moveToCell]);
+  const { handleMouseDown, handleCanvasDoubleClick } = useMouse({
+    getCellFromEvent,
+    selection,
+    isEditing,
+    isDragging,
+    setIsDragging,
+    cellData,
+    setSelection,
+    setIsEditing,
+    setInputValue,
+    saveCurrentCell,
+    moveToCell,
+    containerRef,
+  });
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
@@ -189,10 +181,6 @@ export default function Spreadsheet() {
     containerRef,
     zoom,
     setZoom,
-    isDragging,
-    setIsDragging,
-    setSelection,
-    getCellFromEvent,
     drawGrid,
     copiedRange,
     setDashOffset,
