@@ -3,6 +3,82 @@ import { NUM_ROWS, NUM_COLS } from './config';
 import type { CellData, Selection, CopiedRange } from './types';
 import { getCellKey, determineCellType } from './drawUtils';
 
+type Direction = 'up' | 'down' | 'left' | 'right';
+
+function findJumpTarget(
+  row: number,
+  col: number,
+  direction: Direction,
+  cellData: CellData
+): { row: number; col: number } {
+  const hasData = (r: number, c: number) => !!cellData.get(getCellKey(r, c));
+  const currentHasData = hasData(row, col);
+
+  if (direction === 'down') {
+    const nextHasData = row + 1 < NUM_ROWS && hasData(row + 1, col);
+    if (currentHasData && nextHasData) {
+      // Find end of contiguous block
+      for (let r = row + 1; r < NUM_ROWS; r++) {
+        if (!hasData(r, col)) return { row: r - 1, col };
+      }
+      return { row: NUM_ROWS - 1, col };
+    } else {
+      // Find next non-empty or edge
+      for (let r = row + 1; r < NUM_ROWS; r++) {
+        if (hasData(r, col)) return { row: r, col };
+      }
+      return { row: NUM_ROWS - 1, col };
+    }
+  }
+
+  if (direction === 'up') {
+    const nextHasData = row - 1 >= 0 && hasData(row - 1, col);
+    if (currentHasData && nextHasData) {
+      for (let r = row - 1; r >= 0; r--) {
+        if (!hasData(r, col)) return { row: r + 1, col };
+      }
+      return { row: 0, col };
+    } else {
+      for (let r = row - 1; r >= 0; r--) {
+        if (hasData(r, col)) return { row: r, col };
+      }
+      return { row: 0, col };
+    }
+  }
+
+  if (direction === 'right') {
+    const nextHasData = col + 1 < NUM_COLS && hasData(row, col + 1);
+    if (currentHasData && nextHasData) {
+      for (let c = col + 1; c < NUM_COLS; c++) {
+        if (!hasData(row, c)) return { row, col: c - 1 };
+      }
+      return { row, col: NUM_COLS - 1 };
+    } else {
+      for (let c = col + 1; c < NUM_COLS; c++) {
+        if (hasData(row, c)) return { row, col: c };
+      }
+      return { row, col: NUM_COLS - 1 };
+    }
+  }
+
+  if (direction === 'left') {
+    const nextHasData = col - 1 >= 0 && hasData(row, col - 1);
+    if (currentHasData && nextHasData) {
+      for (let c = col - 1; c >= 0; c--) {
+        if (!hasData(row, c)) return { row, col: c + 1 };
+      }
+      return { row, col: 0 };
+    } else {
+      for (let c = col - 1; c >= 0; c--) {
+        if (hasData(row, c)) return { row, col: c };
+      }
+      return { row, col: 0 };
+    }
+  }
+
+  return { row, col };
+}
+
 export function useKeyboard({
   selection,
   isEditing,
@@ -40,7 +116,10 @@ export function useKeyboard({
     switch (e.key) {
       case 'ArrowUp':
         e.preventDefault();
-        if (e.shiftKey) {
+        if (e.metaKey || e.ctrlKey) {
+          const target = findJumpTarget(row, col, 'up', cellData);
+          moveToCell(target.row, target.col);
+        } else if (e.shiftKey) {
           const newEndRow = Math.max(0, endRow - 1);
           setSelection(prev => prev ? { start: prev.start, end: { row: newEndRow, col: prev.end.col } } : null);
         } else {
@@ -49,7 +128,10 @@ export function useKeyboard({
         break;
       case 'ArrowDown':
         e.preventDefault();
-        if (e.shiftKey) {
+        if (e.metaKey || e.ctrlKey) {
+          const target = findJumpTarget(row, col, 'down', cellData);
+          moveToCell(target.row, target.col);
+        } else if (e.shiftKey) {
           const newEndRow = Math.min(NUM_ROWS - 1, endRow + 1);
           setSelection(prev => prev ? { start: prev.start, end: { row: newEndRow, col: prev.end.col } } : null);
         } else {
@@ -58,7 +140,10 @@ export function useKeyboard({
         break;
       case 'ArrowLeft':
         e.preventDefault();
-        if (e.shiftKey) {
+        if (e.metaKey || e.ctrlKey) {
+          const target = findJumpTarget(row, col, 'left', cellData);
+          moveToCell(target.row, target.col);
+        } else if (e.shiftKey) {
           const newEndCol = Math.max(0, endCol - 1);
           setSelection(prev => prev ? { start: prev.start, end: { row: prev.end.row, col: newEndCol } } : null);
         } else {
@@ -67,7 +152,10 @@ export function useKeyboard({
         break;
       case 'ArrowRight':
         e.preventDefault();
-        if (e.shiftKey) {
+        if (e.metaKey || e.ctrlKey) {
+          const target = findJumpTarget(row, col, 'right', cellData);
+          moveToCell(target.row, target.col);
+        } else if (e.shiftKey) {
           const newEndCol = Math.min(NUM_COLS - 1, endCol + 1);
           setSelection(prev => prev ? { start: prev.start, end: { row: prev.end.row, col: newEndCol } } : null);
         } else {
