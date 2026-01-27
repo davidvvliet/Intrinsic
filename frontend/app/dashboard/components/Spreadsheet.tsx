@@ -229,23 +229,45 @@ export default function Spreadsheet() {
     if (!selection || isEditing) return;
 
     const { row, col } = selection.start;
+    const endRow = selection.end.row;
+    const endCol = selection.end.col;
 
     switch (e.key) {
       case 'ArrowUp':
         e.preventDefault();
-        moveToCell(row - 1, col);
+        if (e.shiftKey) {
+          const newEndRow = Math.max(0, endRow - 1);
+          setSelection(prev => prev ? { start: prev.start, end: { row: newEndRow, col: prev.end.col } } : null);
+        } else {
+          moveToCell(row - 1, col);
+        }
         break;
       case 'ArrowDown':
         e.preventDefault();
-        moveToCell(row + 1, col);
+        if (e.shiftKey) {
+          const newEndRow = Math.min(NUM_ROWS - 1, endRow + 1);
+          setSelection(prev => prev ? { start: prev.start, end: { row: newEndRow, col: prev.end.col } } : null);
+        } else {
+          moveToCell(row + 1, col);
+        }
         break;
       case 'ArrowLeft':
         e.preventDefault();
-        moveToCell(row, col - 1);
+        if (e.shiftKey) {
+          const newEndCol = Math.max(0, endCol - 1);
+          setSelection(prev => prev ? { start: prev.start, end: { row: prev.end.row, col: newEndCol } } : null);
+        } else {
+          moveToCell(row, col - 1);
+        }
         break;
       case 'ArrowRight':
         e.preventDefault();
-        moveToCell(row, col + 1);
+        if (e.shiftKey) {
+          const newEndCol = Math.min(NUM_COLS - 1, endCol + 1);
+          setSelection(prev => prev ? { start: prev.start, end: { row: prev.end.row, col: newEndCol } } : null);
+        } else {
+          moveToCell(row, col + 1);
+        }
         break;
       case 'Tab':
         e.preventDefault();
