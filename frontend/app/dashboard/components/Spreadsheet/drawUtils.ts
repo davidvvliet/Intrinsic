@@ -86,6 +86,9 @@ export function drawGrid({
     minCol = Math.min(selection.start.col, selection.end.col);
     maxCol = Math.max(selection.start.col, selection.end.col);
   }
+  
+  // Check if selection spans multiple cells
+  const isMultiCellSelection = minRow !== maxRow || minCol !== maxCol;
 
   // Draw cells (offset by headers)
   ctx.strokeStyle = CELL_BORDER;
@@ -110,8 +113,8 @@ export function drawGrid({
       const inSelection = row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
       const isAnchor = selection && row === selection.start.row && col === selection.start.col;
 
-      // Draw selection highlight
-      if (inSelection) {
+      // Draw selection highlight (only for multi-cell selections)
+      if (inSelection && isMultiCellSelection) {
         ctx.fillStyle = SELECTION_HIGHLIGHT;
         ctx.fillRect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
         ctx.fillStyle = TEXT_COLOR;
