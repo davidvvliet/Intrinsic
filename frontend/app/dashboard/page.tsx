@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useAccessToken } from '@workos-inc/authkit-nextjs/components';
 import DashboardNavbar from './components/DashboardNavbar';
 import Globe from './components/Globe';
@@ -10,6 +11,11 @@ import { useColumnMinimize } from './hooks/useColumnMinimize';
 import { useChatStream } from './hooks/useChatStream';
 import { ChatMessage } from './types/chat';
 import styles from './page.module.css';
+
+const Spreadsheet = dynamic(
+  () => import('./components/Spreadsheet'),
+  { ssr: false }
+);
 
 export default function Dashboard() {
   const columnMinimize = useColumnMinimize();
@@ -44,11 +50,12 @@ export default function Dashboard() {
         <div 
           className={`${styles.leftColumn} ${columnMinimize.leftMinimized ? styles.hidden : ''}`}
         >
-          <div className={styles.globeContainer}>
+          {/* <div className={styles.globeContainer}>
             <Globe size={250} color="#000000" speed={0.003} />
-          </div>
+          </div> */}
         </div>
         <div className={styles.middleColumn}>
+          <Spreadsheet />
         </div>
         <div 
           className={`${styles.rightColumn} ${columnMinimize.rightMinimized ? styles.hidden : ''}`}
