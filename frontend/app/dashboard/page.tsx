@@ -13,7 +13,7 @@ import { ChatMessage } from './types/chat';
 import styles from './page.module.css';
 
 const Spreadsheet = dynamic(
-  () => import('./components/Spreadsheet'),
+  () => import('./components/Spreadsheet/index'),
   { ssr: false }
 );
 

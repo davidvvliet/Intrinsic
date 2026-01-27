@@ -1,18 +1,16 @@
 import { useEffect } from 'react';
-
-type Selection = {
-  start: { row: number; col: number };
-  end: { row: number; col: number };
-} | null;
-
-type CellPosition = { row: number; col: number } | null;
-
-type CopiedRange = {
-  minRow: number;
-  maxRow: number;
-  minCol: number;
-  maxCol: number;
-} | null;
+import {
+  MIN_ZOOM,
+  MAX_ZOOM,
+  ZOOM_DELTA,
+  DASH_OFFSET_MODULO,
+  MARCHING_ANTS_INTERVAL_MS,
+} from '../components/Spreadsheet/config';
+import type {
+  Selection,
+  CellPosition,
+  CopiedRange,
+} from '../components/Spreadsheet/types';
 
 export function useSpreadsheet({
   canvasRef,
@@ -80,8 +78,8 @@ export function useSpreadsheet({
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.01 : 0.01;
-        setZoom(prev => Math.min(4, Math.max(0.25, prev + delta)));
+        const delta = e.deltaY > 0 ? -ZOOM_DELTA : ZOOM_DELTA;
+        setZoom(prev => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prev + delta)));
       }
     };
 
@@ -116,8 +114,8 @@ export function useSpreadsheet({
     if (!copiedRange) return;
     
     const interval = setInterval(() => {
-      setDashOffset(prev => (prev + 1) % 10);
-    }, 80);
+      setDashOffset(prev => (prev + 1) % DASH_OFFSET_MODULO);
+    }, MARCHING_ANTS_INTERVAL_MS);
     
     return () => clearInterval(interval);
   }, [copiedRange, setDashOffset]);
