@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useState, useCallback } from 'react';
+import { useSpreadsheet } from '../hooks/useSpreadsheet';
 import styles from './Spreadsheet.module.css';
 
 const CELL_WIDTH = 80;
@@ -20,11 +21,15 @@ export default function Spreadsheet() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [cellData, setCellData] = useState<CellData>(new Map());
-  const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
+  const [selection, setSelection] = useState<{
+    start: { row: number; col: number };
+    end: { row: number; col: number };
+  } | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [zoom, setZoom] = useState(1.0);
   const [scrollPosition, setScrollPosition] = useState({ left: 0, top: 0 });
   const [isEditing, setIsEditing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const drawGrid = useCallback(() => {
     const canvas = canvasRef.current;
@@ -51,6 +56,15 @@ export default function Spreadsheet() {
     const startRow = Math.floor(scrollTop / cellHeight);
     const endRow = Math.min(startRow + Math.ceil(canvas.height / cellHeight) + 1, NUM_ROWS);
 
+    // Calculate selection bounds
+    let minRow = -1, maxRow = -1, minCol = -1, maxCol = -1;
+    if (selection) {
+      minRow = Math.min(selection.start.row, selection.end.row);
+      maxRow = Math.max(selection.start.row, selection.end.row);
+      minCol = Math.min(selection.start.col, selection.end.col);
+      maxCol = Math.max(selection.start.col, selection.end.col);
+    }
+
     // Draw cells
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
     ctx.lineWidth = 1;
@@ -66,10 +80,21 @@ export default function Spreadsheet() {
         // Draw cell border
         ctx.strokeRect(x, y, cellWidth, cellHeight);
 
+        // Check if cell is in selection
+        const inSelection = row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
+        const isAnchor = selection && row === selection.start.row && col === selection.start.col;
+
         // Draw selection highlight
-        if (activeCell && activeCell.row === row && activeCell.col === col) {
+        if (inSelection) {
+          ctx.fillStyle = 'rgba(0, 100, 200, 0.1)';
+          ctx.fillRect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
+          ctx.fillStyle = '#000000';
+        }
+
+        // Draw anchor cell border (the "active" cell)
+        if (isAnchor) {
           ctx.strokeStyle = '#0064c8';
-          ctx.lineWidth = 1;
+          ctx.lineWidth = 2;
           ctx.strokeRect(x, y, cellWidth, cellHeight);
           ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
           ctx.lineWidth = 1;
@@ -83,40 +108,7 @@ export default function Spreadsheet() {
         }
       }
     }
-  }, [cellData, activeCell, zoom]);
-
-  // Initialize canvas size
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
-
-    const resizeCanvas = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const rect = container.getBoundingClientRect();
-      
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      canvas.style.width = rect.width + 'px';
-      canvas.style.height = rect.height + 'px';
-      
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.scale(dpr, dpr);
-      }
-      
-      drawGrid();
-    };
-
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-    return () => window.removeEventListener('resize', resizeCanvas);
-  }, [drawGrid]);
-
-  // Redraw on state changes
-  useEffect(() => {
-    drawGrid();
-  }, [drawGrid]);
+  }, [cellData, selection, zoom]);
 
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
@@ -126,9 +118,27 @@ export default function Spreadsheet() {
     drawGrid();
   }, [drawGrid]);
 
+  const getCellFromEvent = useCallback((e: MouseEvent | React.MouseEvent) => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return null;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left + container.scrollLeft;
+    const y = e.clientY - rect.top + container.scrollTop;
+
+    const col = Math.floor(x / (CELL_WIDTH * zoom));
+    const row = Math.floor(y / (CELL_HEIGHT * zoom));
+
+    if (col >= 0 && col < NUM_COLS && row >= 0 && row < NUM_ROWS) {
+      return { row, col };
+    }
+    return null;
+  }, [zoom]);
+
   const saveCurrentCell = useCallback(() => {
-    if (activeCell) {
-      const key = getCellKey(activeCell.row, activeCell.col);
+    if (selection) {
+      const key = getCellKey(selection.start.row, selection.start.col);
       setCellData(prev => {
         const next = new Map(prev);
         if (inputValue.trim()) {
@@ -139,7 +149,7 @@ export default function Spreadsheet() {
         return next;
       });
     }
-  }, [activeCell, inputValue]);
+  }, [selection, inputValue]);
 
   const moveToCell = useCallback((row: number, col: number, startEditing = false) => {
     // Clamp to valid range
@@ -151,8 +161,8 @@ export default function Spreadsheet() {
       saveCurrentCell();
     }
 
-    // Set new active cell
-    setActiveCell({ row: newRow, col: newCol });
+    // Set new selection (single cell)
+    setSelection({ start: { row: newRow, col: newCol }, end: { row: newRow, col: newCol } });
     const key = getCellKey(newRow, newCol);
     setInputValue(cellData.get(key) || '');
     setIsEditing(startEditing);
@@ -165,54 +175,38 @@ export default function Spreadsheet() {
     }
   }, [isEditing, saveCurrentCell, cellData]);
 
-  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const cell = getCellFromEvent(e);
+    if (!cell) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left + container.scrollLeft;
-    const y = e.clientY - rect.top + container.scrollTop;
-
-    const cellWidth = CELL_WIDTH * zoom;
-    const cellHeight = CELL_HEIGHT * zoom;
-
-    const col = Math.floor(x / cellWidth);
-    const row = Math.floor(y / cellHeight);
-
-    if (col >= 0 && col < NUM_COLS && row >= 0 && row < NUM_ROWS) {
-      moveToCell(row, col, false); // Selection mode, not editing
+    if (e.shiftKey && selection) {
+      // Shift+click: extend selection from anchor
+      setSelection(prev => prev ? { start: prev.start, end: cell } : null);
+    } else {
+      // Normal click: new selection
+      if (isEditing) saveCurrentCell();
+      setSelection({ start: cell, end: cell });
+      setInputValue(cellData.get(getCellKey(cell.row, cell.col)) || '');
+      setIsEditing(false);
     }
-  }, [zoom, moveToCell]);
+    setIsDragging(true);
+    containerRef.current?.focus();
+  }, [getCellFromEvent, selection, isEditing, saveCurrentCell, cellData]);
 
   const handleCanvasDoubleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left + container.scrollLeft;
-    const y = e.clientY - rect.top + container.scrollTop;
-
-    const cellWidth = CELL_WIDTH * zoom;
-    const cellHeight = CELL_HEIGHT * zoom;
-
-    const col = Math.floor(x / cellWidth);
-    const row = Math.floor(y / cellHeight);
-
-    if (col >= 0 && col < NUM_COLS && row >= 0 && row < NUM_ROWS) {
-      moveToCell(row, col, true); // Edit mode
-    }
-  }, [zoom, moveToCell]);
+    const cell = getCellFromEvent(e);
+    if (!cell) return;
+    moveToCell(cell.row, cell.col, true); // Edit mode
+  }, [getCellFromEvent, moveToCell]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
   }, []);
 
   const handleContainerKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!activeCell || isEditing) return;
+    if (!selection || isEditing) return;
 
-    const { row, col } = activeCell;
+    const { row, col } = selection.start;
 
     switch (e.key) {
       case 'ArrowUp':
@@ -255,7 +249,7 @@ export default function Spreadsheet() {
         }
         break;
     }
-  }, [activeCell, isEditing, moveToCell]);
+  }, [selection, isEditing, moveToCell]);
 
   const handleInputBlur = useCallback(() => {
     saveCurrentCell();
@@ -263,18 +257,20 @@ export default function Spreadsheet() {
   }, [saveCurrentCell]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!activeCell) return;
+    if (!selection) return;
+
+    const { row, col } = selection.start;
 
     switch (e.key) {
       case 'Enter':
         e.preventDefault();
         saveCurrentCell();
-        moveToCell(activeCell.row + 1, activeCell.col, false);
+        moveToCell(row + 1, col, false);
         break;
       case 'Escape':
         e.preventDefault();
         // Discard changes, reload original value
-        const key = getCellKey(activeCell.row, activeCell.col);
+        const key = getCellKey(row, col);
         setInputValue(cellData.get(key) || '');
         setIsEditing(false);
         setTimeout(() => containerRef.current?.focus(), 0);
@@ -283,30 +279,26 @@ export default function Spreadsheet() {
         e.preventDefault();
         saveCurrentCell();
         if (e.shiftKey) {
-          moveToCell(activeCell.row, activeCell.col - 1, false);
+          moveToCell(row, col - 1, false);
         } else {
-          moveToCell(activeCell.row, activeCell.col + 1, false);
+          moveToCell(row, col + 1, false);
         }
         break;
     }
-  }, [activeCell, saveCurrentCell, moveToCell, cellData]);
+  }, [selection, saveCurrentCell, moveToCell, cellData]);
 
-  // Zoom with Ctrl/Cmd + wheel
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        setZoom(prev => Math.min(4, Math.max(0.25, prev + delta)));
-      }
-    };
-
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => container.removeEventListener('wheel', handleWheel);
-  }, []);
+  // Use spreadsheet effects hook
+  useSpreadsheet({
+    canvasRef,
+    containerRef,
+    zoom,
+    setZoom,
+    isDragging,
+    setIsDragging,
+    setSelection,
+    getCellFromEvent,
+    drawGrid,
+  });
 
   return (
     <div 
@@ -326,16 +318,16 @@ export default function Spreadsheet() {
       <canvas
         ref={canvasRef}
         className={styles.canvas}
-        onClick={handleCanvasClick}
+        onMouseDown={handleMouseDown}
         onDoubleClick={handleCanvasDoubleClick}
       />
-      {activeCell && isEditing && (
+      {selection && isEditing && (
         <input
           ref={inputRef}
           className={styles.cellInput}
           style={{
-            left: activeCell.col * CELL_WIDTH * zoom - scrollPosition.left,
-            top: activeCell.row * CELL_HEIGHT * zoom - scrollPosition.top,
+            left: selection.start.col * CELL_WIDTH * zoom - scrollPosition.left,
+            top: selection.start.row * CELL_HEIGHT * zoom - scrollPosition.top,
             width: CELL_WIDTH * zoom,
             height: CELL_HEIGHT * zoom,
             fontSize: 13 * zoom,
