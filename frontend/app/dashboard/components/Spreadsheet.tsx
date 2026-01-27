@@ -119,6 +119,13 @@ export default function Spreadsheet() {
 
         // Draw anchor cell border (the "active" cell)
         if (isAnchor) {
+          // Draw wider lighter outline when editing
+          if (isEditing) {
+            ctx.strokeStyle = 'rgba(0, 100, 200, 0.3)';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(x - 1, y - 1, cellWidth + 2, cellHeight + 2);
+          }
+          // Draw the main border
           ctx.strokeStyle = '#0064c8';
           ctx.lineWidth = 2;
           ctx.strokeRect(x, y, cellWidth, cellHeight);
@@ -208,7 +215,7 @@ export default function Spreadsheet() {
     ctx.fillRect(0, 0, headerWidth, headerHeight);
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
     ctx.strokeRect(0, 0, headerWidth, headerHeight);
-  }, [cellData, selection, zoom, copiedRange, dashOffset]);
+  }, [cellData, selection, zoom, copiedRange, dashOffset, isEditing]);
 
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
