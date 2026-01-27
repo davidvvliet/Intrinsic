@@ -185,7 +185,13 @@ export function drawGrid({
       ctx.fillRect(x, 0, cellWidth, headerHeight);
     }
     
-    ctx.strokeRect(x, 0, cellWidth, headerHeight);
+    // Draw only left, right, and bottom borders (no top border)
+    ctx.beginPath();
+    ctx.moveTo(x, 0); // Start at top-left
+    ctx.lineTo(x, headerHeight); // Left border
+    ctx.lineTo(x + cellWidth, headerHeight); // Bottom border
+    ctx.lineTo(x + cellWidth, 0); // Right border
+    ctx.stroke();
     ctx.fillStyle = TEXT_COLOR;
     ctx.fillText(getColumnLabel(col), x + cellWidth / 2, headerHeight / 2);
   }
@@ -217,5 +223,11 @@ export function drawGrid({
   ctx.fillStyle = HEADER_BG;
   ctx.fillRect(0, 0, headerWidth, headerHeight);
   ctx.strokeStyle = HEADER_BORDER;
-  ctx.strokeRect(0, 0, headerWidth, headerHeight);
+  // Draw only left, right, and bottom borders (no top border)
+  ctx.beginPath();
+  ctx.moveTo(0, 0); // Start at top-left
+  ctx.lineTo(0, headerHeight); // Left border
+  ctx.lineTo(headerWidth, headerHeight); // Bottom border
+  ctx.lineTo(headerWidth, 0); // Right border
+  ctx.stroke();
 }
