@@ -80,7 +80,7 @@ export function useSpreadsheet({
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        const delta = e.deltaY > 0 ? -0.01 : 0.01;
         setZoom(prev => Math.min(4, Math.max(0.25, prev + delta)));
       }
     };

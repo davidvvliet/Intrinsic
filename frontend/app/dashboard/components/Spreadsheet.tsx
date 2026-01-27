@@ -8,11 +8,24 @@ const CELL_WIDTH = 80;
 const CELL_HEIGHT = 25;
 const NUM_ROWS = 200;
 const NUM_COLS = 50;
+const HEADER_WIDTH = 50;
+const HEADER_HEIGHT = CELL_HEIGHT;
+const HEADER_BG = '#e8e8c8';
 
 type CellData = Map<string, string>;
 
 function getCellKey(row: number, col: number): string {
   return `${row},${col}`;
+}
+
+function getColumnLabel(col: number): string {
+  let label = '';
+  let c = col;
+  while (c >= 0) {
+    label = String.fromCharCode(65 + (c % 26)) + label;
+    c = Math.floor(c / 26) - 1;
+  }
+  return label;
 }
 
 export default function Spreadsheet() {
@@ -52,16 +65,18 @@ export default function Spreadsheet() {
     // Effective dimensions with zoom
     const cellWidth = CELL_WIDTH * zoom;
     const cellHeight = CELL_HEIGHT * zoom;
+    const headerWidth = HEADER_WIDTH * zoom;
+    const headerHeight = HEADER_HEIGHT * zoom;
 
     // Clear canvas
     ctx.fillStyle = '#ffffe3';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Calculate visible range
+    // Calculate visible range (accounting for header offset)
     const startCol = Math.floor(scrollLeft / cellWidth);
-    const endCol = Math.min(startCol + Math.ceil(canvas.width / cellWidth) + 1, NUM_COLS);
+    const endCol = Math.min(startCol + Math.ceil((canvas.width - headerWidth) / cellWidth) + 1, NUM_COLS);
     const startRow = Math.floor(scrollTop / cellHeight);
-    const endRow = Math.min(startRow + Math.ceil(canvas.height / cellHeight) + 1, NUM_ROWS);
+    const endRow = Math.min(startRow + Math.ceil((canvas.height - headerHeight) / cellHeight) + 1, NUM_ROWS);
 
     // Calculate selection bounds
     let minRow = -1, maxRow = -1, minCol = -1, maxCol = -1;
@@ -72,17 +87,21 @@ export default function Spreadsheet() {
       maxCol = Math.max(selection.start.col, selection.end.col);
     }
 
-    // Draw cells
+    // Draw cells (offset by headers)
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
     ctx.lineWidth = 1;
-    ctx.font = `${13 * zoom}px Arial`;
+    ctx.font = `${10 * zoom}px Arial`;
     ctx.fillStyle = '#000000';
     ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
 
     for (let row = startRow; row < endRow; row++) {
       for (let col = startCol; col < endCol; col++) {
-        const x = col * cellWidth - scrollLeft;
-        const y = row * cellHeight - scrollTop;
+        const x = headerWidth + col * cellWidth - scrollLeft;
+        const y = headerHeight + row * cellHeight - scrollTop;
+
+        // Skip if cell is outside visible area (behind headers)
+        if (x + cellWidth < headerWidth || y + cellHeight < headerHeight) continue;
 
         // Draw cell border
         ctx.strokeRect(x, y, cellWidth, cellHeight);
@@ -111,15 +130,21 @@ export default function Spreadsheet() {
         const key = getCellKey(row, col);
         const value = cellData.get(key);
         if (value) {
-          ctx.fillText(value, x + 5 * zoom, y + cellHeight / 2, cellWidth - 10 * zoom);
+          // Use clipping to prevent overflow, but don't compress text
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
+          ctx.clip();
+          ctx.fillText(value, x + 5 * zoom, y + cellHeight / 2);
+          ctx.restore();
         }
       }
     }
 
-    // Draw marching ants around copied range
+    // Draw marching ants around copied range (offset by headers)
     if (copiedRange) {
-      const copyX = copiedRange.minCol * cellWidth - scrollLeft;
-      const copyY = copiedRange.minRow * cellHeight - scrollTop;
+      const copyX = headerWidth + copiedRange.minCol * cellWidth - scrollLeft;
+      const copyY = headerHeight + copiedRange.minRow * cellHeight - scrollTop;
       const copyWidth = (copiedRange.maxCol - copiedRange.minCol + 1) * cellWidth;
       const copyHeight = (copiedRange.maxRow - copiedRange.minRow + 1) * cellHeight;
       
@@ -130,6 +155,47 @@ export default function Spreadsheet() {
       ctx.strokeRect(copyX, copyY, copyWidth, copyHeight);
       ctx.setLineDash([]);
     }
+
+    // Draw column headers (A, B, C...)
+    ctx.fillStyle = HEADER_BG;
+    ctx.fillRect(headerWidth, 0, canvas.width - headerWidth, headerHeight);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'center';
+    ctx.font = `bold ${10 * zoom}px Arial`;
+
+    for (let col = startCol; col < endCol; col++) {
+      const x = headerWidth + col * cellWidth - scrollLeft;
+      if (x + cellWidth < headerWidth) continue;
+      
+      ctx.strokeRect(x, 0, cellWidth, headerHeight);
+      ctx.fillStyle = '#000000';
+      ctx.fillText(getColumnLabel(col), x + cellWidth / 2, headerHeight / 2);
+    }
+
+    // Draw row headers (1, 2, 3...)
+    ctx.fillStyle = HEADER_BG;
+    ctx.fillRect(0, headerHeight, headerWidth, canvas.height - headerHeight);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'center';
+    ctx.font = `bold ${10 * zoom}px Arial`;
+
+    for (let row = startRow; row < endRow; row++) {
+      const y = headerHeight + row * cellHeight - scrollTop;
+      if (y + cellHeight < headerHeight) continue;
+      
+      ctx.strokeRect(0, y, headerWidth, cellHeight);
+      ctx.fillStyle = '#000000';
+      ctx.fillText(String(row + 1), headerWidth / 2, y + cellHeight / 2);
+    }
+
+    // Draw corner cell (top-left)
+    ctx.fillStyle = HEADER_BG;
+    ctx.fillRect(0, 0, headerWidth, headerHeight);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.strokeRect(0, 0, headerWidth, headerHeight);
   }, [cellData, selection, zoom, copiedRange, dashOffset]);
 
   const handleScroll = useCallback(() => {
@@ -146,8 +212,21 @@ export default function Spreadsheet() {
     if (!canvas || !container) return null;
 
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left + container.scrollLeft;
-    const y = e.clientY - rect.top + container.scrollTop;
+    const headerWidth = HEADER_WIDTH * zoom;
+    const headerHeight = HEADER_HEIGHT * zoom;
+    
+    // Get position relative to canvas
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+    
+    // Ignore clicks on headers
+    if (canvasX < headerWidth || canvasY < headerHeight) {
+      return null;
+    }
+
+    // Calculate cell position (subtract header offset, add scroll)
+    const x = canvasX - headerWidth + container.scrollLeft;
+    const y = canvasY - headerHeight + container.scrollTop;
 
     const col = Math.floor(x / (CELL_WIDTH * zoom));
     const row = Math.floor(y / (CELL_HEIGHT * zoom));
@@ -502,8 +581,8 @@ export default function Spreadsheet() {
       <div 
         className={styles.scrollArea}
         style={{ 
-          width: NUM_COLS * CELL_WIDTH * zoom, 
-          height: NUM_ROWS * CELL_HEIGHT * zoom 
+          width: HEADER_WIDTH * zoom + NUM_COLS * CELL_WIDTH * zoom, 
+          height: HEADER_HEIGHT * zoom + NUM_ROWS * CELL_HEIGHT * zoom 
         }}
       />
       <canvas
@@ -517,8 +596,8 @@ export default function Spreadsheet() {
           ref={inputRef}
           className={styles.cellInput}
           style={{
-            left: selection.start.col * CELL_WIDTH * zoom - scrollPosition.left,
-            top: selection.start.row * CELL_HEIGHT * zoom - scrollPosition.top,
+            left: HEADER_WIDTH * zoom + selection.start.col * CELL_WIDTH * zoom - scrollPosition.left,
+            top: HEADER_HEIGHT * zoom + selection.start.row * CELL_HEIGHT * zoom - scrollPosition.top,
             width: CELL_WIDTH * zoom,
             height: CELL_HEIGHT * zoom,
             fontSize: 13 * zoom,
