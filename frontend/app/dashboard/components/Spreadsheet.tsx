@@ -169,6 +169,12 @@ export default function Spreadsheet() {
       const x = headerWidth + col * cellWidth - scrollLeft;
       if (x + cellWidth < headerWidth) continue;
       
+      // Highlight column header if in selection
+      if (selection && col >= minCol && col <= maxCol) {
+        ctx.fillStyle = 'rgba(0, 100, 200, 0.2)';
+        ctx.fillRect(x, 0, cellWidth, headerHeight);
+      }
+      
       ctx.strokeRect(x, 0, cellWidth, headerHeight);
       ctx.fillStyle = '#000000';
       ctx.fillText(getColumnLabel(col), x + cellWidth / 2, headerHeight / 2);
@@ -185,6 +191,12 @@ export default function Spreadsheet() {
     for (let row = startRow; row < endRow; row++) {
       const y = headerHeight + row * cellHeight - scrollTop;
       if (y + cellHeight < headerHeight) continue;
+      
+      // Highlight row header if in selection
+      if (selection && row >= minRow && row <= maxRow) {
+        ctx.fillStyle = 'rgba(0, 100, 200, 0.2)';
+        ctx.fillRect(0, y, headerWidth, cellHeight);
+      }
       
       ctx.strokeRect(0, y, headerWidth, cellHeight);
       ctx.fillStyle = '#000000';
