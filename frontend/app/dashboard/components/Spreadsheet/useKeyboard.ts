@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { NUM_ROWS, NUM_COLS } from './config';
 import type { CellData, Selection, CopiedRange } from './types';
-import { getCellKey } from './drawUtils';
+import { getCellKey, determineCellType } from './drawUtils';
 
 export function useKeyboard({
   selection,
@@ -130,7 +130,7 @@ export function useKeyboard({
           for (let r = copyMinRow; r <= copyMaxRow; r++) {
             const cols: string[] = [];
             for (let c = copyMinCol; c <= copyMaxCol; c++) {
-              cols.push(cellData.get(getCellKey(r, c)) || '');
+              cols.push(cellData.get(getCellKey(r, c))?.raw || '');
             }
             rows.push(cols.join('\t'));
           }
@@ -156,7 +156,10 @@ export function useKeyboard({
                   if (newRow < NUM_ROWS && newCol < NUM_COLS) {
                     const key = getCellKey(newRow, newCol);
                     if (value.trim()) {
-                      next.set(key, value);
+                      next.set(key, {
+                        raw: value,
+                        type: determineCellType(value),
+                      });
                     } else {
                       next.delete(key);
                     }
@@ -182,7 +185,7 @@ export function useKeyboard({
           for (let r = cutMinRow; r <= cutMaxRow; r++) {
             const cols: string[] = [];
             for (let c = cutMinCol; c <= cutMaxCol; c++) {
-              cols.push(cellData.get(getCellKey(r, c)) || '');
+              cols.push(cellData.get(getCellKey(r, c))?.raw || '');
             }
             cutRows.push(cols.join('\t'));
           }
@@ -228,7 +231,7 @@ export function useKeyboard({
         e.preventDefault();
         // Discard changes, reload original value
         const key = getCellKey(row, col);
-        setInputValue(cellData.get(key) || '');
+        setInputValue(cellData.get(key)?.raw || '');
         setIsEditing(false);
         setTimeout(() => containerRef.current?.focus(), 0);
         break;

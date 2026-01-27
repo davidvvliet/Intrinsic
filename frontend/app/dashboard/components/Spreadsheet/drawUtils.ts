@@ -22,10 +22,24 @@ import {
   EDITING_OUTLINE_WIDTH,
   DASH_PATTERN,
 } from './config';
-import type { CellData, Selection, CopiedRange } from './types';
+import type { CellData, Selection, CopiedRange, CellType } from './types';
 
 export function getCellKey(row: number, col: number): string {
   return `${row},${col}`;
+}
+
+export function isNumeric(value: string): boolean {
+  return value.trim() !== '' && !isNaN(Number(value));
+}
+
+export function determineCellType(value: string): CellType {
+  if (value.startsWith('=')) {
+    return 'formula';
+  }
+  if (isNumeric(value)) {
+    return 'number';
+  }
+  return 'text';
 }
 
 export function getColumnLabel(col: number): string {
@@ -138,14 +152,22 @@ export function drawGrid({
 
       // Draw cell content
       const key = getCellKey(row, col);
-      const value = cellData.get(key);
-      if (value) {
+      const cellValue = cellData.get(key);
+      if (cellValue) {
         // Use clipping to prevent overflow, but don't compress text
         ctx.save();
         ctx.beginPath();
         ctx.rect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
         ctx.clip();
-        ctx.fillText(value, x + CELL_TEXT_PADDING * zoom, y + cellHeight / 2);
+        
+        // Right-align numbers, left-align text
+        if (cellValue.type === 'number') {
+          ctx.textAlign = 'right';
+          ctx.fillText(cellValue.raw, x + cellWidth - CELL_TEXT_PADDING * zoom, y + cellHeight / 2);
+          ctx.textAlign = 'left';
+        } else {
+          ctx.fillText(cellValue.raw, x + CELL_TEXT_PADDING * zoom, y + cellHeight / 2);
+        }
         ctx.restore();
       }
     }

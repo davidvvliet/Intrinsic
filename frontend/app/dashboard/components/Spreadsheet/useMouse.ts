@@ -40,7 +40,7 @@ export function useMouse({
       // Normal click: new selection
       if (isEditing) saveCurrentCell();
       setSelection({ start: cell, end: cell });
-      setInputValue(cellData.get(getCellKey(cell.row, cell.col)) || '');
+      setInputValue(cellData.get(getCellKey(cell.row, cell.col))?.raw || '');
       setIsEditing(false);
     }
     setIsDragging(true);

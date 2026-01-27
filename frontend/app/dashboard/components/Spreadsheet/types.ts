@@ -1,4 +1,11 @@
-export type CellData = Map<string, string>;
+export type CellType = 'text' | 'number' | 'formula';
+
+export type CellValue = {
+  raw: string;
+  type: CellType;
+};
+
+export type CellData = Map<string, CellValue>;
 
 export type CellPosition = {
   row: number;

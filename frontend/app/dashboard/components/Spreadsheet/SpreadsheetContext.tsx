@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { NUM_ROWS, NUM_COLS } from './config';
 import type { CellData, Selection, CopiedRange } from './types';
-import { getCellKey } from './drawUtils';
+import { getCellKey, determineCellType } from './drawUtils';
 
 type SpreadsheetContextType = {
   // State
@@ -47,7 +47,10 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       setCellData(prev => {
         const next = new Map(prev);
         if (inputValue.trim()) {
-          next.set(key, inputValue);
+          next.set(key, {
+            raw: inputValue,
+            type: determineCellType(inputValue),
+          });
         } else {
           next.delete(key);
         }
@@ -70,7 +73,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
     setSelection({ start: { row: newRow, col: newCol }, end: { row: newRow, col: newCol } });
     const key = getCellKey(newRow, newCol);
     setCellData(prev => {
-      setInputValue(prev.get(key) || '');
+      setInputValue(prev.get(key)?.raw || '');
       return prev;
     });
     setIsEditing(startEditing);
