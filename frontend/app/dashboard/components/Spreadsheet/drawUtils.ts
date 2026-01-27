@@ -22,7 +22,7 @@ import {
   EDITING_OUTLINE_WIDTH,
   DASH_PATTERN,
 } from './config';
-import type { CellData, Selection, CopiedRange, CellType } from './types';
+import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange, CellType } from './types';
 
 export function getCellKey(row: number, col: number): string {
   return `${row},${col}`;
@@ -57,6 +57,7 @@ export function drawGrid({
   canvas,
   container,
   cellData,
+  cellFormat,
   selection,
   copiedRange,
   dashOffset,
@@ -67,6 +68,7 @@ export function drawGrid({
   canvas: HTMLCanvasElement;
   container: HTMLDivElement;
   cellData: CellData;
+  cellFormat: CellFormatData;
   selection: Selection;
   copiedRange: CopiedRange;
   dashOffset: number;
@@ -127,6 +129,16 @@ export function drawGrid({
       const inSelection = row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
       const isAnchor = selection && row === selection.start.row && col === selection.start.col;
 
+      // Get cell format
+      const key = getCellKey(row, col);
+      const format = cellFormat.get(key) || {};
+
+      // Draw fill color (background layer)
+      if (format.fillColor) {
+        ctx.fillStyle = format.fillColor;
+        ctx.fillRect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
+      }
+
       // Draw selection highlight (only for multi-cell selections)
       if (inSelection && isMultiCellSelection) {
         ctx.fillStyle = SELECTION_HIGHLIGHT;
@@ -151,7 +163,6 @@ export function drawGrid({
       }
 
       // Draw cell content
-      const key = getCellKey(row, col);
       const cellValue = cellData.get(key);
       if (cellValue) {
         // Use clipping to prevent overflow, but don't compress text
@@ -160,8 +171,7 @@ export function drawGrid({
         ctx.rect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
         ctx.clip();
         
-        // Apply formatting
-        const format = cellValue.format || {};
+        // Apply formatting (format already retrieved above)
         const fontParts: string[] = [];
         if (format.italic) fontParts.push('italic');
         if (format.bold) fontParts.push('bold');

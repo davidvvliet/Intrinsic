@@ -5,15 +5,17 @@ export type CellFormat = {
   italic?: boolean;
   strikethrough?: boolean;
   textColor?: string;
+  fillColor?: string;
 };
 
 export type CellValue = {
   raw: string;
   type: CellType;
-  format?: CellFormat;
 };
 
 export type CellData = Map<string, CellValue>;
+
+export type CellFormatData = Map<string, CellFormat>;
 
 export type CellPosition = {
   row: number;

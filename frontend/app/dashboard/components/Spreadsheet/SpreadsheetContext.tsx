@@ -2,12 +2,13 @@
 
 import { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { NUM_ROWS, NUM_COLS } from './config';
-import type { CellData, Selection, CopiedRange } from './types';
+import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange } from './types';
 import { getCellKey, determineCellType } from './drawUtils';
 
 type SpreadsheetContextType = {
   // State
   cellData: CellData;
+  cellFormat: CellFormatData;
   selection: Selection;
   inputValue: string;
   isEditing: boolean;
@@ -15,6 +16,7 @@ type SpreadsheetContextType = {
   
   // Setters
   setCellData: React.Dispatch<React.SetStateAction<CellData>>;
+  setCellFormat: React.Dispatch<React.SetStateAction<CellFormatData>>;
   setSelection: React.Dispatch<React.SetStateAction<Selection>>;
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
   setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
@@ -36,6 +38,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [cellData, setCellData] = useState<CellData>(new Map());
+  const [cellFormat, setCellFormat] = useState<CellFormatData>(new Map());
   const [selection, setSelection] = useState<Selection>(null);
   const [inputValue, setInputValue] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -90,11 +93,13 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
     <SpreadsheetContext.Provider
       value={{
         cellData,
+        cellFormat,
         selection,
         inputValue,
         isEditing,
         copiedRange,
         setCellData,
+        setCellFormat,
         setSelection,
         setInputValue,
         setIsEditing,

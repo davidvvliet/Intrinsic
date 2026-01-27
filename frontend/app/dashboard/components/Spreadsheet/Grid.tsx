@@ -24,6 +24,7 @@ export default function Grid() {
   // Get shared state from context
   const {
     cellData,
+    cellFormat,
     selection,
     inputValue,
     isEditing,
@@ -58,13 +59,14 @@ export default function Grid() {
       canvas,
       container,
       cellData,
+      cellFormat,
       selection,
       copiedRange,
       dashOffset,
       zoom,
       isEditing,
     });
-  }, [cellData, selection, zoom, copiedRange, dashOffset, isEditing, containerRef]);
+  }, [cellData, cellFormat, selection, zoom, copiedRange, dashOffset, isEditing, containerRef]);
 
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
