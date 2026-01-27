@@ -30,6 +30,13 @@ export default function Spreadsheet() {
   const [scrollPosition, setScrollPosition] = useState({ left: 0, top: 0 });
   const [isEditing, setIsEditing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [copiedRange, setCopiedRange] = useState<{
+    minRow: number;
+    maxRow: number;
+    minCol: number;
+    maxCol: number;
+  } | null>(null);
+  const [dashOffset, setDashOffset] = useState(0);
 
   const drawGrid = useCallback(() => {
     const canvas = canvasRef.current;
@@ -108,7 +115,22 @@ export default function Spreadsheet() {
         }
       }
     }
-  }, [cellData, selection, zoom]);
+
+    // Draw marching ants around copied range
+    if (copiedRange) {
+      const copyX = copiedRange.minCol * cellWidth - scrollLeft;
+      const copyY = copiedRange.minRow * cellHeight - scrollTop;
+      const copyWidth = (copiedRange.maxCol - copiedRange.minCol + 1) * cellWidth;
+      const copyHeight = (copiedRange.maxRow - copiedRange.minRow + 1) * cellHeight;
+      
+      ctx.setLineDash([5, 5]);
+      ctx.lineDashOffset = -dashOffset;
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(copyX, copyY, copyWidth, copyHeight);
+      ctx.setLineDash([]);
+    }
+  }, [cellData, selection, zoom, copiedRange, dashOffset]);
 
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
@@ -263,6 +285,96 @@ export default function Spreadsheet() {
         setIsEditing(true);
         setTimeout(() => inputRef.current?.focus(), 0);
         break;
+      case 'Escape':
+        e.preventDefault();
+        setCopiedRange(null);
+        break;
+      case 'c':
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          // Calculate selection bounds
+          const copyMinRow = Math.min(selection.start.row, selection.end.row);
+          const copyMaxRow = Math.max(selection.start.row, selection.end.row);
+          const copyMinCol = Math.min(selection.start.col, selection.end.col);
+          const copyMaxCol = Math.max(selection.start.col, selection.end.col);
+          
+          // Build TSV string (tabs between columns, newlines between rows)
+          const rows: string[] = [];
+          for (let r = copyMinRow; r <= copyMaxRow; r++) {
+            const cols: string[] = [];
+            for (let c = copyMinCol; c <= copyMaxCol; c++) {
+              cols.push(cellData.get(getCellKey(r, c)) || '');
+            }
+            rows.push(cols.join('\t'));
+          }
+          navigator.clipboard.writeText(rows.join('\n'));
+          setCopiedRange({ minRow: copyMinRow, maxRow: copyMaxRow, minCol: copyMinCol, maxCol: copyMaxCol });
+        }
+        break;
+      case 'v':
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          navigator.clipboard.readText().then(text => {
+            const lines = text.split('\n');
+            const anchorRow = selection.start.row;
+            const anchorCol = selection.start.col;
+            
+            setCellData(prev => {
+              const next = new Map(prev);
+              lines.forEach((line, rowOffset) => {
+                const cells = line.split('\t');
+                cells.forEach((value, colOffset) => {
+                  const newRow = anchorRow + rowOffset;
+                  const newCol = anchorCol + colOffset;
+                  if (newRow < NUM_ROWS && newCol < NUM_COLS) {
+                    const key = getCellKey(newRow, newCol);
+                    if (value.trim()) {
+                      next.set(key, value);
+                    } else {
+                      next.delete(key);
+                    }
+                  }
+                });
+              });
+              return next;
+            });
+            setCopiedRange(null);
+          });
+        }
+        break;
+      case 'x':
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          // Calculate selection bounds
+          const cutMinRow = Math.min(selection.start.row, selection.end.row);
+          const cutMaxRow = Math.max(selection.start.row, selection.end.row);
+          const cutMinCol = Math.min(selection.start.col, selection.end.col);
+          const cutMaxCol = Math.max(selection.start.col, selection.end.col);
+          
+          // Build TSV string and copy to clipboard
+          const cutRows: string[] = [];
+          for (let r = cutMinRow; r <= cutMaxRow; r++) {
+            const cols: string[] = [];
+            for (let c = cutMinCol; c <= cutMaxCol; c++) {
+              cols.push(cellData.get(getCellKey(r, c)) || '');
+            }
+            cutRows.push(cols.join('\t'));
+          }
+          navigator.clipboard.writeText(cutRows.join('\n'));
+          
+          // Delete the cells
+          setCellData(prev => {
+            const next = new Map(prev);
+            for (let r = cutMinRow; r <= cutMaxRow; r++) {
+              for (let c = cutMinCol; c <= cutMaxCol; c++) {
+                next.delete(getCellKey(r, c));
+              }
+            }
+            return next;
+          });
+          setInputValue('');
+        }
+        break;
       default:
         // Start editing on any printable character
         if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
@@ -273,7 +385,7 @@ export default function Spreadsheet() {
         }
         break;
     }
-  }, [selection, isEditing, moveToCell, setCellData, setInputValue]);
+  }, [selection, isEditing, moveToCell, setCellData, setInputValue, cellData]);
 
   const handleInputBlur = useCallback(() => {
     saveCurrentCell();
@@ -322,6 +434,8 @@ export default function Spreadsheet() {
     setSelection,
     getCellFromEvent,
     drawGrid,
+    copiedRange,
+    setDashOffset,
   });
 
   return (

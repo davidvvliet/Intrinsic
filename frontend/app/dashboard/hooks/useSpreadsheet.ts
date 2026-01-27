@@ -7,6 +7,13 @@ type Selection = {
 
 type CellPosition = { row: number; col: number } | null;
 
+type CopiedRange = {
+  minRow: number;
+  maxRow: number;
+  minCol: number;
+  maxCol: number;
+} | null;
+
 export function useSpreadsheet({
   canvasRef,
   containerRef,
@@ -17,6 +24,8 @@ export function useSpreadsheet({
   setSelection,
   getCellFromEvent,
   drawGrid,
+  copiedRange,
+  setDashOffset,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -27,6 +36,8 @@ export function useSpreadsheet({
   setSelection: React.Dispatch<React.SetStateAction<Selection>>;
   getCellFromEvent: (e: MouseEvent | React.MouseEvent) => CellPosition;
   drawGrid: () => void;
+  copiedRange: CopiedRange;
+  setDashOffset: React.Dispatch<React.SetStateAction<number>>;
 }) {
   // Initialize canvas size
   useEffect(() => {
@@ -99,4 +110,15 @@ export function useSpreadsheet({
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging, setIsDragging, getCellFromEvent, setSelection]);
+
+  // Marching ants animation for copied range
+  useEffect(() => {
+    if (!copiedRange) return;
+    
+    const interval = setInterval(() => {
+      setDashOffset(prev => (prev + 1) % 10);
+    }, 80);
+    
+    return () => clearInterval(interval);
+  }, [copiedRange, setDashOffset]);
 }
