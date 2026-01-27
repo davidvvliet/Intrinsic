@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { NUM_ROWS, NUM_COLS } from './config';
-import type { CellData, Selection, CopiedRange } from './types';
-import { getCellKey, determineCellType } from './drawUtils';
+import type { CellData, CellFormatData, Selection, CopiedRange } from './types';
+import { getCellKey } from './drawUtils';
+import { writeToClipboard, readFromClipboard, applyPaste } from './clipboardUtils';
 
 type Direction = 'up' | 'down' | 'left' | 'right';
 
@@ -83,7 +84,9 @@ export function useKeyboard({
   selection,
   isEditing,
   cellData,
+  cellFormat,
   setCellData,
+  setCellFormat,
   setSelection,
   setIsEditing,
   setInputValue,
@@ -96,7 +99,9 @@ export function useKeyboard({
   selection: Selection;
   isEditing: boolean;
   cellData: CellData;
+  cellFormat: CellFormatData;
   setCellData: React.Dispatch<React.SetStateAction<CellData>>;
+  setCellFormat: React.Dispatch<React.SetStateAction<CellFormatData>>;
   setSelection: React.Dispatch<React.SetStateAction<Selection>>;
   setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
@@ -219,83 +224,62 @@ export function useKeyboard({
       case 'c':
         if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
-          // Calculate selection bounds
-          const copyMinRow = Math.min(selection.start.row, selection.end.row);
-          const copyMaxRow = Math.max(selection.start.row, selection.end.row);
-          const copyMinCol = Math.min(selection.start.col, selection.end.col);
-          const copyMaxCol = Math.max(selection.start.col, selection.end.col);
-          
-          // Build TSV string (tabs between columns, newlines between rows)
-          const rows: string[] = [];
-          for (let r = copyMinRow; r <= copyMaxRow; r++) {
-            const cols: string[] = [];
-            for (let c = copyMinCol; c <= copyMaxCol; c++) {
-              cols.push(cellData.get(getCellKey(r, c))?.raw || '');
-            }
-            rows.push(cols.join('\t'));
-          }
-          navigator.clipboard.writeText(rows.join('\n'));
-          setCopiedRange({ minRow: copyMinRow, maxRow: copyMaxRow, minCol: copyMinCol, maxCol: copyMaxCol });
+          const copyRange = {
+            minRow: Math.min(selection.start.row, selection.end.row),
+            maxRow: Math.max(selection.start.row, selection.end.row),
+            minCol: Math.min(selection.start.col, selection.end.col),
+            maxCol: Math.max(selection.start.col, selection.end.col),
+          };
+          writeToClipboard(cellData, cellFormat, copyRange);
+          setCopiedRange(copyRange);
         }
         break;
       case 'v':
         if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
-          navigator.clipboard.readText().then(text => {
-            const lines = text.split('\n');
-            const anchorRow = selection.start.row;
-            const anchorCol = selection.start.col;
-            
-            setCellData(prev => {
-              const next = new Map(prev);
-              lines.forEach((line, rowOffset) => {
-                const cells = line.split('\t');
-                cells.forEach((value, colOffset) => {
-                  const newRow = anchorRow + rowOffset;
-                  const newCol = anchorCol + colOffset;
-                  if (newRow < NUM_ROWS && newCol < NUM_COLS) {
-                    const key = getCellKey(newRow, newCol);
-                    if (value.trim()) {
-                      next.set(key, {
-                        raw: value,
-                        type: determineCellType(value),
-                      });
-                    } else {
-                      next.delete(key);
-                    }
-                  }
-                });
-              });
-              return next;
-            });
+          readFromClipboard().then(({ values, formats }) => {
+            const { newCellData, newCellFormat } = applyPaste(
+              values,
+              formats,
+              selection.start.row,
+              selection.start.col,
+              NUM_ROWS,
+              NUM_COLS,
+              cellData,
+              cellFormat
+            );
+            setCellData(newCellData);
+            setCellFormat(newCellFormat);
           });
         }
         break;
       case 'x':
         if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
-          // Calculate selection bounds
-          const cutMinRow = Math.min(selection.start.row, selection.end.row);
-          const cutMaxRow = Math.max(selection.start.row, selection.end.row);
-          const cutMinCol = Math.min(selection.start.col, selection.end.col);
-          const cutMaxCol = Math.max(selection.start.col, selection.end.col);
+          const cutRange = {
+            minRow: Math.min(selection.start.row, selection.end.row),
+            maxRow: Math.max(selection.start.row, selection.end.row),
+            minCol: Math.min(selection.start.col, selection.end.col),
+            maxCol: Math.max(selection.start.col, selection.end.col),
+          };
           
-          // Build TSV string and copy to clipboard
-          const cutRows: string[] = [];
-          for (let r = cutMinRow; r <= cutMaxRow; r++) {
-            const cols: string[] = [];
-            for (let c = cutMinCol; c <= cutMaxCol; c++) {
-              cols.push(cellData.get(getCellKey(r, c))?.raw || '');
-            }
-            cutRows.push(cols.join('\t'));
-          }
-          navigator.clipboard.writeText(cutRows.join('\n'));
+          // Copy with formats
+          writeToClipboard(cellData, cellFormat, cutRange);
           
-          // Delete the cells
+          // Delete cells and formats
           setCellData(prev => {
             const next = new Map(prev);
-            for (let r = cutMinRow; r <= cutMaxRow; r++) {
-              for (let c = cutMinCol; c <= cutMaxCol; c++) {
+            for (let r = cutRange.minRow; r <= cutRange.maxRow; r++) {
+              for (let c = cutRange.minCol; c <= cutRange.maxCol; c++) {
+                next.delete(getCellKey(r, c));
+              }
+            }
+            return next;
+          });
+          setCellFormat(prev => {
+            const next = new Map(prev);
+            for (let r = cutRange.minRow; r <= cutRange.maxRow; r++) {
+              for (let c = cutRange.minCol; c <= cutRange.maxCol; c++) {
                 next.delete(getCellKey(r, c));
               }
             }
@@ -314,7 +298,7 @@ export function useKeyboard({
         }
         break;
     }
-  }, [selection, isEditing, moveToCell, setCellData, setInputValue, cellData, setSelection, setIsEditing, setCopiedRange, inputRef]);
+  }, [selection, isEditing, moveToCell, setCellData, setCellFormat, setInputValue, cellData, cellFormat, setSelection, setIsEditing, setCopiedRange, inputRef]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!selection) return;
