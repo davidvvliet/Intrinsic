@@ -360,7 +360,6 @@ export default function Spreadsheet() {
               });
               return next;
             });
-            setCopiedRange(null);
           });
         }
         break;
