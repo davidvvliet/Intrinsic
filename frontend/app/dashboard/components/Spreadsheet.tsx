@@ -442,6 +442,38 @@ export default function Spreadsheet() {
           moveToCell(row, col + 1, false);
         }
         break;
+      case 'ArrowUp':
+        e.preventDefault();
+        saveCurrentCell();
+        setIsEditing(false);
+        moveToCell(row - 1, col, false);
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        saveCurrentCell();
+        setIsEditing(false);
+        moveToCell(row + 1, col, false);
+        break;
+      case 'ArrowLeft':
+        // Only navigate if cursor is at start of text
+        const input = e.currentTarget;
+        if (input.selectionStart === 0 && input.selectionEnd === 0) {
+          e.preventDefault();
+          saveCurrentCell();
+          setIsEditing(false);
+          moveToCell(row, col - 1, false);
+        }
+        break;
+      case 'ArrowRight':
+        // Only navigate if cursor is at end of text
+        const inputRight = e.currentTarget;
+        if (inputRight.selectionStart === inputRight.value.length && inputRight.selectionEnd === inputRight.value.length) {
+          e.preventDefault();
+          saveCurrentCell();
+          setIsEditing(false);
+          moveToCell(row, col + 1, false);
+        }
+        break;
     }
   }, [selection, saveCurrentCell, moveToCell, cellData]);
 
