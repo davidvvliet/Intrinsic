@@ -233,6 +233,30 @@ export default function Spreadsheet() {
           moveToCell(row, col + 1);
         }
         break;
+      case 'Delete':
+      case 'Backspace':
+        e.preventDefault();
+        if (selection) {
+          // Calculate selection bounds
+          const minRow = Math.min(selection.start.row, selection.end.row);
+          const maxRow = Math.max(selection.start.row, selection.end.row);
+          const minCol = Math.min(selection.start.col, selection.end.col);
+          const maxCol = Math.max(selection.start.col, selection.end.col);
+
+          setCellData(prev => {
+            const next = new Map(prev);
+            // Delete all cells in the selection range
+            for (let row = minRow; row <= maxRow; row++) {
+              for (let col = minCol; col <= maxCol; col++) {
+                const key = getCellKey(row, col);
+                next.delete(key);
+              }
+            }
+            return next;
+          });
+          setInputValue('');
+        }
+        break;
       case 'Enter':
       case 'F2':
         e.preventDefault();
@@ -249,7 +273,7 @@ export default function Spreadsheet() {
         }
         break;
     }
-  }, [selection, isEditing, moveToCell]);
+  }, [selection, isEditing, moveToCell, setCellData, setInputValue]);
 
   const handleInputBlur = useCallback(() => {
     saveCurrentCell();
