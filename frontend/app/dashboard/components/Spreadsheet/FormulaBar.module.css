@@ -36,10 +36,17 @@
   font-style: italic;
 }
 
-.formulaValue {
+.formulaInput {
+  flex: 1;
   font-size: 13px;
   font-family: Arial, sans-serif;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 0;
+  margin: 0;
+}
+
+.formulaInput:disabled {
+  color: rgba(0, 0, 0, 0.5);
 }

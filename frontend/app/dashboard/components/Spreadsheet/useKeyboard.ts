@@ -116,7 +116,10 @@ export function useKeyboard({
     switch (e.key) {
       case 'ArrowUp':
         e.preventDefault();
-        if (e.metaKey || e.ctrlKey) {
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
+          const target = findJumpTarget(endRow, endCol, 'up', cellData);
+          setSelection(prev => prev ? { start: prev.start, end: { row: target.row, col: target.col } } : null);
+        } else if (e.metaKey || e.ctrlKey) {
           const target = findJumpTarget(row, col, 'up', cellData);
           moveToCell(target.row, target.col);
         } else if (e.shiftKey) {
@@ -128,7 +131,10 @@ export function useKeyboard({
         break;
       case 'ArrowDown':
         e.preventDefault();
-        if (e.metaKey || e.ctrlKey) {
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
+          const target = findJumpTarget(endRow, endCol, 'down', cellData);
+          setSelection(prev => prev ? { start: prev.start, end: { row: target.row, col: target.col } } : null);
+        } else if (e.metaKey || e.ctrlKey) {
           const target = findJumpTarget(row, col, 'down', cellData);
           moveToCell(target.row, target.col);
         } else if (e.shiftKey) {
@@ -140,7 +146,10 @@ export function useKeyboard({
         break;
       case 'ArrowLeft':
         e.preventDefault();
-        if (e.metaKey || e.ctrlKey) {
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
+          const target = findJumpTarget(endRow, endCol, 'left', cellData);
+          setSelection(prev => prev ? { start: prev.start, end: { row: target.row, col: target.col } } : null);
+        } else if (e.metaKey || e.ctrlKey) {
           const target = findJumpTarget(row, col, 'left', cellData);
           moveToCell(target.row, target.col);
         } else if (e.shiftKey) {
@@ -152,7 +161,10 @@ export function useKeyboard({
         break;
       case 'ArrowRight':
         e.preventDefault();
-        if (e.metaKey || e.ctrlKey) {
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
+          const target = findJumpTarget(endRow, endCol, 'right', cellData);
+          setSelection(prev => prev ? { start: prev.start, end: { row: target.row, col: target.col } } : null);
+        } else if (e.metaKey || e.ctrlKey) {
           const target = findJumpTarget(row, col, 'right', cellData);
           moveToCell(target.row, target.col);
         } else if (e.shiftKey) {

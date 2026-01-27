@@ -153,6 +153,7 @@ export default function Grid() {
     drawGrid,
     copiedRange,
     setDashOffset,
+    selection,
   });
 
   return (
