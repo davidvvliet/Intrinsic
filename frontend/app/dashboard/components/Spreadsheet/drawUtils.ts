@@ -173,9 +173,9 @@ export function drawGrid({
         ctx.lineWidth = DEFAULT_BORDER_WIDTH;
       }
 
-      // Draw cell content
+      // Draw cell content (but not for anchor cell when editing)
       const cellValue = cellData.get(key);
-      if (cellValue) {
+      if (cellValue && !(isAnchor && isEditing)) {
         // Use clipping to prevent overflow, but don't compress text
         ctx.save();
         ctx.beginPath();
