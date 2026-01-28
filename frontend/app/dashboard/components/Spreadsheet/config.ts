@@ -18,6 +18,8 @@ export const EDITING_OUTLINE = 'rgba(0, 100, 200, 0.3)';
 export const ACTIVE_CELL_BORDER = '#0064c8';
 export const CELL_BORDER = 'rgba(0, 0, 0, 0.2)';
 export const HEADER_BORDER = 'rgba(0, 0, 0, 0.3)';
+export const POINTING_SELECTION_BORDER = '#9333ea';
+export const POINTING_SELECTION_HIGHLIGHT = 'rgba(147, 51, 234, 0.15)';
 
 // Font sizes
 export const CELL_FONT_SIZE = 13;

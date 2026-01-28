@@ -61,3 +61,11 @@ export type CopiedRange = {
   minCol: number;
   maxCol: number;
 } | null;
+
+// Formula engine types
+export type ComputedValue = {
+  value: number | string | boolean | null;
+  error?: string;
+};
+
+export type ComputedData = Map<string, ComputedValue>;

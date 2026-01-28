@@ -1,15 +1,18 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { NUM_ROWS, NUM_COLS } from './config';
-import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange } from './types';
+import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange, ComputedData } from './types';
 import { getCellKey, determineCellType } from './drawUtils';
+import { useFormulaEngine } from './useFormulaEngine';
 
 type SpreadsheetContextType = {
   // State
   cellData: CellData;
   cellFormat: CellFormatData;
+  computedData: ComputedData;
   selection: Selection;
+  pointingSelection: Selection;
   inputValue: string;
   isEditing: boolean;
   copiedRange: CopiedRange;
@@ -18,6 +21,7 @@ type SpreadsheetContextType = {
   setCellData: React.Dispatch<React.SetStateAction<CellData>>;
   setCellFormat: React.Dispatch<React.SetStateAction<CellFormatData>>;
   setSelection: React.Dispatch<React.SetStateAction<Selection>>;
+  setPointingSelection: React.Dispatch<React.SetStateAction<Selection>>;
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
   setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
   setCopiedRange: React.Dispatch<React.SetStateAction<CopiedRange>>;
@@ -25,6 +29,10 @@ type SpreadsheetContextType = {
   // Actions
   saveCurrentCell: () => void;
   moveToCell: (row: number, col: number, startEditing?: boolean) => void;
+  
+  // Formula engine
+  getDisplayValue: (key: string) => string;
+  recalculate: (cellKey: string) => void;
   
   // Refs for Grid to use
   inputRef: React.RefObject<HTMLInputElement | null>;
@@ -40,9 +48,24 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   const [cellData, setCellData] = useState<CellData>(new Map());
   const [cellFormat, setCellFormat] = useState<CellFormatData>(new Map());
   const [selection, setSelection] = useState<Selection>(null);
+  const [pointingSelection, setPointingSelection] = useState<Selection>(null);
   const [inputValue, setInputValue] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [copiedRange, setCopiedRange] = useState<CopiedRange>(null);
+  
+  // Pending cell to recalculate after state update
+  const pendingRecalcRef = useRef<string | null>(null);
+
+  // Formula engine
+  const { computedData, recalculate, getDisplayValue } = useFormulaEngine(cellData);
+
+  // Effect to trigger recalculation after cellData updates
+  useEffect(() => {
+    if (pendingRecalcRef.current) {
+      recalculate(pendingRecalcRef.current);
+      pendingRecalcRef.current = null;
+    }
+  }, [cellData, recalculate]);
 
   const saveCurrentCell = useCallback(() => {
     if (selection) {
@@ -59,6 +82,10 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         }
         return next;
       });
+      // Schedule recalculation after state update
+      pendingRecalcRef.current = key;
+      // Clear pointing selection when saving
+      setPointingSelection(null);
     }
   }, [selection, inputValue]);
 
@@ -94,18 +121,23 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       value={{
         cellData,
         cellFormat,
+        computedData,
         selection,
+        pointingSelection,
         inputValue,
         isEditing,
         copiedRange,
         setCellData,
         setCellFormat,
         setSelection,
+        setPointingSelection,
         setInputValue,
         setIsEditing,
         setCopiedRange,
         saveCurrentCell,
         moveToCell,
+        getDisplayValue,
+        recalculate,
         inputRef,
         containerRef,
       }}

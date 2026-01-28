@@ -1,8 +1,46 @@
 import { useCallback } from 'react';
 import { NUM_ROWS, NUM_COLS } from './config';
 import type { CellData, CellFormatData, Selection, CopiedRange } from './types';
-import { getCellKey } from './drawUtils';
+import { getCellKey, getColumnLabel } from './drawUtils';
 import { writeToClipboard, readFromClipboard, applyPaste } from './clipboardUtils';
+
+/**
+ * Convert a Selection to a cell reference string (e.g., "A1" or "A1:B5")
+ */
+function selectionToRef(sel: Selection): string {
+  if (!sel) return '';
+  const startCol = getColumnLabel(sel.start.col);
+  const startRow = sel.start.row + 1;
+  
+  if (sel.start.row === sel.end.row && sel.start.col === sel.end.col) {
+    return `${startCol}${startRow}`;
+  }
+  
+  const endCol = getColumnLabel(sel.end.col);
+  const endRow = sel.end.row + 1;
+  return `${startCol}${startRow}:${endCol}${endRow}`;
+}
+
+/**
+ * Check if the formula ends with a cell reference pattern
+ * Returns the start index of the reference if found, -1 otherwise
+ */
+function findTrailingReference(formula: string): number {
+  // Match cell reference or range at the end: A1, $A$1, A1:B5, etc.
+  const match = formula.match(/(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)$/);
+  if (match) {
+    return formula.length - match[1].length;
+  }
+  return -1;
+}
+
+/**
+ * Check if formula ends with an operator or opening bracket (ready for new reference)
+ */
+function endsWithOperator(formula: string): boolean {
+  const trimmed = formula.trim();
+  return /[+\-*/^&=<>,(]$/.test(trimmed) || trimmed === '=';
+}
 
 type Direction = 'up' | 'down' | 'left' | 'right';
 
@@ -82,12 +120,16 @@ function findJumpTarget(
 
 export function useKeyboard({
   selection,
+  pointingSelection,
   isEditing,
+  inputValue,
   cellData,
   cellFormat,
+  copiedRange,
   setCellData,
   setCellFormat,
   setSelection,
+  setPointingSelection,
   setIsEditing,
   setInputValue,
   setCopiedRange,
@@ -97,12 +139,16 @@ export function useKeyboard({
   containerRef,
 }: {
   selection: Selection;
+  pointingSelection: Selection;
   isEditing: boolean;
+  inputValue: string;
   cellData: CellData;
   cellFormat: CellFormatData;
+  copiedRange: CopiedRange;
   setCellData: React.Dispatch<React.SetStateAction<CellData>>;
   setCellFormat: React.Dispatch<React.SetStateAction<CellFormatData>>;
   setSelection: React.Dispatch<React.SetStateAction<Selection>>;
+  setPointingSelection: React.Dispatch<React.SetStateAction<Selection>>;
   setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
   setCopiedRange: React.Dispatch<React.SetStateAction<CopiedRange>>;
@@ -111,6 +157,26 @@ export function useKeyboard({
   inputRef: React.RefObject<HTMLInputElement | null>;
   containerRef: React.RefObject<HTMLDivElement | null>;
 }) {
+  // Check if we're in formula mode (editing a formula)
+  const isFormulaMode = isEditing && inputValue.startsWith('=');
+
+  /**
+   * Update the formula with a cell reference based on pointing selection
+   */
+  const updateFormulaWithReference = useCallback((newPointingSel: Selection) => {
+    if (!newPointingSel) return;
+    
+    const ref = selectionToRef(newPointingSel);
+    const trailingRefStart = findTrailingReference(inputValue);
+    
+    if (trailingRefStart >= 0 && !endsWithOperator(inputValue)) {
+      // Replace the trailing reference
+      setInputValue(inputValue.slice(0, trailingRefStart) + ref);
+    } else {
+      // Append new reference
+      setInputValue(inputValue + ref);
+    }
+  }, [inputValue, setInputValue]);
   const handleContainerKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!selection || isEditing) return;
 
@@ -246,10 +312,15 @@ export function useKeyboard({
               NUM_ROWS,
               NUM_COLS,
               cellData,
-              cellFormat
+              cellFormat,
+              copiedRange
             );
             setCellData(newCellData);
             setCellFormat(newCellFormat);
+            
+            // Update inputValue to show pasted formula in formula bar
+            const pastedKey = getCellKey(selection.start.row, selection.start.col);
+            setInputValue(newCellData.get(pastedKey)?.raw || '');
           });
         }
         break;
@@ -305,9 +376,47 @@ export function useKeyboard({
 
     const { row, col } = selection.start;
 
+    // Handle formula mode arrow keys
+    if (isFormulaMode && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+      
+      // Calculate direction delta
+      const deltaRow = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+      const deltaCol = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      
+      if (e.shiftKey && pointingSelection) {
+        // Extend the pointing selection (create/extend range)
+        const newEndRow = Math.max(0, Math.min(NUM_ROWS - 1, pointingSelection.end.row + deltaRow));
+        const newEndCol = Math.max(0, Math.min(NUM_COLS - 1, pointingSelection.end.col + deltaCol));
+        const newSel = { start: pointingSelection.start, end: { row: newEndRow, col: newEndCol } };
+        setPointingSelection(newSel);
+        updateFormulaWithReference(newSel);
+      } else {
+        // Start new pointing selection or move it
+        let baseRow: number, baseCol: number;
+        if (pointingSelection && !endsWithOperator(inputValue)) {
+          // Move existing pointing selection
+          baseRow = pointingSelection.start.row;
+          baseCol = pointingSelection.start.col;
+        } else {
+          // Start from the editing cell
+          baseRow = row;
+          baseCol = col;
+        }
+        
+        const newRow = Math.max(0, Math.min(NUM_ROWS - 1, baseRow + deltaRow));
+        const newCol = Math.max(0, Math.min(NUM_COLS - 1, baseCol + deltaCol));
+        const newSel = { start: { row: newRow, col: newCol }, end: { row: newRow, col: newCol } };
+        setPointingSelection(newSel);
+        updateFormulaWithReference(newSel);
+      }
+      return;
+    }
+
     switch (e.key) {
       case 'Enter':
         e.preventDefault();
+        setPointingSelection(null);
         saveCurrentCell();
         moveToCell(row + 1, col, false);
         break;
@@ -317,10 +426,12 @@ export function useKeyboard({
         const key = getCellKey(row, col);
         setInputValue(cellData.get(key)?.raw || '');
         setIsEditing(false);
+        setPointingSelection(null);
         setTimeout(() => containerRef.current?.focus(), 0);
         break;
       case 'Tab':
         e.preventDefault();
+        setPointingSelection(null);
         saveCurrentCell();
         if (e.shiftKey) {
           moveToCell(row, col - 1, false);
@@ -360,8 +471,14 @@ export function useKeyboard({
           moveToCell(row, col + 1, false);
         }
         break;
+      default:
+        // If typing an operator in formula mode, commit the current reference
+        if (isFormulaMode && pointingSelection && /^[+\-*/^&=<>,)]$/.test(e.key)) {
+          setPointingSelection(null);
+        }
+        break;
     }
-  }, [selection, saveCurrentCell, moveToCell, cellData, setInputValue, setIsEditing, containerRef]);
+  }, [selection, pointingSelection, isFormulaMode, inputValue, saveCurrentCell, moveToCell, cellData, setInputValue, setIsEditing, setPointingSelection, updateFormulaWithReference, containerRef]);
 
   return {
     handleContainerKeyDown,

@@ -1,5 +1,6 @@
-import type { CellData, CellFormat, CellFormatData, NumberFormatSettings } from './types';
+import type { CellData, CellFormat, CellFormatData, NumberFormatSettings, CopiedRange } from './types';
 import { getCellKey, determineCellType } from './drawUtils';
+import { adjustFormulaReferences } from './formulaEngine';
 
 export type CopyRange = {
   minRow: number;
@@ -258,6 +259,7 @@ export async function readFromClipboard(): Promise<{ values: string[][], formats
 
 /**
  * Apply pasted values and formats to cell data
+ * If copiedRange is provided and value is a formula, adjusts cell references
  */
 export function applyPaste(
   values: string[][],
@@ -267,7 +269,8 @@ export function applyPaste(
   maxRows: number,
   maxCols: number,
   cellData: CellData,
-  cellFormat: CellFormatData
+  cellFormat: CellFormatData,
+  copiedRange: CopiedRange = null
 ): { newCellData: CellData; newCellFormat: CellFormatData } {
   const newCellData = new Map(cellData);
   const newCellFormat = new Map(cellFormat);
@@ -280,11 +283,21 @@ export function applyPaste(
       if (newRow < maxRows && newCol < maxCols) {
         const key = getCellKey(newRow, newCol);
         
+        // Adjust formula references if internal copy
+        let finalValue = value;
+        if (value.startsWith('=') && copiedRange) {
+          const sourceRow = copiedRange.minRow + rowOffset;
+          const sourceCol = copiedRange.minCol + colOffset;
+          const rowDelta = newRow - sourceRow;
+          const colDelta = newCol - sourceCol;
+          finalValue = adjustFormulaReferences(value, rowDelta, colDelta);
+        }
+        
         // Set value
-        if (value.trim()) {
+        if (finalValue.trim()) {
           newCellData.set(key, {
-            raw: value,
-            type: determineCellType(value),
+            raw: finalValue,
+            type: determineCellType(finalValue),
           });
         } else {
           newCellData.delete(key);

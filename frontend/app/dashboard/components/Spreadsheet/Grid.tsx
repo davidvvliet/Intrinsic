@@ -25,13 +25,16 @@ export default function Grid() {
   const {
     cellData,
     cellFormat,
+    computedData,
     selection,
+    pointingSelection,
     inputValue,
     isEditing,
     copiedRange,
     setCellData,
     setCellFormat,
     setSelection,
+    setPointingSelection,
     setInputValue,
     setIsEditing,
     setCopiedRange,
@@ -61,13 +64,15 @@ export default function Grid() {
       container,
       cellData,
       cellFormat,
+      computedData,
       selection,
+      pointingSelection,
       copiedRange,
       dashOffset,
       zoom,
       isEditing,
     });
-  }, [cellData, cellFormat, selection, zoom, copiedRange, dashOffset, isEditing, containerRef]);
+  }, [cellData, cellFormat, computedData, selection, pointingSelection, zoom, copiedRange, dashOffset, isEditing, containerRef]);
 
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
@@ -134,12 +139,16 @@ export default function Grid() {
 
   const { handleContainerKeyDown, handleKeyDown } = useKeyboard({
     selection,
+    pointingSelection,
     isEditing,
+    inputValue,
     cellData,
     cellFormat,
+    copiedRange,
     setCellData,
     setCellFormat,
     setSelection,
+    setPointingSelection,
     setIsEditing,
     setInputValue,
     setCopiedRange,

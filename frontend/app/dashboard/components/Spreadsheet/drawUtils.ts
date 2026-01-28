@@ -21,8 +21,10 @@ import {
   ACTIVE_BORDER_WIDTH,
   EDITING_OUTLINE_WIDTH,
   DASH_PATTERN,
+  POINTING_SELECTION_BORDER,
+  POINTING_SELECTION_HIGHLIGHT,
 } from './config';
-import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange, CellType } from './types';
+import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange, CellType, ComputedData } from './types';
 import { applyFormat, shouldRightAlign } from './formatUtils';
 
 export function getCellKey(row: number, col: number): string {
@@ -59,7 +61,9 @@ export function drawGrid({
   container,
   cellData,
   cellFormat,
+  computedData,
   selection,
+  pointingSelection,
   copiedRange,
   dashOffset,
   zoom,
@@ -70,7 +74,9 @@ export function drawGrid({
   container: HTMLDivElement;
   cellData: CellData;
   cellFormat: CellFormatData;
+  computedData: ComputedData;
   selection: Selection;
+  pointingSelection: Selection;
   copiedRange: CopiedRange;
   dashOffset: number;
   zoom: number;
@@ -107,6 +113,15 @@ export function drawGrid({
   // Check if selection spans multiple cells
   const isMultiCellSelection = minRow !== maxRow || minCol !== maxCol;
 
+  // Calculate pointing selection bounds (for formula reference mode)
+  let pointMinRow = -1, pointMaxRow = -1, pointMinCol = -1, pointMaxCol = -1;
+  if (pointingSelection) {
+    pointMinRow = Math.min(pointingSelection.start.row, pointingSelection.end.row);
+    pointMaxRow = Math.max(pointingSelection.start.row, pointingSelection.end.row);
+    pointMinCol = Math.min(pointingSelection.start.col, pointingSelection.end.col);
+    pointMaxCol = Math.max(pointingSelection.start.col, pointingSelection.end.col);
+  }
+
   // PASS 1: Draw all fills first (so borders can be drawn on top)
   for (let row = startRow; row < endRow; row++) {
     for (let col = startCol; col < endCol; col++) {
@@ -130,6 +145,13 @@ export function drawGrid({
       const inSelection = row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
       if (inSelection && isMultiCellSelection) {
         ctx.fillStyle = SELECTION_HIGHLIGHT;
+        ctx.fillRect(x, y, cellWidth, cellHeight);
+      }
+
+      // Draw pointing selection highlight (formula reference mode)
+      const inPointingSelection = row >= pointMinRow && row <= pointMaxRow && col >= pointMinCol && col <= pointMaxCol;
+      if (inPointingSelection) {
+        ctx.fillStyle = POINTING_SELECTION_HIGHLIGHT;
         ctx.fillRect(x, y, cellWidth, cellHeight);
       }
     }
@@ -191,15 +213,31 @@ export function drawGrid({
         fontParts.push('Arial');
         ctx.font = fontParts.join(' ');
         
-        // Apply text color
-        ctx.fillStyle = format.textColor || TEXT_COLOR;
+        // Apply text color (red for errors)
+        const computed = computedData.get(key);
+        const hasError = computed?.error;
+        ctx.fillStyle = hasError ? '#dc2626' : (format.textColor || TEXT_COLOR);
+        
+        // Get display value: use computed value for formulas, raw for others
+        let displayValue: string;
+        if (cellValue.type === 'formula') {
+          if (computed?.error) {
+            displayValue = computed.error;
+          } else if (computed?.value !== null && computed?.value !== undefined) {
+            displayValue = String(computed.value);
+          } else {
+            displayValue = '';
+          }
+        } else {
+          displayValue = cellValue.raw;
+        }
         
         // Apply number format to get display text
-        const displayText = applyFormat(cellValue.raw, format.numberFormat);
+        const displayText = hasError ? displayValue : applyFormat(displayValue, format.numberFormat);
         
         // Right-align numbers/formatted values, left-align text
         let textX: number;
-        if (shouldRightAlign(cellValue.raw, format.numberFormat)) {
+        if (shouldRightAlign(displayValue, format.numberFormat)) {
           ctx.textAlign = 'right';
           textX = x + cellWidth - CELL_TEXT_PADDING * zoom;
         } else {
@@ -215,7 +253,7 @@ export function drawGrid({
           const textWidth = ctx.measureText(displayText).width;
           const lineY = textY;
           let lineStartX: number;
-          if (shouldRightAlign(cellValue.raw, format.numberFormat)) {
+          if (shouldRightAlign(displayValue, format.numberFormat)) {
             lineStartX = textX - textWidth;
           } else {
             lineStartX = textX;
@@ -223,7 +261,7 @@ export function drawGrid({
           ctx.beginPath();
           ctx.moveTo(lineStartX, lineY);
           ctx.lineTo(lineStartX + textWidth, lineY);
-          ctx.strokeStyle = format.textColor || TEXT_COLOR;
+          ctx.strokeStyle = hasError ? '#dc2626' : (format.textColor || TEXT_COLOR);
           ctx.lineWidth = 1;
           ctx.stroke();
         }
@@ -234,6 +272,20 @@ export function drawGrid({
         ctx.restore();
       }
     }
+  }
+
+  // Draw pointing selection border (formula reference mode)
+  if (pointingSelection) {
+    const pointX = headerWidth + pointMinCol * cellWidth - scrollLeft;
+    const pointY = headerHeight + pointMinRow * cellHeight - scrollTop;
+    const pointWidth = (pointMaxCol - pointMinCol + 1) * cellWidth;
+    const pointHeight = (pointMaxRow - pointMinRow + 1) * cellHeight;
+    
+    ctx.strokeStyle = POINTING_SELECTION_BORDER;
+    ctx.lineWidth = ACTIVE_BORDER_WIDTH;
+    ctx.strokeRect(pointX, pointY, pointWidth, pointHeight);
+    ctx.strokeStyle = CELL_BORDER;
+    ctx.lineWidth = DEFAULT_BORDER_WIDTH;
   }
 
   // Draw marching ants around copied range (offset by headers)
