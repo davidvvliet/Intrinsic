@@ -1,4 +1,4 @@
-import type { CellData, CellFormat, CellFormatData } from './types';
+import type { CellData, CellFormat, CellFormatData, NumberFormatSettings } from './types';
 import { getCellKey, determineCellType } from './drawUtils';
 
 export type CopyRange = {
@@ -56,13 +56,30 @@ export function buildHTML(
       const format = cellFormat.get(key);
       const style = format ? formatToInlineStyle(format) : '';
       const styleAttr = style ? ` style="${style}"` : '';
+      
+      // Add data attributes for number format
+      const dataAttrs: string[] = [];
+      if (format?.numberFormat) {
+        dataAttrs.push(`data-number-format-type="${format.numberFormat.type}"`);
+        if (format.numberFormat.decimals !== undefined) {
+          dataAttrs.push(`data-number-format-decimals="${format.numberFormat.decimals}"`);
+        }
+        if (format.numberFormat.currencySymbol) {
+          dataAttrs.push(`data-number-format-currency-symbol="${format.numberFormat.currencySymbol}"`);
+        }
+        if (format.numberFormat.datePattern) {
+          dataAttrs.push(`data-number-format-date-pattern="${format.numberFormat.datePattern}"`);
+        }
+      }
+      const dataAttr = dataAttrs.length > 0 ? ` ${dataAttrs.join(' ')}` : '';
+      
       // Escape HTML entities in value
       const escapedValue = value
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
-      html += `<td${styleAttr}>${escapedValue}</td>`;
+      html += `<td${styleAttr}${dataAttr}>${escapedValue}</td>`;
     }
     html += '</tr>';
   }
@@ -112,6 +129,34 @@ export function parseInlineStyle(style: string): CellFormat {
 }
 
 /**
+ * Parse number format from data attributes
+ */
+function parseNumberFormat(cell: HTMLElement): NumberFormatSettings | undefined {
+  const type = cell.getAttribute('data-number-format-type');
+  if (!type) return undefined;
+  
+  const format: NumberFormatSettings = { type: type as any };
+  
+  const decimals = cell.getAttribute('data-number-format-decimals');
+  if (decimals !== null) {
+    const dec = parseInt(decimals, 10);
+    if (!isNaN(dec)) format.decimals = dec;
+  }
+  
+  const currencySymbol = cell.getAttribute('data-number-format-currency-symbol');
+  if (currencySymbol !== null) {
+    format.currencySymbol = currencySymbol;
+  }
+  
+  const datePattern = cell.getAttribute('data-number-format-date-pattern');
+  if (datePattern !== null) {
+    format.datePattern = datePattern;
+  }
+  
+  return format;
+}
+
+/**
  * Parse HTML table to values and formats
  */
 export function parseHTML(html: string): { values: string[][], formats: CellFormat[][] } {
@@ -136,7 +181,15 @@ export function parseHTML(html: string): { values: string[][], formats: CellForm
     cells.forEach(cell => {
       rowValues.push(cell.textContent || '');
       const style = (cell as HTMLElement).getAttribute('style') || '';
-      rowFormats.push(parseInlineStyle(style));
+      const format = parseInlineStyle(style);
+      
+      // Parse number format from data attributes
+      const numberFormat = parseNumberFormat(cell as HTMLElement);
+      if (numberFormat) {
+        format.numberFormat = numberFormat;
+      }
+      
+      rowFormats.push(format);
     });
     
     values.push(rowValues);
