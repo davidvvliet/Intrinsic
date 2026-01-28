@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { CellData, ComputedData, ComputedValue } from './types';
 import { evaluateFormula, extractDependencies, isFormula } from './formulaEngine';
 
@@ -23,6 +23,9 @@ export function useFormulaEngine(cellData: CellData) {
 
   // Track cells currently being evaluated (for circular reference detection)
   const evaluatingCells = useRef<Set<string>>(new Set());
+
+  // Store previous cellData to detect changes
+  const prevCellDataRef = useRef<CellData>(new Map());
 
   /**
    * Get the computed value for a cell (used during formula evaluation)
@@ -126,7 +129,170 @@ export function useFormulaEngine(cellData: CellData) {
   }, []);
 
   /**
-   * Recalculate a cell and all its dependents
+   * Auto-detect cellData changes and recalculate affected formulas
+   */
+  useEffect(() => {
+    const prevCellData = prevCellDataRef.current;
+    const changedKeys = new Set<string>();
+
+    // Find cells that were added, changed, or deleted
+    const allKeys = new Set([...prevCellData.keys(), ...cellData.keys()]);
+    
+    for (const key of allKeys) {
+      const prevCell = prevCellData.get(key);
+      const currCell = cellData.get(key);
+      
+      // Cell was added or changed
+      if (prevCell !== currCell) {
+        changedKeys.add(key);
+        
+        // Also mark dependents as needing recalculation
+        const dependents = depsGraph.current.dependents.get(key);
+        if (dependents) {
+          for (const dep of dependents) {
+            changedKeys.add(dep);
+          }
+        }
+      }
+    }
+
+    // Recalculate all changed cells that are formulas or depend on changed cells
+    if (changedKeys.size > 0) {
+      const cellsToRecalc = new Set<string>();
+      
+      // Collect all cells that need recalculation (changed formulas + their dependents)
+      for (const key of changedKeys) {
+        const cell = cellData.get(key);
+        if (cell?.type === 'formula') {
+          cellsToRecalc.add(key);
+          // Add all dependents
+          const dependents = depsGraph.current.dependents.get(key);
+          if (dependents) {
+            for (const dep of dependents) {
+              cellsToRecalc.add(dep);
+            }
+          }
+        }
+      }
+
+      // Recalculate in topological order
+      if (cellsToRecalc.size > 0) {
+        const visited = new Set<string>();
+        const order: string[] = [];
+
+        function visit(key: string) {
+          if (visited.has(key)) return;
+          visited.add(key);
+          
+          const deps = depsGraph.current.dependsOn.get(key);
+          if (deps) {
+            for (const dep of deps) {
+              if (cellsToRecalc.has(dep)) {
+                visit(dep);
+              }
+            }
+          }
+          order.push(key);
+        }
+
+        for (const key of cellsToRecalc) {
+          visit(key);
+        }
+
+        // Update dependencies for changed formulas
+        for (const key of changedKeys) {
+          const cell = cellData.get(key);
+          if (cell?.type === 'formula') {
+            updateDependencies(key, cell.raw);
+          } else {
+            // Clear dependencies if not a formula
+            const graph = depsGraph.current;
+            const oldDeps = graph.dependsOn.get(key);
+            if (oldDeps) {
+              for (const dep of oldDeps) {
+                graph.dependents.get(dep)?.delete(key);
+              }
+              graph.dependsOn.delete(key);
+            }
+          }
+        }
+
+        // Recalculate in order
+        setComputedData(prev => {
+          const next = new Map(prev);
+          
+          for (const key of order) {
+            const cellToEval = cellData.get(key);
+            
+            if (!cellToEval) {
+              next.delete(key);
+              continue;
+            }
+
+            if (cellToEval.type === 'formula') {
+              evaluatingCells.current.clear();
+              evaluatingCells.current.add(key);
+              
+              const getVal = (k: string): ComputedValue | null => {
+                if (evaluatingCells.current.has(k)) {
+                  return { value: null, error: '#CIRCULAR!' };
+                }
+                if (next.has(k)) {
+                  return next.get(k)!;
+                }
+                const c = cellData.get(k);
+                if (!c) return null;
+                if (c.type === 'number') {
+                  const num = parseFloat(c.raw);
+                  return { value: isNaN(num) ? c.raw : num };
+                }
+                return { value: c.raw };
+              };
+
+              const result = evaluateFormula(cellToEval.raw, getVal);
+              next.set(key, result);
+              evaluatingCells.current.delete(key);
+            } else {
+              // Non-formula: store raw value as computed
+              if (cellToEval.type === 'number') {
+                const num = parseFloat(cellToEval.raw);
+                next.set(key, { value: isNaN(num) ? cellToEval.raw : num });
+              } else {
+                next.set(key, { value: cellToEval.raw });
+              }
+            }
+          }
+
+          return next;
+        });
+      } else {
+        // Update non-formula cells
+        setComputedData(prev => {
+          const next = new Map(prev);
+          for (const key of changedKeys) {
+            const cell = cellData.get(key);
+            if (!cell) {
+              next.delete(key);
+            } else if (cell.type !== 'formula') {
+              if (cell.type === 'number') {
+                const num = parseFloat(cell.raw);
+                next.set(key, { value: isNaN(num) ? cell.raw : num });
+              } else {
+                next.set(key, { value: cell.raw });
+              }
+            }
+          }
+          return next;
+        });
+      }
+    }
+
+    // Update ref to current cellData
+    prevCellDataRef.current = new Map(cellData);
+  }, [cellData, updateDependencies]);
+
+  /**
+   * Recalculate a cell and all its dependents (kept for backward compatibility, but auto-detection handles this now)
    */
   const recalculate = useCallback((changedKey: string) => {
     const cell = cellData.get(changedKey);

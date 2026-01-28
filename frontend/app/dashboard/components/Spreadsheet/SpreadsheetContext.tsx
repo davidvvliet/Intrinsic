@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { NUM_ROWS, NUM_COLS } from './config';
 import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange, ComputedData } from './types';
 import { getCellKey, determineCellType } from './drawUtils';
@@ -32,7 +32,6 @@ type SpreadsheetContextType = {
   
   // Formula engine
   getDisplayValue: (key: string) => string;
-  recalculate: (cellKey: string) => void;
   
   // Refs for Grid to use
   inputRef: React.RefObject<HTMLInputElement | null>;
@@ -52,20 +51,9 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   const [inputValue, setInputValue] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [copiedRange, setCopiedRange] = useState<CopiedRange>(null);
-  
-  // Pending cell to recalculate after state update
-  const pendingRecalcRef = useRef<string | null>(null);
 
-  // Formula engine
-  const { computedData, recalculate, getDisplayValue } = useFormulaEngine(cellData);
-
-  // Effect to trigger recalculation after cellData updates
-  useEffect(() => {
-    if (pendingRecalcRef.current) {
-      recalculate(pendingRecalcRef.current);
-      pendingRecalcRef.current = null;
-    }
-  }, [cellData, recalculate]);
+  // Formula engine (auto-detects changes and recalculates)
+  const { computedData, getDisplayValue } = useFormulaEngine(cellData);
 
   const saveCurrentCell = useCallback(() => {
     if (selection) {
@@ -82,8 +70,6 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         }
         return next;
       });
-      // Schedule recalculation after state update
-      pendingRecalcRef.current = key;
       // Clear pointing selection when saving
       setPointingSelection(null);
     }
@@ -137,7 +123,6 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         saveCurrentCell,
         moveToCell,
         getDisplayValue,
-        recalculate,
         inputRef,
         containerRef,
       }}
