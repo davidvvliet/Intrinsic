@@ -106,7 +106,35 @@ export function drawGrid({
   // Check if selection spans multiple cells
   const isMultiCellSelection = minRow !== maxRow || minCol !== maxCol;
 
-  // Draw cells (offset by headers)
+  // PASS 1: Draw all fills first (so borders can be drawn on top)
+  for (let row = startRow; row < endRow; row++) {
+    for (let col = startCol; col < endCol; col++) {
+      const x = headerWidth + col * cellWidth - scrollLeft;
+      const y = headerHeight + row * cellHeight - scrollTop;
+
+      // Skip if cell is outside visible area (behind headers)
+      if (x + cellWidth < headerWidth || y + cellHeight < headerHeight) continue;
+
+      // Get cell format
+      const key = getCellKey(row, col);
+      const format = cellFormat.get(key) || {};
+
+      // Draw fill color (full size to cover whole cell)
+      if (format.fillColor) {
+        ctx.fillStyle = format.fillColor;
+        ctx.fillRect(x, y, cellWidth, cellHeight);
+      }
+
+      // Draw selection highlight (only for multi-cell selections)
+      const inSelection = row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
+      if (inSelection && isMultiCellSelection) {
+        ctx.fillStyle = SELECTION_HIGHLIGHT;
+        ctx.fillRect(x, y, cellWidth, cellHeight);
+      }
+    }
+  }
+
+  // PASS 2: Draw all borders and content (on top of fills)
   ctx.strokeStyle = CELL_BORDER;
   ctx.lineWidth = DEFAULT_BORDER_WIDTH;
   ctx.font = `${CELL_FONT_SIZE * zoom}px Arial`;
@@ -122,29 +150,12 @@ export function drawGrid({
       // Skip if cell is outside visible area (behind headers)
       if (x + cellWidth < headerWidth || y + cellHeight < headerHeight) continue;
 
-      // Draw cell border
-      ctx.strokeRect(x, y, cellWidth, cellHeight);
-
-      // Check if cell is in selection
-      const inSelection = row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
-      const isAnchor = selection && row === selection.start.row && col === selection.start.col;
-
-      // Get cell format
       const key = getCellKey(row, col);
       const format = cellFormat.get(key) || {};
+      const isAnchor = selection && row === selection.start.row && col === selection.start.col;
 
-      // Draw fill color (background layer)
-      if (format.fillColor) {
-        ctx.fillStyle = format.fillColor;
-        ctx.fillRect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
-      }
-
-      // Draw selection highlight (only for multi-cell selections)
-      if (inSelection && isMultiCellSelection) {
-        ctx.fillStyle = SELECTION_HIGHLIGHT;
-        ctx.fillRect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
-        ctx.fillStyle = TEXT_COLOR;
-      }
+      // Draw cell border
+      ctx.strokeRect(x, y, cellWidth, cellHeight);
 
       // Draw anchor cell border (the "active" cell)
       if (isAnchor) {
@@ -171,7 +182,7 @@ export function drawGrid({
         ctx.rect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
         ctx.clip();
         
-        // Apply formatting (format already retrieved above)
+        // Apply formatting
         const fontParts: string[] = [];
         if (format.italic) fontParts.push('italic');
         if (format.bold) fontParts.push('bold');

@@ -1,13 +1,12 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { useSpreadsheetContext } from './SpreadsheetContext';
 import { getCellKey } from './drawUtils';
 import type { CellFormat } from './types';
+import ColorButton from './ColorButton';
 import styles from './Toolbar.module.css';
 
 export default function Toolbar() {
   const { selection, cellFormat, setCellFormat } = useSpreadsheetContext();
-  const colorInputRef = useRef<HTMLInputElement>(null);
-  const fillInputRef = useRef<HTMLInputElement>(null);
 
   // Get current cell's format
   const getCurrentFormat = useCallback((): CellFormat => {
@@ -49,7 +48,7 @@ export default function Toolbar() {
   }, [selection, cellFormat, setCellFormat]);
 
   // Set text color for all selected cells
-  const setTextColor = useCallback((color: string) => {
+  const handleTextColor = useCallback((color: string | null) => {
     if (!selection) return;
 
     const minRow = Math.min(selection.start.row, selection.end.row);
@@ -63,10 +62,16 @@ export default function Toolbar() {
         for (let col = minCol; col <= maxCol; col++) {
           const key = getCellKey(row, col);
           const existing = next.get(key) || {};
-          next.set(key, {
-            ...existing,
-            textColor: color,
-          });
+          if (color) {
+            next.set(key, { ...existing, textColor: color });
+          } else {
+            const { textColor, ...rest } = existing;
+            if (Object.keys(rest).length > 0) {
+              next.set(key, rest);
+            } else {
+              next.delete(key);
+            }
+          }
         }
       }
       return next;
@@ -74,7 +79,7 @@ export default function Toolbar() {
   }, [selection, setCellFormat]);
 
   // Set fill color for all selected cells
-  const setFillColor = useCallback((color: string) => {
+  const handleFillColor = useCallback((color: string | null) => {
     if (!selection) return;
 
     const minRow = Math.min(selection.start.row, selection.end.row);
@@ -88,31 +93,21 @@ export default function Toolbar() {
         for (let col = minCol; col <= maxCol; col++) {
           const key = getCellKey(row, col);
           const existing = next.get(key) || {};
-          next.set(key, {
-            ...existing,
-            fillColor: color,
-          });
+          if (color) {
+            next.set(key, { ...existing, fillColor: color });
+          } else {
+            const { fillColor, ...rest } = existing;
+            if (Object.keys(rest).length > 0) {
+              next.set(key, rest);
+            } else {
+              next.delete(key);
+            }
+          }
         }
       }
       return next;
     });
   }, [selection, setCellFormat]);
-
-  const handleColorClick = useCallback(() => {
-    colorInputRef.current?.click();
-  }, []);
-
-  const handleColorChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setTextColor(e.target.value);
-  }, [setTextColor]);
-
-  const handleFillClick = useCallback(() => {
-    fillInputRef.current?.click();
-  }, []);
-
-  const handleFillChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setFillColor(e.target.value);
-  }, [setFillColor]);
 
   // Prevent focus loss when clicking toolbar buttons
   const preventFocusLoss = useCallback((e: React.MouseEvent) => {
@@ -149,45 +144,18 @@ export default function Toolbar() {
         <span className={styles.strikethrough}>S</span>
       </button>
       <div className={styles.separator} />
-      <button
-        className={styles.colorButton}
-        onMouseDown={preventFocusLoss}
-        onClick={handleColorClick}
+      <ColorButton
+        icon="text"
+        currentColor={currentFormat.textColor}
+        onSelectColor={handleTextColor}
         disabled={!selection}
-        title="Text Color"
-      >
-        <span className={styles.colorIcon}>A</span>
-        <span 
-          className={styles.colorBar} 
-          style={{ backgroundColor: currentFormat.textColor || '#000000' }}
-        />
-        <input
-          ref={colorInputRef}
-          type="color"
-          className={styles.colorInput}
-          value={currentFormat.textColor || '#000000'}
-          onChange={handleColorChange}
-        />
-      </button>
-      <button
-        className={styles.fillButton}
-        onMouseDown={preventFocusLoss}
-        onClick={handleFillClick}
+      />
+      <ColorButton
+        icon="fill"
+        currentColor={currentFormat.fillColor}
+        onSelectColor={handleFillColor}
         disabled={!selection}
-        title="Fill Color"
-      >
-        <span 
-          className={styles.fillIcon} 
-          style={{ backgroundColor: currentFormat.fillColor || '#ffffff' }}
-        />
-        <input
-          ref={fillInputRef}
-          type="color"
-          className={styles.colorInput}
-          value={currentFormat.fillColor || '#ffffff'}
-          onChange={handleFillChange}
-        />
-      </button>
+      />
     </div>
   );
 }
