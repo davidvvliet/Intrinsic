@@ -7,10 +7,10 @@ export const FORMAT_DEFAULTS: Record<NumberFormatType, Partial<NumberFormatSetti
   number: { decimals: 2 },
   percent: { decimals: 2 },
   scientific: { decimals: 2 },
-  accounting: { decimals: 2, currencySymbol: '£' },
+  accounting: { decimals: 2, currencySymbol: '$' },
   financial: { decimals: 2 },
-  currency: { decimals: 2, currencySymbol: '£' },
-  currencyRounded: { decimals: 0, currencySymbol: '£' },
+  currency: { decimals: 2, currencySymbol: '$' },
+  currencyRounded: { decimals: 0, currencySymbol: '$' },
   date: { datePattern: 'dd/mm/yyyy' },
   time: { datePattern: 'hh:mm:ss' },
   datetime: { datePattern: 'dd/mm/yyyy hh:mm:ss' },
@@ -41,10 +41,10 @@ export const FORMAT_EXAMPLES: Record<NumberFormatType, string> = {
   number: '1,000.12',
   percent: '10.12%',
   scientific: '1.01E+03',
-  accounting: '£ (1,000.12)',
+  accounting: '$ (1,000.12)',
   financial: '(1,000.12)',
-  currency: '£1,000.12',
-  currencyRounded: '£1,000',
+  currency: '$1,000.12',
+  currencyRounded: '$1,000',
   date: '04/07/1776',
   time: '15:14:00',
   datetime: '04/07/1776 15:14:00',
@@ -111,8 +111,8 @@ export function formatScientific(value: string, decimals: number = 2): string {
   return num.toExponential(decimals).toUpperCase();
 }
 
-// Format as accounting (£ (1,000.12) for negative, £ 1,000.12 for positive)
-export function formatAccounting(value: string, decimals: number = 2, symbol: string = '£'): string {
+// Format as accounting ($ (1,000.12) for negative, $ 1,000.12 for positive)
+export function formatAccounting(value: string, decimals: number = 2, symbol: string = '$'): string {
   const num = parseNumber(value);
   if (num === null) return value;
   if (num < 0) {
@@ -131,8 +131,8 @@ export function formatFinancial(value: string, decimals: number = 2): string {
   return formatWithCommas(num, decimals);
 }
 
-// Format as currency (£1,000.12)
-export function formatCurrency(value: string, decimals: number = 2, symbol: string = '£'): string {
+// Format as currency ($1,000.12)
+export function formatCurrency(value: string, decimals: number = 2, symbol: string = '$'): string {
   const num = parseNumber(value);
   if (num === null) return value;
   if (num < 0) {
@@ -141,8 +141,8 @@ export function formatCurrency(value: string, decimals: number = 2, symbol: stri
   return `${symbol}${formatWithCommas(num, decimals)}`;
 }
 
-// Format as currency rounded (£1,000)
-export function formatCurrencyRounded(value: string, symbol: string = '£'): string {
+// Format as currency rounded ($1,000)
+export function formatCurrencyRounded(value: string, symbol: string = '$'): string {
   const num = parseNumber(value);
   if (num === null) return value;
   const rounded = Math.round(num);
@@ -220,7 +220,7 @@ export function applyFormat(value: string, format: NumberFormatSettings | undefi
   }
   
   const decimals = format.decimals ?? FORMAT_DEFAULTS[format.type].decimals ?? 2;
-  const symbol = format.currencySymbol ?? FORMAT_DEFAULTS[format.type].currencySymbol ?? '£';
+  const symbol = format.currencySymbol ?? FORMAT_DEFAULTS[format.type].currencySymbol ?? '$';
   
   switch (format.type) {
     case 'number':
@@ -257,6 +257,6 @@ export function shouldRightAlign(value: string, format: NumberFormatSettings | u
     return isNumericString(value);
   }
   
-  // All number formats should be right-aligned except text
-  return format.type !== 'text';
+  // All number formats should be right-aligned
+  return true;
 }

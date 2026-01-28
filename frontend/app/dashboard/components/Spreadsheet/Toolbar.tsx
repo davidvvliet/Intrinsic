@@ -176,11 +176,6 @@ export default function Toolbar() {
         <span className={styles.strikethrough}>S</span>
       </button>
       <div className={styles.separator} />
-      <FormatDropdown
-        currentFormat={currentFormat.numberFormat}
-        onSelectFormat={handleNumberFormat}
-        disabled={!selection}
-      />
       <ColorButton
         icon="text"
         currentColor={currentFormat.textColor}
@@ -193,6 +188,30 @@ export default function Toolbar() {
         onSelectColor={handleFillColor}
         disabled={!selection}
       />
+      <div className={styles.separator} />
+      <FormatDropdown
+        currentFormat={currentFormat.numberFormat}
+        onSelectFormat={handleNumberFormat}
+        disabled={!selection}
+      />
+      <button
+        className={`${styles.formatButton} ${currentFormat.numberFormat?.type === 'percent' ? styles.active : ''}`}
+        onMouseDown={preventFocusLoss}
+        onClick={() => handleNumberFormat({ type: 'percent' })}
+        disabled={!selection}
+        title="Percent"
+      >
+        %
+      </button>
+      <button
+        className={`${styles.formatButton} ${currentFormat.numberFormat?.type === 'currency' ? styles.active : ''}`}
+        onMouseDown={preventFocusLoss}
+        onClick={() => handleNumberFormat({ type: 'currency' })}
+        disabled={!selection}
+        title="Currency"
+      >
+        $
+      </button>
     </div>
   );
 }
