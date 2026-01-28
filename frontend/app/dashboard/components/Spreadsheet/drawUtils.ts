@@ -23,6 +23,7 @@ import {
   DASH_PATTERN,
 } from './config';
 import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange, CellType } from './types';
+import { applyFormat, shouldRightAlign } from './formatUtils';
 
 export function getCellKey(row: number, col: number): string {
   return `${row},${col}`;
@@ -182,7 +183,7 @@ export function drawGrid({
         ctx.rect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
         ctx.clip();
         
-        // Apply formatting
+        // Apply font formatting
         const fontParts: string[] = [];
         if (format.italic) fontParts.push('italic');
         if (format.bold) fontParts.push('bold');
@@ -193,9 +194,12 @@ export function drawGrid({
         // Apply text color
         ctx.fillStyle = format.textColor || TEXT_COLOR;
         
-        // Right-align numbers, left-align text
+        // Apply number format to get display text
+        const displayText = applyFormat(cellValue.raw, format.numberFormat);
+        
+        // Right-align numbers/formatted values, left-align text
         let textX: number;
-        if (cellValue.type === 'number') {
+        if (shouldRightAlign(cellValue.raw, format.numberFormat)) {
           ctx.textAlign = 'right';
           textX = x + cellWidth - CELL_TEXT_PADDING * zoom;
         } else {
@@ -204,14 +208,14 @@ export function drawGrid({
         }
         const textY = y + cellHeight / 2;
         
-        ctx.fillText(cellValue.raw, textX, textY);
+        ctx.fillText(displayText, textX, textY);
         
         // Draw strikethrough if needed
         if (format.strikethrough) {
-          const textWidth = ctx.measureText(cellValue.raw).width;
+          const textWidth = ctx.measureText(displayText).width;
           const lineY = textY;
           let lineStartX: number;
-          if (cellValue.type === 'number') {
+          if (shouldRightAlign(cellValue.raw, format.numberFormat)) {
             lineStartX = textX - textWidth;
           } else {
             lineStartX = textX;

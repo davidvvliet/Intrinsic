@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 import { useSpreadsheetContext } from './SpreadsheetContext';
 import { getCellKey } from './drawUtils';
-import type { CellFormat } from './types';
+import type { CellFormat, NumberFormatSettings } from './types';
 import ColorButton from './ColorButton';
+import FormatDropdown from './FormatDropdown';
 import styles from './Toolbar.module.css';
 
 export default function Toolbar() {
@@ -109,6 +110,37 @@ export default function Toolbar() {
     });
   }, [selection, setCellFormat]);
 
+  // Set number format for all selected cells
+  const handleNumberFormat = useCallback((format: NumberFormatSettings | null) => {
+    if (!selection) return;
+
+    const minRow = Math.min(selection.start.row, selection.end.row);
+    const maxRow = Math.max(selection.start.row, selection.end.row);
+    const minCol = Math.min(selection.start.col, selection.end.col);
+    const maxCol = Math.max(selection.start.col, selection.end.col);
+
+    setCellFormat(prev => {
+      const next = new Map(prev);
+      for (let row = minRow; row <= maxRow; row++) {
+        for (let col = minCol; col <= maxCol; col++) {
+          const key = getCellKey(row, col);
+          const existing = next.get(key) || {};
+          if (format) {
+            next.set(key, { ...existing, numberFormat: format });
+          } else {
+            const { numberFormat, ...rest } = existing;
+            if (Object.keys(rest).length > 0) {
+              next.set(key, rest);
+            } else {
+              next.delete(key);
+            }
+          }
+        }
+      }
+      return next;
+    });
+  }, [selection, setCellFormat]);
+
   // Prevent focus loss when clicking toolbar buttons
   const preventFocusLoss = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -144,6 +176,11 @@ export default function Toolbar() {
         <span className={styles.strikethrough}>S</span>
       </button>
       <div className={styles.separator} />
+      <FormatDropdown
+        currentFormat={currentFormat.numberFormat}
+        onSelectFormat={handleNumberFormat}
+        disabled={!selection}
+      />
       <ColorButton
         icon="text"
         currentColor={currentFormat.textColor}

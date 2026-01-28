@@ -1,11 +1,34 @@
 export type CellType = 'text' | 'number' | 'formula';
 
+export type NumberFormatType = 
+  | 'automatic'
+  | 'text'
+  | 'number'
+  | 'percent'
+  | 'scientific'
+  | 'accounting'
+  | 'financial'
+  | 'currency'
+  | 'currencyRounded'
+  | 'date'
+  | 'time'
+  | 'datetime'
+  | 'duration';
+
+export type NumberFormatSettings = {
+  type: NumberFormatType;
+  decimals?: number;
+  currencySymbol?: string;
+  datePattern?: string;
+};
+
 export type CellFormat = {
   bold?: boolean;
   italic?: boolean;
   strikethrough?: boolean;
   textColor?: string;
   fillColor?: string;
+  numberFormat?: NumberFormatSettings;
 };
 
 export type CellValue = {
