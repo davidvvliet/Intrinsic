@@ -471,7 +471,38 @@ export function useKeyboard({
           moveToCell(row, col + 1, false);
         }
         break;
+      case 'Backspace':
+        // Smart backspace for empty parentheses
+        if (!e.ctrlKey && !e.metaKey) {
+          const inputBackspace = e.currentTarget;
+          const cursorPos = inputBackspace.selectionStart || 0;
+          const value = inputBackspace.value;
+          
+          // Check if cursor is right after '(' and next char is ')'
+          if (cursorPos > 0 && value[cursorPos - 1] === '(' && value[cursorPos] === ')') {
+            e.preventDefault();
+            // Delete both parentheses
+            const newValue = value.slice(0, cursorPos - 1) + value.slice(cursorPos + 1);
+            inputBackspace.value = newValue;
+            inputBackspace.setSelectionRange(cursorPos - 1, cursorPos - 1);
+            setInputValue(newValue);
+            return;
+          }
+        }
+        break;
       default:
+        // Auto-pair parentheses
+        if (e.key === '(' && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          const input = e.currentTarget;
+          const cursorPos = input.selectionStart || 0;
+          const newValue = input.value.slice(0, cursorPos) + '()' + input.value.slice(cursorPos);
+          input.value = newValue;
+          input.setSelectionRange(cursorPos + 1, cursorPos + 1);
+          setInputValue(newValue);
+          return;
+        }
+        
         // If typing an operator in formula mode, commit the current reference
         if (isFormulaMode && pointingSelection && /^[+\-*/^&=<>,)]$/.test(e.key)) {
           setPointingSelection(null);

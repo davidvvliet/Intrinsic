@@ -40,6 +40,35 @@ export default function FormulaBar() {
     if (!selection) return;
 
     const { row, col } = selection.start;
+    const input = e.currentTarget;
+
+    // Auto-pair parentheses
+    if (e.key === '(' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const cursorPos = input.selectionStart || 0;
+      const newValue = input.value.slice(0, cursorPos) + '()' + input.value.slice(cursorPos);
+      input.value = newValue;
+      input.setSelectionRange(cursorPos + 1, cursorPos + 1);
+      setInputValue(newValue);
+      return;
+    }
+
+    // Smart backspace for empty parentheses
+    if (e.key === 'Backspace' && !e.ctrlKey && !e.metaKey) {
+      const cursorPos = input.selectionStart || 0;
+      const value = input.value;
+      
+      // Check if cursor is right after '(' and next char is ')'
+      if (cursorPos > 0 && value[cursorPos - 1] === '(' && value[cursorPos] === ')') {
+        e.preventDefault();
+        // Delete both parentheses
+        const newValue = value.slice(0, cursorPos - 1) + value.slice(cursorPos + 1);
+        input.value = newValue;
+        input.setSelectionRange(cursorPos - 1, cursorPos - 1);
+        setInputValue(newValue);
+        return;
+      }
+    }
 
     switch (e.key) {
       case 'Enter':
