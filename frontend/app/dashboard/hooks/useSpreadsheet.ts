@@ -34,7 +34,7 @@ export function useSpreadsheet({
   copiedRange: CopiedRange;
   setDashOffset: React.Dispatch<React.SetStateAction<number>>;
   selection: Selection;
-  pointingSelection: Selection;
+  pointingSelection: Selection[] | null;
 }) {
   // Initialize canvas size
   useEffect(() => {
@@ -88,7 +88,7 @@ export function useSpreadsheet({
 
   // Marching ants animation for copied range and pointing selection
   useEffect(() => {
-    if (!copiedRange && !pointingSelection) return;
+    if (!copiedRange && (!pointingSelection || pointingSelection.length === 0)) return;
     
     const interval = setInterval(() => {
       setDashOffset(prev => (prev + 1) % DASH_OFFSET_MODULO);

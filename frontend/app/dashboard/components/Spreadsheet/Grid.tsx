@@ -232,18 +232,23 @@ export default function Grid() {
     
     // Parse and highlight cell references while typing in formula mode
     if (isEditing && newValue.startsWith('=')) {
-      // Find the last cell reference in the formula (before cursor or at end)
+      // Find all cell references in the formula
       // Match cell references: A1, $A$1, A1:B5, etc.
       const cellRefPattern = /(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)/g;
       const matches = Array.from(newValue.matchAll(cellRefPattern));
       
       if (matches.length > 0) {
-        // Get the last match (most recently typed)
-        const lastMatch = matches[matches.length - 1];
-        const ref = lastMatch[1];
-        const selection = parseCellReferenceToSelection(ref);
-        if (selection) {
-          setPointingSelection(selection);
+        // Convert all matches to selections
+        const selections: Selection[] = [];
+        for (const match of matches) {
+          const ref = match[1];
+          const selection = parseCellReferenceToSelection(ref);
+          if (selection) {
+            selections.push(selection);
+          }
+        }
+        if (selections.length > 0) {
+          setPointingSelection(selections);
         } else {
           setPointingSelection(null);
         }

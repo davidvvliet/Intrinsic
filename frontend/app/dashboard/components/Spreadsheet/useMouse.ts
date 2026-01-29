@@ -33,8 +33,8 @@ export function useMouse({
   moveToCell: (row: number, col: number, startEditing?: boolean) => void;
   containerRef: React.RefObject<HTMLDivElement | null>;
   inputValue: string;
-  pointingSelection: Selection;
-  setPointingSelection: React.Dispatch<React.SetStateAction<Selection>>;
+  pointingSelection: Selection[] | null;
+  setPointingSelection: React.Dispatch<React.SetStateAction<Selection[] | null>>;
   inputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const isFormulaMode = isEditing && inputValue.startsWith('=');
@@ -101,10 +101,10 @@ export function useMouse({
 
     if (isFormulaMode) {
       e.preventDefault();
-      const newSel = e.shiftKey && pointingSelection
-        ? { start: pointingSelection.start, end: cell }
+      const newSel = e.shiftKey && pointingSelection && pointingSelection.length > 0
+        ? { start: pointingSelection[0].start, end: cell }
         : { start: cell, end: cell };
-      setPointingSelection(newSel);
+      setPointingSelection([newSel]);
       updateFormulaWithReference(newSel);
       setIsDragging(true);
       return;
@@ -137,9 +137,9 @@ export function useMouse({
       const cell = getCellFromEvent(e);
       if (!cell) return;
 
-      if (isFormulaMode && pointingSelection) {
-        const newSel = { start: pointingSelection.start, end: cell };
-        setPointingSelection(newSel);
+      if (isFormulaMode && pointingSelection && pointingSelection.length > 0) {
+        const newSel = { start: pointingSelection[0].start, end: cell };
+        setPointingSelection([newSel]);
         updateFormulaWithReference(newSel);
         return;
       }

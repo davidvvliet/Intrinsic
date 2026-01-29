@@ -76,7 +76,7 @@ export function drawGrid({
   cellFormat: CellFormatData;
   computedData: ComputedData;
   selection: Selection;
-  pointingSelection: Selection;
+  pointingSelection: Selection[] | null;
   copiedRange: CopiedRange;
   dashOffset: number;
   zoom: number;
@@ -113,14 +113,21 @@ export function drawGrid({
   // Check if selection spans multiple cells
   const isMultiCellSelection = minRow !== maxRow || minCol !== maxCol;
 
-  // Calculate pointing selection bounds (for formula reference mode)
-  let pointMinRow = -1, pointMaxRow = -1, pointMinCol = -1, pointMaxCol = -1;
-  if (pointingSelection) {
-    pointMinRow = Math.min(pointingSelection.start.row, pointingSelection.end.row);
-    pointMaxRow = Math.max(pointingSelection.start.row, pointingSelection.end.row);
-    pointMinCol = Math.min(pointingSelection.start.col, pointingSelection.end.col);
-    pointMaxCol = Math.max(pointingSelection.start.col, pointingSelection.end.col);
-  }
+  // Helper function to check if a cell is in any pointing selection
+  const isInPointingSelection = (row: number, col: number): boolean => {
+    if (!pointingSelection) return false;
+    for (const sel of pointingSelection) {
+      if (!sel) continue;
+      const selMinRow = Math.min(sel.start.row, sel.end.row);
+      const selMaxRow = Math.max(sel.start.row, sel.end.row);
+      const selMinCol = Math.min(sel.start.col, sel.end.col);
+      const selMaxCol = Math.max(sel.start.col, sel.end.col);
+      if (row >= selMinRow && row <= selMaxRow && col >= selMinCol && col <= selMaxCol) {
+        return true;
+      }
+    }
+    return false;
+  };
 
   // PASS 1: Draw all fills first (so borders can be drawn on top)
   for (let row = startRow; row < endRow; row++) {
@@ -149,8 +156,7 @@ export function drawGrid({
       }
 
       // Draw pointing selection highlight (formula reference mode)
-      const inPointingSelection = row >= pointMinRow && row <= pointMaxRow && col >= pointMinCol && col <= pointMaxCol;
-      if (inPointingSelection) {
+      if (isInPointingSelection(row, col)) {
         ctx.fillStyle = POINTING_SELECTION_HIGHLIGHT;
         ctx.fillRect(x, y, cellWidth, cellHeight);
       }
@@ -274,18 +280,28 @@ export function drawGrid({
     }
   }
 
-  // Draw pointing selection border (formula reference mode) with marching ants
-  if (pointingSelection) {
-    const pointX = headerWidth + pointMinCol * cellWidth - scrollLeft;
-    const pointY = headerHeight + pointMinRow * cellHeight - scrollTop;
-    const pointWidth = (pointMaxCol - pointMinCol + 1) * cellWidth;
-    const pointHeight = (pointMaxRow - pointMinRow + 1) * cellHeight;
-    
+  // Draw pointing selection borders (formula reference mode) with marching ants
+  if (pointingSelection && pointingSelection.length > 0) {
     ctx.setLineDash(DASH_PATTERN);
     ctx.lineDashOffset = -dashOffset;
     ctx.strokeStyle = POINTING_SELECTION_BORDER;
     ctx.lineWidth = ACTIVE_BORDER_WIDTH;
-    ctx.strokeRect(pointX, pointY, pointWidth, pointHeight);
+    
+    for (const sel of pointingSelection) {
+      if (!sel) continue;
+      const pointMinRow = Math.min(sel.start.row, sel.end.row);
+      const pointMaxRow = Math.max(sel.start.row, sel.end.row);
+      const pointMinCol = Math.min(sel.start.col, sel.end.col);
+      const pointMaxCol = Math.max(sel.start.col, sel.end.col);
+      
+      const pointX = headerWidth + pointMinCol * cellWidth - scrollLeft;
+      const pointY = headerHeight + pointMinRow * cellHeight - scrollTop;
+      const pointWidth = (pointMaxCol - pointMinCol + 1) * cellWidth;
+      const pointHeight = (pointMaxRow - pointMinRow + 1) * cellHeight;
+      
+      ctx.strokeRect(pointX, pointY, pointWidth, pointHeight);
+    }
+    
     ctx.setLineDash([]);
     ctx.strokeStyle = CELL_BORDER;
     ctx.lineWidth = DEFAULT_BORDER_WIDTH;

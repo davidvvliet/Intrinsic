@@ -145,7 +145,7 @@ export function useKeyboard({
   insertFunction,
 }: {
   selection: Selection;
-  pointingSelection: Selection;
+  pointingSelection: Selection[] | null;
   isEditing: boolean;
   inputValue: string;
   cellData: CellData;
@@ -154,7 +154,7 @@ export function useKeyboard({
   setCellData: React.Dispatch<React.SetStateAction<CellData>>;
   setCellFormat: React.Dispatch<React.SetStateAction<CellFormatData>>;
   setSelection: React.Dispatch<React.SetStateAction<Selection>>;
-  setPointingSelection: React.Dispatch<React.SetStateAction<Selection>>;
+  setPointingSelection: React.Dispatch<React.SetStateAction<Selection[] | null>>;
   setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
   setCopiedRange: React.Dispatch<React.SetStateAction<CopiedRange>>;
@@ -444,20 +444,22 @@ export function useKeyboard({
       const deltaRow = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
       const deltaCol = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
       
-      if (e.shiftKey && pointingSelection) {
+      if (e.shiftKey && pointingSelection && pointingSelection.length > 0 && pointingSelection[0]) {
         // Extend the pointing selection (create/extend range)
-        const newEndRow = Math.max(0, Math.min(NUM_ROWS - 1, pointingSelection.end.row + deltaRow));
-        const newEndCol = Math.max(0, Math.min(NUM_COLS - 1, pointingSelection.end.col + deltaCol));
-        const newSel = { start: pointingSelection.start, end: { row: newEndRow, col: newEndCol } };
-        setPointingSelection(newSel);
+        const firstSel = pointingSelection[0];
+        const newEndRow = Math.max(0, Math.min(NUM_ROWS - 1, firstSel.end.row + deltaRow));
+        const newEndCol = Math.max(0, Math.min(NUM_COLS - 1, firstSel.end.col + deltaCol));
+        const newSel = { start: firstSel.start, end: { row: newEndRow, col: newEndCol } };
+        setPointingSelection([newSel]);
         updateFormulaWithReference(newSel);
       } else {
         // Start new pointing selection or move it
         let baseRow: number, baseCol: number;
-        if (pointingSelection && !endsWithOperator(inputValue)) {
+        if (pointingSelection && pointingSelection.length > 0 && pointingSelection[0] && !endsWithOperator(inputValue)) {
           // Move existing pointing selection
-          baseRow = pointingSelection.start.row;
-          baseCol = pointingSelection.start.col;
+          const firstSel = pointingSelection[0];
+          baseRow = firstSel.start.row;
+          baseCol = firstSel.start.col;
         } else {
           // Start from the editing cell
           baseRow = row;
@@ -467,7 +469,7 @@ export function useKeyboard({
         const newRow = Math.max(0, Math.min(NUM_ROWS - 1, baseRow + deltaRow));
         const newCol = Math.max(0, Math.min(NUM_COLS - 1, baseCol + deltaCol));
         const newSel = { start: { row: newRow, col: newCol }, end: { row: newRow, col: newCol } };
-        setPointingSelection(newSel);
+        setPointingSelection([newSel]);
         updateFormulaWithReference(newSel);
       }
       return;
@@ -585,7 +587,7 @@ export function useKeyboard({
         }
         
         // If typing an operator in formula mode, commit the current reference
-        if (isFormulaMode && pointingSelection && /^[+\-*/^&=<>,)]$/.test(e.key)) {
+        if (isFormulaMode && pointingSelection && pointingSelection.length > 0 && /^[+\-*/^&=<>,)]$/.test(e.key)) {
           setPointingSelection(null);
         }
         break;
