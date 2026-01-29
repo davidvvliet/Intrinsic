@@ -48,7 +48,7 @@ export type CellPosition = {
 export type Selection = {
   start: { row: number; col: number };
   end: { row: number; col: number };
-} | null;
+};
 
 export type ScrollPosition = {
   left: number;

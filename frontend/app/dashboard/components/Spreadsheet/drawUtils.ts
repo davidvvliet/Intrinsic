@@ -75,7 +75,7 @@ export function drawGrid({
   cellData: CellData;
   cellFormat: CellFormatData;
   computedData: ComputedData;
-  selection: Selection;
+  selection: Selection | null;
   pointingSelection: Selection[] | null;
   copiedRange: CopiedRange;
   dashOffset: number;

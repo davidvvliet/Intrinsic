@@ -7,7 +7,7 @@ import { writeToClipboard, readFromClipboard, applyPaste } from './clipboardUtil
 /**
  * Convert a Selection to a cell reference string (e.g., "A1" or "A1:B5")
  */
-function selectionToRef(sel: Selection): string {
+function selectionToRef(sel: Selection | null): string {
   if (!sel) return '';
   const startCol = getColumnLabel(sel.start.col);
   const startRow = sel.start.row + 1;
@@ -144,7 +144,7 @@ export function useKeyboard({
   setSelectedFunctionIndex,
   insertFunction,
 }: {
-  selection: Selection;
+  selection: Selection | null;
   pointingSelection: Selection[] | null;
   isEditing: boolean;
   inputValue: string;
@@ -153,7 +153,7 @@ export function useKeyboard({
   copiedRange: CopiedRange;
   setCellData: React.Dispatch<React.SetStateAction<CellData>>;
   setCellFormat: React.Dispatch<React.SetStateAction<CellFormatData>>;
-  setSelection: React.Dispatch<React.SetStateAction<Selection>>;
+  setSelection: React.Dispatch<React.SetStateAction<Selection | null>>;
   setPointingSelection: React.Dispatch<React.SetStateAction<Selection[] | null>>;
   setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
   setInputValue: React.Dispatch<React.SetStateAction<string>>;

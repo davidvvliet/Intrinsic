@@ -33,7 +33,7 @@ export function useSpreadsheet({
   drawGrid: () => void;
   copiedRange: CopiedRange;
   setDashOffset: React.Dispatch<React.SetStateAction<number>>;
-  selection: Selection;
+  selection: Selection | null;
   pointingSelection: Selection[] | null;
 }) {
   // Initialize canvas size

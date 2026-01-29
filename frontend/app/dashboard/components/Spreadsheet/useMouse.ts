@@ -21,12 +21,12 @@ export function useMouse({
   inputRef,
 }: {
   getCellFromEvent: (e: MouseEvent | React.MouseEvent) => CellPosition;
-  selection: Selection;
+  selection: Selection | null;
   isEditing: boolean;
   isDragging: boolean;
   setIsDragging: React.Dispatch<React.SetStateAction<boolean>>;
   cellData: CellData;
-  setSelection: React.Dispatch<React.SetStateAction<Selection>>;
+  setSelection: React.Dispatch<React.SetStateAction<Selection | null>>;
   setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
   saveCurrentCell: () => void;
@@ -39,7 +39,7 @@ export function useMouse({
 }) {
   const isFormulaMode = isEditing && inputValue.startsWith('=');
 
-  const selectionToRef = (sel: Selection): string => {
+  const selectionToRef = (sel: Selection | null): string => {
     if (!sel) return '';
     const startCol = getColumnLabel(sel.start.col);
     const startRow = sel.start.row + 1;
