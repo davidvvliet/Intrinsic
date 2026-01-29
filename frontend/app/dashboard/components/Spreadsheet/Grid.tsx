@@ -176,8 +176,16 @@ export default function Grid() {
     const match = afterEquals.match(/^([A-Za-z]+)/);
     
     if (match) {
-      const typed = match[1].toUpperCase();
-      const filtered = FUNCTION_NAMES.filter(fn => fn.startsWith(typed));
+      const typed = match[1];
+      // Don't show dropdown if function name is already followed by '(' (function already selected)
+      const afterTyped = afterEquals.slice(typed.length);
+      if (afterTyped.startsWith('(')) {
+        setShowFunctionDropdown(false);
+        return;
+      }
+      
+      const typedUpper = typed.toUpperCase();
+      const filtered = FUNCTION_NAMES.filter(fn => fn.startsWith(typedUpper));
       if (filtered.length > 0) {
         setFilteredFunctions(filtered);
         setShowFunctionDropdown(true);
@@ -197,7 +205,9 @@ export default function Grid() {
     const match = afterEquals.match(/^([A-Za-z]+)/);
     if (match) {
       const typed = match[1];
-      const newValue = '=' + functionName + '(' + afterEquals.slice(typed.length);
+      // Strip any auto-paired () that might exist
+      const remaining = afterEquals.slice(typed.length).replace(/^\(\)/, '');
+      const newValue = '=' + functionName + '()' + remaining;
       setInputValue(newValue);
       setShowFunctionDropdown(false);
       setTimeout(() => {
