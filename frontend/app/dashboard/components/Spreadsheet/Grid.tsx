@@ -15,8 +15,9 @@ import {
   HEADER_HEIGHT,
   CELL_FONT_SIZE,
 } from './config';
-import type { ScrollPosition } from './types';
+import type { ScrollPosition, Selection } from './types';
 import { drawGrid as drawGridUtil } from './drawUtils';
+import { parseCellRef } from './formulaEngine/cellRef';
 
 export default function Grid() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -132,9 +133,58 @@ export default function Grid() {
     inputRef,
   });
 
+  const parseCellReferenceToSelection = useCallback((ref: string): Selection | null => {
+    // Handle range like "A1:B5"
+    if (ref.includes(':')) {
+      const [startStr, endStr] = ref.split(':');
+      const start = parseCellRef(startStr);
+      const end = parseCellRef(endStr);
+      if (start && end) {
+        return {
+          start: { row: start.row, col: start.col },
+          end: { row: end.row, col: end.col },
+        };
+      }
+      return null;
+    }
+    
+    // Handle single cell like "A1"
+    const cellRef = parseCellRef(ref);
+    if (cellRef) {
+      return {
+        start: { row: cellRef.row, col: cellRef.col },
+        end: { row: cellRef.row, col: cellRef.col },
+      };
+    }
+    return null;
+  }, []);
+
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value);
-  }, [setInputValue]);
+    const newValue = e.target.value;
+    setInputValue(newValue);
+    
+    // Parse and highlight cell references while typing in formula mode
+    if (isEditing && newValue.startsWith('=')) {
+      // Find the last cell reference in the formula (before cursor or at end)
+      // Match cell references: A1, $A$1, A1:B5, etc.
+      const cellRefPattern = /(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)/g;
+      const matches = Array.from(newValue.matchAll(cellRefPattern));
+      
+      if (matches.length > 0) {
+        // Get the last match (most recently typed)
+        const lastMatch = matches[matches.length - 1];
+        const ref = lastMatch[1];
+        const selection = parseCellReferenceToSelection(ref);
+        if (selection) {
+          setPointingSelection(selection);
+        } else {
+          setPointingSelection(null);
+        }
+      } else {
+        setPointingSelection(null);
+      }
+    }
+  }, [setInputValue, isEditing, setPointingSelection, parseCellReferenceToSelection]);
 
   const handleInputBlur = useCallback(() => {
     saveCurrentCell();
