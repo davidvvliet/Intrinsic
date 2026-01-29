@@ -126,6 +126,10 @@ export default function Grid() {
     saveCurrentCell,
     moveToCell,
     containerRef,
+    inputValue,
+    pointingSelection,
+    setPointingSelection,
+    inputRef,
   });
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {

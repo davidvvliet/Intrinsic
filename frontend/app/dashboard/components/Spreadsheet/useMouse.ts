@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import type { CellData, Selection, CellPosition } from './types';
-import { getCellKey } from './drawUtils';
+import { getCellKey, getColumnLabel } from './drawUtils';
 
 export function useMouse({
   getCellFromEvent,
@@ -15,6 +15,10 @@ export function useMouse({
   saveCurrentCell,
   moveToCell,
   containerRef,
+  inputValue,
+  pointingSelection,
+  setPointingSelection,
+  inputRef,
 }: {
   getCellFromEvent: (e: MouseEvent | React.MouseEvent) => CellPosition;
   selection: Selection;
@@ -28,10 +32,73 @@ export function useMouse({
   saveCurrentCell: () => void;
   moveToCell: (row: number, col: number, startEditing?: boolean) => void;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  inputValue: string;
+  pointingSelection: Selection;
+  setPointingSelection: React.Dispatch<React.SetStateAction<Selection>>;
+  inputRef: React.RefObject<HTMLInputElement | null>;
 }) {
+  const isFormulaMode = isEditing && inputValue.startsWith('=');
+
+  const selectionToRef = (sel: Selection): string => {
+    if (!sel) return '';
+    const startCol = getColumnLabel(sel.start.col);
+    const startRow = sel.start.row + 1;
+    if (sel.start.row === sel.end.row && sel.start.col === sel.end.col) {
+      return `${startCol}${startRow}`;
+    }
+    const endCol = getColumnLabel(sel.end.col);
+    const endRow = sel.end.row + 1;
+    return `${startCol}${startRow}:${endCol}${endRow}`;
+  };
+
+  const findTrailingReference = (formula: string): number => {
+    const match = formula.match(/(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)$/);
+    if (match) {
+      return formula.length - match[1].length;
+    }
+    return -1;
+  };
+
+  const endsWithOperator = (formula: string): boolean => {
+    const trimmed = formula.trim();
+    return /[+\-*/^&=<>,(]$/.test(trimmed) || trimmed === '=';
+  };
+
+  const updateFormulaWithReference = (newPointingSel: Selection) => {
+    if (!newPointingSel) return;
+    const ref = selectionToRef(newPointingSel);
+    if (inputValue.endsWith('()')) {
+      setInputValue(inputValue.slice(0, -1) + ref + ')');
+      return;
+    }
+    const refBeforeParenMatch = inputValue.match(/(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)\)$/);
+    if (refBeforeParenMatch) {
+      const refStart = inputValue.length - refBeforeParenMatch[0].length;
+      setInputValue(inputValue.slice(0, refStart) + ref + ')');
+      return;
+    }
+    const trailingRefStart = findTrailingReference(inputValue);
+    if (trailingRefStart >= 0 && !endsWithOperator(inputValue)) {
+      setInputValue(inputValue.slice(0, trailingRefStart) + ref);
+    } else {
+      setInputValue(inputValue + ref);
+    }
+  };
+
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const cell = getCellFromEvent(e);
     if (!cell) return;
+
+    if (isFormulaMode) {
+      e.preventDefault();
+      const newSel = e.shiftKey && pointingSelection
+        ? { start: pointingSelection.start, end: cell }
+        : { start: cell, end: cell };
+      setPointingSelection(newSel);
+      updateFormulaWithReference(newSel);
+      setIsDragging(true);
+      return;
+    }
 
     if (e.shiftKey && selection) {
       // Shift+click: extend selection from anchor
@@ -45,7 +112,7 @@ export function useMouse({
     }
     setIsDragging(true);
     containerRef.current?.focus();
-  }, [getCellFromEvent, selection, isEditing, saveCurrentCell, cellData, setSelection, setInputValue, setIsEditing, setIsDragging, containerRef]);
+  }, [getCellFromEvent, selection, isEditing, isFormulaMode, pointingSelection, saveCurrentCell, cellData, setSelection, setPointingSelection, setInputValue, setIsEditing, setIsDragging, containerRef, inputValue]);
 
   const handleCanvasDoubleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const cell = getCellFromEvent(e);
@@ -58,7 +125,16 @@ export function useMouse({
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
       const cell = getCellFromEvent(e);
-      if (cell) {
+      if (!cell) return;
+
+      if (isFormulaMode && pointingSelection) {
+        const newSel = { start: pointingSelection.start, end: cell };
+        setPointingSelection(newSel);
+        updateFormulaWithReference(newSel);
+        return;
+      }
+
+      if (selection) {
         setSelection(prev => prev ? { start: prev.start, end: cell } : null);
       }
     };
@@ -73,7 +149,7 @@ export function useMouse({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, setIsDragging, getCellFromEvent, setSelection]);
+  }, [isDragging, isFormulaMode, setIsDragging, getCellFromEvent, setSelection, pointingSelection, setPointingSelection, inputValue, setInputValue]);
 
   return {
     handleMouseDown,
