@@ -442,34 +442,39 @@ export function useKeyboard({
     if (isFormulaMode && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
       e.preventDefault();
       
-      // Calculate direction delta
-      const deltaRow = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
-      const deltaCol = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
-      
       // Get existing references from current formula (before navigation updates it)
       const existingRefs = parseCellReferencesFromFormula(inputValue);
       
-      let newSel: Selection;
-      if (e.shiftKey && highlightedCells && highlightedCells.length > 0 && highlightedCells[0]) {
-        // Extend the last selection (create/extend range)
+      // Get base position - use last highlighted cell if exists, otherwise use editing cell
+      let baseRow: number, baseCol: number;
+      if (highlightedCells && highlightedCells.length > 0 && !endsWithOperator(inputValue)) {
         const lastSel = highlightedCells[highlightedCells.length - 1];
+        baseRow = lastSel.start.row;
+        baseCol = lastSel.start.col;
+      } else {
+        baseRow = row;
+        baseCol = col;
+      }
+      
+      let newSel: Selection;
+      
+      // Cmd/Ctrl+Arrow: jump to next non-empty cell
+      if (e.metaKey || e.ctrlKey) {
+        const direction = e.key === 'ArrowUp' ? 'up' : e.key === 'ArrowDown' ? 'down' : e.key === 'ArrowLeft' ? 'left' : 'right';
+        const target = findJumpTarget(baseRow, baseCol, direction, cellData);
+        newSel = { start: { row: target.row, col: target.col }, end: { row: target.row, col: target.col } };
+      } else if (e.shiftKey && highlightedCells && highlightedCells.length > 0 && highlightedCells[0]) {
+        // Shift+Arrow: extend the last selection (create/extend range)
+        const lastSel = highlightedCells[highlightedCells.length - 1];
+        const deltaRow = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+        const deltaCol = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
         const newEndRow = Math.max(0, Math.min(NUM_ROWS - 1, lastSel.end.row + deltaRow));
         const newEndCol = Math.max(0, Math.min(NUM_COLS - 1, lastSel.end.col + deltaCol));
         newSel = { start: lastSel.start, end: { row: newEndRow, col: newEndCol } };
       } else {
-        // Start new selection or move it
-        let baseRow: number, baseCol: number;
-        if (highlightedCells && highlightedCells.length > 0 && !endsWithOperator(inputValue)) {
-          // Move from last highlighted cell
-          const lastSel = highlightedCells[highlightedCells.length - 1];
-          baseRow = lastSel.start.row;
-          baseCol = lastSel.start.col;
-        } else {
-          // Start from the editing cell
-          baseRow = row;
-          baseCol = col;
-        }
-        
+        // Normal Arrow: move one cell
+        const deltaRow = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+        const deltaCol = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
         const newRow = Math.max(0, Math.min(NUM_ROWS - 1, baseRow + deltaRow));
         const newCol = Math.max(0, Math.min(NUM_COLS - 1, baseCol + deltaCol));
         newSel = { start: { row: newRow, col: newCol }, end: { row: newRow, col: newCol } };
