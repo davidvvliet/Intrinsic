@@ -16,8 +16,8 @@ export function useMouse({
   moveToCell,
   containerRef,
   inputValue,
-  pointingSelection,
-  setPointingSelection,
+  parseCellReferencesFromFormula,
+  setHighlightedCells,
   inputRef,
 }: {
   getCellFromEvent: (e: MouseEvent | React.MouseEvent) => CellPosition;
@@ -33,8 +33,8 @@ export function useMouse({
   moveToCell: (row: number, col: number, startEditing?: boolean) => void;
   containerRef: React.RefObject<HTMLDivElement | null>;
   inputValue: string;
-  pointingSelection: Selection[] | null;
-  setPointingSelection: React.Dispatch<React.SetStateAction<Selection[] | null>>;
+  parseCellReferencesFromFormula: (value: string) => Selection[];
+  setHighlightedCells: React.Dispatch<React.SetStateAction<Selection[] | null>>;
   inputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const isFormulaMode = isEditing && inputValue.startsWith('=');
@@ -101,11 +101,21 @@ export function useMouse({
 
     if (isFormulaMode) {
       e.preventDefault();
-      const newSel = e.shiftKey && pointingSelection && pointingSelection.length > 0
-        ? { start: pointingSelection[0].start, end: cell }
+      // Get existing references from current formula
+      const existingRefs = parseCellReferencesFromFormula(inputValue);
+      const lastSel = existingRefs.length > 0 ? existingRefs[existingRefs.length - 1] : null;
+      
+      const newSel = e.shiftKey && lastSel
+        ? { start: lastSel.start, end: cell }
         : { start: cell, end: cell };
-      setPointingSelection([newSel]);
+      
+      // Update formula with new reference
       updateFormulaWithReference(newSel);
+      
+      // Synchronously update highlightedCells: existing refs + navigating cell
+      const allSelections = [...existingRefs, newSel];
+      setHighlightedCells(allSelections);
+      
       setIsDragging(true);
       return;
     }
@@ -122,7 +132,7 @@ export function useMouse({
     }
     setIsDragging(true);
     containerRef.current?.focus();
-  }, [getCellFromEvent, selection, isEditing, isFormulaMode, pointingSelection, saveCurrentCell, cellData, setSelection, setPointingSelection, setInputValue, setIsEditing, setIsDragging, containerRef, inputValue]);
+  }, [getCellFromEvent, selection, isEditing, isFormulaMode, saveCurrentCell, cellData, setSelection, setInputValue, setIsEditing, setIsDragging, containerRef, inputValue, parseCellReferencesFromFormula, setHighlightedCells]);
 
   const handleCanvasDoubleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const cell = getCellFromEvent(e);
@@ -137,10 +147,20 @@ export function useMouse({
       const cell = getCellFromEvent(e);
       if (!cell) return;
 
-      if (isFormulaMode && pointingSelection && pointingSelection.length > 0) {
-        const newSel = { start: pointingSelection[0].start, end: cell };
-        setPointingSelection([newSel]);
-        updateFormulaWithReference(newSel);
+      if (isFormulaMode) {
+        // Get existing references from current formula
+        const existingRefs = parseCellReferencesFromFormula(inputValue);
+        const lastSel = existingRefs.length > 0 ? existingRefs[existingRefs.length - 1] : null;
+        
+        if (lastSel) {
+          const newSel = { start: lastSel.start, end: cell };
+          // Update formula with new reference
+          updateFormulaWithReference(newSel);
+          
+          // Synchronously update highlightedCells: existing refs + navigating cell
+          const allSelections = [...existingRefs, newSel];
+          setHighlightedCells(allSelections);
+        }
         return;
       }
 
@@ -159,7 +179,7 @@ export function useMouse({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, isFormulaMode, setIsDragging, getCellFromEvent, setSelection, pointingSelection, setPointingSelection, inputValue, setInputValue]);
+  }, [isDragging, isFormulaMode, setIsDragging, getCellFromEvent, setSelection, inputValue, setInputValue, parseCellReferencesFromFormula, setHighlightedCells]);
 
   return {
     handleMouseDown,

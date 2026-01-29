@@ -12,7 +12,7 @@ type SpreadsheetContextType = {
   cellFormat: CellFormatData;
   computedData: ComputedData;
   selection: Selection | null;
-  pointingSelection: Selection[] | null;
+  highlightedCells: Selection[] | null;
   inputValue: string;
   isEditing: boolean;
   copiedRange: CopiedRange;
@@ -21,7 +21,7 @@ type SpreadsheetContextType = {
   setCellData: React.Dispatch<React.SetStateAction<CellData>>;
   setCellFormat: React.Dispatch<React.SetStateAction<CellFormatData>>;
   setSelection: React.Dispatch<React.SetStateAction<Selection | null>>;
-  setPointingSelection: React.Dispatch<React.SetStateAction<Selection[] | null>>;
+  setHighlightedCells: React.Dispatch<React.SetStateAction<Selection[] | null>>;
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
   setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
   setCopiedRange: React.Dispatch<React.SetStateAction<CopiedRange>>;
@@ -47,7 +47,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   const [cellData, setCellData] = useState<CellData>(new Map());
   const [cellFormat, setCellFormat] = useState<CellFormatData>(new Map());
   const [selection, setSelection] = useState<Selection | null>(null);
-  const [pointingSelection, setPointingSelection] = useState<Selection[] | null>(null);
+  const [highlightedCells, setHighlightedCells] = useState<Selection[] | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [copiedRange, setCopiedRange] = useState<CopiedRange>(null);
@@ -70,8 +70,8 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         }
         return next;
       });
-      // Clear pointing selection when saving
-      setPointingSelection(null);
+      // Clear highlighted cells when saving
+      setHighlightedCells(null);
     }
   }, [selection, inputValue]);
 
@@ -109,14 +109,14 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         cellFormat,
         computedData,
         selection,
-        pointingSelection,
+        highlightedCells,
         inputValue,
         isEditing,
         copiedRange,
         setCellData,
         setCellFormat,
         setSelection,
-        setPointingSelection,
+        setHighlightedCells,
         setInputValue,
         setIsEditing,
         setCopiedRange,

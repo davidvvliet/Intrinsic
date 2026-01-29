@@ -24,7 +24,7 @@ export function useSpreadsheet({
   copiedRange,
   setDashOffset,
   selection,
-  pointingSelection,
+  highlightedCells,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -34,7 +34,7 @@ export function useSpreadsheet({
   copiedRange: CopiedRange;
   setDashOffset: React.Dispatch<React.SetStateAction<number>>;
   selection: Selection | null;
-  pointingSelection: Selection[] | null;
+  highlightedCells: Selection[] | null;
 }) {
   // Initialize canvas size
   useEffect(() => {
@@ -86,16 +86,17 @@ export function useSpreadsheet({
     return () => container.removeEventListener('wheel', handleWheel);
   }, [containerRef, setZoom]);
 
-  // Marching ants animation for copied range and pointing selection
+  // Marching ants animation for copied range and highlighted cells
   useEffect(() => {
-    if (!copiedRange && (!pointingSelection || pointingSelection.length === 0)) return;
+    const hasSelections = highlightedCells && highlightedCells.length > 0;
+    if (!copiedRange && !hasSelections) return;
     
     const interval = setInterval(() => {
       setDashOffset(prev => (prev + 1) % DASH_OFFSET_MODULO);
     }, MARCHING_ANTS_INTERVAL_MS);
     
     return () => clearInterval(interval);
-  }, [copiedRange, pointingSelection, setDashOffset]);
+  }, [copiedRange, highlightedCells, setDashOffset]);
 
   // Auto-scroll to keep selected cell in view
   useEffect(() => {

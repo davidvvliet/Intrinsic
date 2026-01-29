@@ -31,14 +31,14 @@ export default function Grid() {
     cellFormat,
     computedData,
     selection,
-    pointingSelection,
+    highlightedCells,
     inputValue,
     isEditing,
     copiedRange,
     setCellData,
     setCellFormat,
     setSelection,
-    setPointingSelection,
+    setHighlightedCells,
     setInputValue,
     setIsEditing,
     setCopiedRange,
@@ -73,13 +73,13 @@ export default function Grid() {
       cellFormat,
       computedData,
       selection,
-      pointingSelection,
+      highlightedCells,
       copiedRange,
       dashOffset,
       zoom,
       isEditing,
     });
-  }, [cellData, cellFormat, computedData, selection, pointingSelection, zoom, copiedRange, dashOffset, isEditing, containerRef]);
+  }, [cellData, cellFormat, computedData, selection, highlightedCells, zoom, copiedRange, dashOffset, isEditing, containerRef]);
 
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
@@ -120,25 +120,6 @@ export default function Grid() {
     return null;
   }, [zoom, containerRef]);
 
-  const { handleMouseDown, handleCanvasDoubleClick } = useMouse({
-    getCellFromEvent,
-    selection,
-    isEditing,
-    isDragging,
-    setIsDragging,
-    cellData,
-    setSelection,
-    setIsEditing,
-    setInputValue,
-    saveCurrentCell,
-    moveToCell,
-    containerRef,
-    inputValue,
-    pointingSelection,
-    setPointingSelection,
-    inputRef,
-  });
-
   const parseCellReferenceToSelection = useCallback((ref: string): Selection | null => {
     // Handle range like "A1:B5"
     if (ref.includes(':')) {
@@ -165,11 +146,10 @@ export default function Grid() {
     return null;
   }, []);
 
-  // Parse and highlight cell references from formula value
-  const parseAndHighlightCellReferences = useCallback((value: string) => {
+  // Synchronously parse cell references from formula value (returns array, doesn't set state)
+  const parseCellReferencesFromFormula = useCallback((value: string): Selection[] => {
     if (!isEditing || !value.startsWith('=')) {
-      setPointingSelection(null);
-      return;
+      return [];
     }
 
     // Find all cell references in the formula
@@ -177,32 +157,45 @@ export default function Grid() {
     const cellRefPattern = /(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)/g;
     const matches = Array.from(value.matchAll(cellRefPattern));
     
-    if (matches.length > 0) {
-      // Convert all matches to selections
-      const selections: Selection[] = [];
-      for (const match of matches) {
-        const ref = match[1];
-        const selection = parseCellReferenceToSelection(ref);
-        if (selection) {
-          selections.push(selection);
-        }
+    const selections: Selection[] = [];
+    for (const match of matches) {
+      const ref = match[1];
+      const selection = parseCellReferenceToSelection(ref);
+      if (selection) {
+        selections.push(selection);
       }
-      if (selections.length > 0) {
-        setPointingSelection(selections);
-      } else {
-        setPointingSelection(null);
-      }
-    } else {
-      setPointingSelection(null);
     }
-  }, [isEditing, setPointingSelection, parseCellReferenceToSelection]);
+    return selections;
+  }, [isEditing, parseCellReferenceToSelection]);
 
-  // Parse cell references when entering edit mode (only when not actively navigating)
+  // Update highlightedCells when inputValue or isEditing changes (synchronously)
   useEffect(() => {
-    if (isEditing && inputValue.startsWith('=') && !pointingSelection) {
-      parseAndHighlightCellReferences(inputValue);
+    const selections = parseCellReferencesFromFormula(inputValue);
+    if (selections.length > 0) {
+      setHighlightedCells(selections);
+    } else {
+      setHighlightedCells(null);
     }
-  }, [isEditing, inputValue, pointingSelection, parseAndHighlightCellReferences]);
+  }, [inputValue, isEditing, parseCellReferencesFromFormula, setHighlightedCells]);
+
+  const { handleMouseDown, handleCanvasDoubleClick } = useMouse({
+    getCellFromEvent,
+    selection,
+    isEditing,
+    isDragging,
+    setIsDragging,
+    cellData,
+    setSelection,
+    setIsEditing,
+    setInputValue,
+    saveCurrentCell,
+    moveToCell,
+    containerRef,
+    inputValue,
+    parseCellReferencesFromFormula,
+    setHighlightedCells,
+    inputRef,
+  });
 
   // Filter functions based on input
   useEffect(() => {
@@ -268,12 +261,8 @@ export default function Grid() {
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setInputValue(newValue);
-    
-    // Parse and highlight cell references while typing (only when not actively navigating)
-    if (!pointingSelection) {
-      parseAndHighlightCellReferences(newValue);
-    }
-  }, [setInputValue, pointingSelection, parseAndHighlightCellReferences]);
+    // parseAndHighlightCellReferences will be called by the useEffect watching inputValue
+  }, [setInputValue]);
 
   const handleInputBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
     // Don't close if clicking on dropdown
@@ -288,7 +277,6 @@ export default function Grid() {
 
   const { handleContainerKeyDown, handleKeyDown } = useKeyboard({
     selection,
-    pointingSelection,
     isEditing,
     inputValue,
     cellData,
@@ -297,7 +285,6 @@ export default function Grid() {
     setCellData,
     setCellFormat,
     setSelection,
-    setPointingSelection,
     setIsEditing,
     setInputValue,
     setCopiedRange,
@@ -311,6 +298,9 @@ export default function Grid() {
     setShowFunctionDropdown,
     setSelectedFunctionIndex,
     insertFunction,
+    parseCellReferencesFromFormula,
+    setHighlightedCells,
+    highlightedCells,
   });
 
   // Use spreadsheet effects hook
@@ -323,7 +313,7 @@ export default function Grid() {
     copiedRange,
     setDashOffset,
     selection,
-    pointingSelection,
+    highlightedCells,
   });
 
   return (

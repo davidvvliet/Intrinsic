@@ -120,7 +120,6 @@ function findJumpTarget(
 
 export function useKeyboard({
   selection,
-  pointingSelection,
   isEditing,
   inputValue,
   cellData,
@@ -129,7 +128,6 @@ export function useKeyboard({
   setCellData,
   setCellFormat,
   setSelection,
-  setPointingSelection,
   setIsEditing,
   setInputValue,
   setCopiedRange,
@@ -143,9 +141,11 @@ export function useKeyboard({
   setShowFunctionDropdown,
   setSelectedFunctionIndex,
   insertFunction,
+  parseCellReferencesFromFormula,
+  setHighlightedCells,
+  highlightedCells,
 }: {
   selection: Selection | null;
-  pointingSelection: Selection[] | null;
   isEditing: boolean;
   inputValue: string;
   cellData: CellData;
@@ -154,7 +154,6 @@ export function useKeyboard({
   setCellData: React.Dispatch<React.SetStateAction<CellData>>;
   setCellFormat: React.Dispatch<React.SetStateAction<CellFormatData>>;
   setSelection: React.Dispatch<React.SetStateAction<Selection | null>>;
-  setPointingSelection: React.Dispatch<React.SetStateAction<Selection[] | null>>;
   setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
   setCopiedRange: React.Dispatch<React.SetStateAction<CopiedRange>>;
@@ -168,6 +167,9 @@ export function useKeyboard({
   setShowFunctionDropdown: React.Dispatch<React.SetStateAction<boolean>>;
   setSelectedFunctionIndex: React.Dispatch<React.SetStateAction<number>>;
   insertFunction: (functionName: string) => void;
+  parseCellReferencesFromFormula: (value: string) => Selection[];
+  setHighlightedCells: React.Dispatch<React.SetStateAction<Selection[] | null>>;
+  highlightedCells: Selection[] | null;
 }) {
   // Check if we're in formula mode (editing a formula)
   const isFormulaMode = isEditing && inputValue.startsWith('=');
@@ -444,22 +446,24 @@ export function useKeyboard({
       const deltaRow = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
       const deltaCol = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
       
-      if (e.shiftKey && pointingSelection && pointingSelection.length > 0 && pointingSelection[0]) {
-        // Extend the pointing selection (create/extend range)
-        const firstSel = pointingSelection[0];
-        const newEndRow = Math.max(0, Math.min(NUM_ROWS - 1, firstSel.end.row + deltaRow));
-        const newEndCol = Math.max(0, Math.min(NUM_COLS - 1, firstSel.end.col + deltaCol));
-        const newSel = { start: firstSel.start, end: { row: newEndRow, col: newEndCol } };
-        setPointingSelection([newSel]);
-        updateFormulaWithReference(newSel);
+      // Get existing references from current formula (before navigation updates it)
+      const existingRefs = parseCellReferencesFromFormula(inputValue);
+      
+      let newSel: Selection;
+      if (e.shiftKey && highlightedCells && highlightedCells.length > 0 && highlightedCells[0]) {
+        // Extend the last selection (create/extend range)
+        const lastSel = highlightedCells[highlightedCells.length - 1];
+        const newEndRow = Math.max(0, Math.min(NUM_ROWS - 1, lastSel.end.row + deltaRow));
+        const newEndCol = Math.max(0, Math.min(NUM_COLS - 1, lastSel.end.col + deltaCol));
+        newSel = { start: lastSel.start, end: { row: newEndRow, col: newEndCol } };
       } else {
-        // Start new pointing selection or move it
+        // Start new selection or move it
         let baseRow: number, baseCol: number;
-        if (pointingSelection && pointingSelection.length > 0 && pointingSelection[0] && !endsWithOperator(inputValue)) {
-          // Move existing pointing selection
-          const firstSel = pointingSelection[0];
-          baseRow = firstSel.start.row;
-          baseCol = firstSel.start.col;
+        if (highlightedCells && highlightedCells.length > 0 && !endsWithOperator(inputValue)) {
+          // Move from last highlighted cell
+          const lastSel = highlightedCells[highlightedCells.length - 1];
+          baseRow = lastSel.start.row;
+          baseCol = lastSel.start.col;
         } else {
           // Start from the editing cell
           baseRow = row;
@@ -468,10 +472,16 @@ export function useKeyboard({
         
         const newRow = Math.max(0, Math.min(NUM_ROWS - 1, baseRow + deltaRow));
         const newCol = Math.max(0, Math.min(NUM_COLS - 1, baseCol + deltaCol));
-        const newSel = { start: { row: newRow, col: newCol }, end: { row: newRow, col: newCol } };
-        setPointingSelection([newSel]);
-        updateFormulaWithReference(newSel);
+        newSel = { start: { row: newRow, col: newCol }, end: { row: newRow, col: newCol } };
       }
+      
+      // Update formula with new reference
+      updateFormulaWithReference(newSel);
+      
+      // Synchronously update highlightedCells: existing refs + navigating cell
+      const allSelections = [...existingRefs, newSel];
+      setHighlightedCells(allSelections);
+      
       return;
     }
 
@@ -479,7 +489,8 @@ export function useKeyboard({
       case 'Enter':
         if (!showFunctionDropdown) {
           e.preventDefault();
-          setPointingSelection(null);
+          // Clear highlightedCells - useEffect will update it from formula
+          setHighlightedCells(null);
           saveCurrentCell();
           moveToCell(row + 1, col, false);
         }
@@ -491,14 +502,15 @@ export function useKeyboard({
           const key = getCellKey(row, col);
           setInputValue(cellData.get(key)?.raw || '');
           setIsEditing(false);
-          setPointingSelection(null);
+          setHighlightedCells(null);
           setTimeout(() => containerRef.current?.focus(), 0);
         }
         break;
       case 'Tab':
         if (!showFunctionDropdown) {
           e.preventDefault();
-          setPointingSelection(null);
+          // Clear highlightedCells - useEffect will update it from formula
+          setHighlightedCells(null);
           saveCurrentCell();
           if (e.shiftKey) {
             moveToCell(row, col - 1, false);
@@ -586,13 +598,13 @@ export function useKeyboard({
           return;
         }
         
-        // If typing an operator in formula mode, commit the current reference
-        if (isFormulaMode && pointingSelection && pointingSelection.length > 0 && /^[+\-*/^&=<>,)]$/.test(e.key)) {
-          setPointingSelection(null);
+        // If typing an operator in formula mode, clear highlightedCells - useEffect will update from formula
+        if (isFormulaMode && /^[+\-*/^&=<>,)]$/.test(e.key)) {
+          setHighlightedCells(null);
         }
         break;
     }
-  }, [selection, pointingSelection, isFormulaMode, inputValue, saveCurrentCell, moveToCell, cellData, setInputValue, setIsEditing, setPointingSelection, updateFormulaWithReference, containerRef, inputRef, showFunctionDropdown, filteredFunctions, selectedFunctionIndex, setShowFunctionDropdown, setSelectedFunctionIndex, insertFunction]);
+  }, [selection, isFormulaMode, inputValue, saveCurrentCell, moveToCell, cellData, setInputValue, setIsEditing, updateFormulaWithReference, containerRef, inputRef, showFunctionDropdown, filteredFunctions, selectedFunctionIndex, setShowFunctionDropdown, setSelectedFunctionIndex, insertFunction, parseCellReferencesFromFormula, setHighlightedCells, highlightedCells, endsWithOperator]);
 
   return {
     handleContainerKeyDown,
