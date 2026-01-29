@@ -515,6 +515,21 @@ export function useKeyboard({
         }
         break;
       default:
+        // Materialize closing parenthesis if user types ')' over auto-inserted one
+        if (e.key === ')' && !e.ctrlKey && !e.metaKey) {
+          const input = e.currentTarget;
+          const cursorPos = input.selectionStart || 0;
+          const value = input.value;
+          
+          // Check if next character is already ')'
+          if (value[cursorPos] === ')') {
+            e.preventDefault();
+            // Just move cursor forward, don't insert new ')'
+            input.setSelectionRange(cursorPos + 1, cursorPos + 1);
+            return;
+          }
+        }
+        
         // Auto-pair parentheses
         if (e.key === '(' && !e.ctrlKey && !e.metaKey) {
           e.preventDefault();
