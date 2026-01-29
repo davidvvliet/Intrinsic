@@ -222,6 +222,7 @@ export default function Grid() {
     copiedRange,
     setDashOffset,
     selection,
+    pointingSelection,
   });
 
   return (

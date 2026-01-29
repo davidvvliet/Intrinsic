@@ -1,5 +1,5 @@
 // Grid dimensions
-export const CELL_WIDTH = 80;
+export const CELL_WIDTH = 100;
 export const CELL_HEIGHT = 25;
 export const NUM_ROWS = 200;
 export const NUM_COLS = 50;
