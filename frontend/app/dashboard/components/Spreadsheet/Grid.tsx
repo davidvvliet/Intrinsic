@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { useSpreadsheet } from '../../hooks/useSpreadsheet';
 import { useSpreadsheetContext } from './SpreadsheetContext';
 import { useKeyboard } from './useKeyboard';
@@ -18,6 +18,9 @@ import {
 import type { ScrollPosition, Selection } from './types';
 import { drawGrid as drawGridUtil } from './drawUtils';
 import { parseCellRef } from './formulaEngine/cellRef';
+import { FUNCTIONS } from './formulaEngine/functions';
+
+const FUNCTION_NAMES = Object.keys(FUNCTIONS).sort();
 
 export default function Grid() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -50,6 +53,9 @@ export default function Grid() {
   const [scrollPosition, setScrollPosition] = useState<ScrollPosition>({ left: 0, top: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dashOffset, setDashOffset] = useState(0);
+  const [showFunctionDropdown, setShowFunctionDropdown] = useState(false);
+  const [filteredFunctions, setFilteredFunctions] = useState<string[]>([]);
+  const [selectedFunctionIndex, setSelectedFunctionIndex] = useState(0);
 
   const drawGrid = useCallback(() => {
     const canvas = canvasRef.current;
@@ -159,6 +165,52 @@ export default function Grid() {
     return null;
   }, []);
 
+  // Filter functions based on input
+  useEffect(() => {
+    if (!isEditing || !inputValue.startsWith('=')) {
+      setShowFunctionDropdown(false);
+      return;
+    }
+
+    const afterEquals = inputValue.slice(1);
+    const match = afterEquals.match(/^([A-Za-z]+)/);
+    
+    if (match) {
+      const typed = match[1].toUpperCase();
+      const filtered = FUNCTION_NAMES.filter(fn => fn.startsWith(typed));
+      if (filtered.length > 0) {
+        setFilteredFunctions(filtered);
+        setShowFunctionDropdown(true);
+        setSelectedFunctionIndex(0);
+      } else {
+        setShowFunctionDropdown(false);
+      }
+    } else {
+      setShowFunctionDropdown(false);
+    }
+  }, [inputValue, isEditing]);
+
+  const insertFunction = useCallback((functionName: string) => {
+    if (!inputValue.startsWith('=')) return;
+    
+    const afterEquals = inputValue.slice(1);
+    const match = afterEquals.match(/^([A-Za-z]+)/);
+    if (match) {
+      const typed = match[1];
+      const newValue = '=' + functionName + '(' + afterEquals.slice(typed.length);
+      setInputValue(newValue);
+      setShowFunctionDropdown(false);
+      setTimeout(() => {
+        const input = inputRef.current;
+        if (input) {
+          const cursorPos = '='.length + functionName.length + '('.length;
+          input.setSelectionRange(cursorPos, cursorPos);
+          input.focus();
+        }
+      }, 0);
+    }
+  }, [inputValue, setInputValue]);
+
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setInputValue(newValue);
@@ -186,7 +238,13 @@ export default function Grid() {
     }
   }, [setInputValue, isEditing, setPointingSelection, parseCellReferenceToSelection]);
 
-  const handleInputBlur = useCallback(() => {
+  const handleInputBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
+    // Don't close if clicking on dropdown
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    if (relatedTarget?.closest('[data-formula-dropdown]')) {
+      return;
+    }
+    setShowFunctionDropdown(false);
     saveCurrentCell();
     setIsEditing(false);
   }, [saveCurrentCell, setIsEditing]);
@@ -210,6 +268,12 @@ export default function Grid() {
     saveCurrentCell,
     inputRef,
     containerRef,
+    showFunctionDropdown,
+    filteredFunctions,
+    selectedFunctionIndex,
+    setShowFunctionDropdown,
+    setSelectedFunctionIndex,
+    insertFunction,
   });
 
   // Use spreadsheet effects hook
@@ -247,21 +311,56 @@ export default function Grid() {
         onDoubleClick={handleCanvasDoubleClick}
       />
       {selection && isEditing && (
-        <input
-          ref={inputRef}
-          className={styles.cellInput}
-          style={{
-            left: HEADER_WIDTH * zoom + selection.start.col * CELL_WIDTH * zoom - scrollPosition.left,
-            top: HEADER_HEIGHT * zoom + selection.start.row * CELL_HEIGHT * zoom - scrollPosition.top,
-            width: CELL_WIDTH * zoom,
-            height: CELL_HEIGHT * zoom,
-            fontSize: CELL_FONT_SIZE * zoom,
-          }}
-          value={inputValue}
-          onChange={handleInputChange}
-          onBlur={handleInputBlur}
-          onKeyDown={handleKeyDown}
-        />
+        <>
+          <input
+            ref={inputRef}
+            className={styles.cellInput}
+            style={{
+              left: HEADER_WIDTH * zoom + selection.start.col * CELL_WIDTH * zoom - scrollPosition.left,
+              top: HEADER_HEIGHT * zoom + selection.start.row * CELL_HEIGHT * zoom - scrollPosition.top,
+              width: CELL_WIDTH * zoom,
+              height: CELL_HEIGHT * zoom,
+              fontSize: CELL_FONT_SIZE * zoom,
+            }}
+            value={inputValue}
+            onChange={handleInputChange}
+            onBlur={handleInputBlur}
+            onKeyDown={handleKeyDown}
+          />
+          {showFunctionDropdown && filteredFunctions.length > 0 && (
+            <div
+              data-formula-dropdown
+              onMouseDown={(e) => e.preventDefault()}
+              style={{
+                position: 'absolute',
+                left: HEADER_WIDTH * zoom + selection.start.col * CELL_WIDTH * zoom - scrollPosition.left,
+                top: HEADER_HEIGHT * zoom + selection.start.row * CELL_HEIGHT * zoom - scrollPosition.top + CELL_HEIGHT * zoom,
+                width: CELL_WIDTH * zoom * 2,
+                backgroundColor: 'white',
+                border: '1px solid #ccc',
+                maxHeight: '200px',
+                overflowY: 'auto',
+                zIndex: 1000,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              }}
+            >
+              {filteredFunctions.map((fn, idx) => (
+                <div
+                  key={fn}
+                  onClick={() => insertFunction(fn)}
+                  style={{
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    backgroundColor: idx === selectedFunctionIndex ? '#e3f2fd' : 'white',
+                  }}
+                  onMouseEnter={() => setSelectedFunctionIndex(idx)}
+                >
+                  {fn}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

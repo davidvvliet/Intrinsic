@@ -137,6 +137,12 @@ export function useKeyboard({
   saveCurrentCell,
   inputRef,
   containerRef,
+  showFunctionDropdown,
+  filteredFunctions,
+  selectedFunctionIndex,
+  setShowFunctionDropdown,
+  setSelectedFunctionIndex,
+  insertFunction,
 }: {
   selection: Selection;
   pointingSelection: Selection;
@@ -156,6 +162,12 @@ export function useKeyboard({
   saveCurrentCell: () => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  showFunctionDropdown: boolean;
+  filteredFunctions: string[];
+  selectedFunctionIndex: number;
+  setShowFunctionDropdown: React.Dispatch<React.SetStateAction<boolean>>;
+  setSelectedFunctionIndex: React.Dispatch<React.SetStateAction<number>>;
+  insertFunction: (functionName: string) => void;
 }) {
   // Check if we're in formula mode (editing a formula)
   const isFormulaMode = isEditing && inputValue.startsWith('=');
@@ -400,7 +412,31 @@ export function useKeyboard({
 
     const { row, col } = selection.start;
 
-    // Handle formula mode arrow keys
+    // Handle function dropdown navigation FIRST (takes priority over formula mode)
+    if (showFunctionDropdown && filteredFunctions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedFunctionIndex(prev => (prev + 1) % filteredFunctions.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedFunctionIndex(prev => (prev - 1 + filteredFunctions.length) % filteredFunctions.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertFunction(filteredFunctions[selectedFunctionIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowFunctionDropdown(false);
+        return;
+      }
+    }
+
+    // Handle formula mode arrow keys (only when dropdown not showing)
     if (isFormulaMode && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
       e.preventDefault();
       
@@ -439,28 +475,34 @@ export function useKeyboard({
 
     switch (e.key) {
       case 'Enter':
-        e.preventDefault();
-        setPointingSelection(null);
-        saveCurrentCell();
-        moveToCell(row + 1, col, false);
+        if (!showFunctionDropdown) {
+          e.preventDefault();
+          setPointingSelection(null);
+          saveCurrentCell();
+          moveToCell(row + 1, col, false);
+        }
         break;
       case 'Escape':
-        e.preventDefault();
-        // Discard changes, reload original value
-        const key = getCellKey(row, col);
-        setInputValue(cellData.get(key)?.raw || '');
-        setIsEditing(false);
-        setPointingSelection(null);
-        setTimeout(() => containerRef.current?.focus(), 0);
+        if (!showFunctionDropdown) {
+          e.preventDefault();
+          // Discard changes, reload original value
+          const key = getCellKey(row, col);
+          setInputValue(cellData.get(key)?.raw || '');
+          setIsEditing(false);
+          setPointingSelection(null);
+          setTimeout(() => containerRef.current?.focus(), 0);
+        }
         break;
       case 'Tab':
-        e.preventDefault();
-        setPointingSelection(null);
-        saveCurrentCell();
-        if (e.shiftKey) {
-          moveToCell(row, col - 1, false);
-        } else {
-          moveToCell(row, col + 1, false);
+        if (!showFunctionDropdown) {
+          e.preventDefault();
+          setPointingSelection(null);
+          saveCurrentCell();
+          if (e.shiftKey) {
+            moveToCell(row, col - 1, false);
+          } else {
+            moveToCell(row, col + 1, false);
+          }
         }
         break;
       case 'ArrowUp':
@@ -548,7 +590,7 @@ export function useKeyboard({
         }
         break;
     }
-  }, [selection, pointingSelection, isFormulaMode, inputValue, saveCurrentCell, moveToCell, cellData, setInputValue, setIsEditing, setPointingSelection, updateFormulaWithReference, containerRef]);
+  }, [selection, pointingSelection, isFormulaMode, inputValue, saveCurrentCell, moveToCell, cellData, setInputValue, setIsEditing, setPointingSelection, updateFormulaWithReference, containerRef, inputRef, showFunctionDropdown, filteredFunctions, selectedFunctionIndex, setShowFunctionDropdown, setSelectedFunctionIndex, insertFunction]);
 
   return {
     handleContainerKeyDown,
