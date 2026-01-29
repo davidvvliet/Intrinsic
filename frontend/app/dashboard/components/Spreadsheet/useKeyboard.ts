@@ -167,6 +167,24 @@ export function useKeyboard({
     if (!newPointingSel) return;
     
     const ref = selectionToRef(newPointingSel);
+    
+    // Check if formula ends with empty parentheses (from auto-pairing)
+    if (inputValue.endsWith('()')) {
+      // Insert reference before the closing parenthesis
+      setInputValue(inputValue.slice(0, -1) + ref + ')');
+      return;
+    }
+    
+    // Check if formula ends with a cell reference followed by closing parenthesis
+    // e.g., =SUM(A1) or =SUM(A1:B5)
+    const refBeforeParenMatch = inputValue.match(/(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)\)$/);
+    if (refBeforeParenMatch) {
+      // Replace the reference before the closing parenthesis
+      const refStart = inputValue.length - refBeforeParenMatch[0].length;
+      setInputValue(inputValue.slice(0, refStart) + ref + ')');
+      return;
+    }
+    
     const trailingRefStart = findTrailingReference(inputValue);
     
     if (trailingRefStart >= 0 && !endsWithOperator(inputValue)) {

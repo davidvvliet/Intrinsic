@@ -274,16 +274,19 @@ export function drawGrid({
     }
   }
 
-  // Draw pointing selection border (formula reference mode)
+  // Draw pointing selection border (formula reference mode) with marching ants
   if (pointingSelection) {
     const pointX = headerWidth + pointMinCol * cellWidth - scrollLeft;
     const pointY = headerHeight + pointMinRow * cellHeight - scrollTop;
     const pointWidth = (pointMaxCol - pointMinCol + 1) * cellWidth;
     const pointHeight = (pointMaxRow - pointMinRow + 1) * cellHeight;
     
+    ctx.setLineDash(DASH_PATTERN);
+    ctx.lineDashOffset = -dashOffset;
     ctx.strokeStyle = POINTING_SELECTION_BORDER;
     ctx.lineWidth = ACTIVE_BORDER_WIDTH;
     ctx.strokeRect(pointX, pointY, pointWidth, pointHeight);
+    ctx.setLineDash([]);
     ctx.strokeStyle = CELL_BORDER;
     ctx.lineWidth = DEFAULT_BORDER_WIDTH;
   }
