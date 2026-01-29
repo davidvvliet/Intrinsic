@@ -165,6 +165,45 @@ export default function Grid() {
     return null;
   }, []);
 
+  // Parse and highlight cell references from formula value
+  const parseAndHighlightCellReferences = useCallback((value: string) => {
+    if (!isEditing || !value.startsWith('=')) {
+      setPointingSelection(null);
+      return;
+    }
+
+    // Find all cell references in the formula
+    // Match cell references: A1, $A$1, A1:B5, etc.
+    const cellRefPattern = /(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)/g;
+    const matches = Array.from(value.matchAll(cellRefPattern));
+    
+    if (matches.length > 0) {
+      // Convert all matches to selections
+      const selections: Selection[] = [];
+      for (const match of matches) {
+        const ref = match[1];
+        const selection = parseCellReferenceToSelection(ref);
+        if (selection) {
+          selections.push(selection);
+        }
+      }
+      if (selections.length > 0) {
+        setPointingSelection(selections);
+      } else {
+        setPointingSelection(null);
+      }
+    } else {
+      setPointingSelection(null);
+    }
+  }, [isEditing, setPointingSelection, parseCellReferenceToSelection]);
+
+  // Parse cell references when entering edit mode (only when not actively navigating)
+  useEffect(() => {
+    if (isEditing && inputValue.startsWith('=') && !pointingSelection) {
+      parseAndHighlightCellReferences(inputValue);
+    }
+  }, [isEditing, inputValue, pointingSelection, parseAndHighlightCellReferences]);
+
   // Filter functions based on input
   useEffect(() => {
     if (!isEditing || !inputValue.startsWith('=')) {
@@ -230,33 +269,11 @@ export default function Grid() {
     const newValue = e.target.value;
     setInputValue(newValue);
     
-    // Parse and highlight cell references while typing in formula mode
-    if (isEditing && newValue.startsWith('=')) {
-      // Find all cell references in the formula
-      // Match cell references: A1, $A$1, A1:B5, etc.
-      const cellRefPattern = /(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)/g;
-      const matches = Array.from(newValue.matchAll(cellRefPattern));
-      
-      if (matches.length > 0) {
-        // Convert all matches to selections
-        const selections: Selection[] = [];
-        for (const match of matches) {
-          const ref = match[1];
-          const selection = parseCellReferenceToSelection(ref);
-          if (selection) {
-            selections.push(selection);
-          }
-        }
-        if (selections.length > 0) {
-          setPointingSelection(selections);
-        } else {
-          setPointingSelection(null);
-        }
-      } else {
-        setPointingSelection(null);
-      }
+    // Parse and highlight cell references while typing (only when not actively navigating)
+    if (!pointingSelection) {
+      parseAndHighlightCellReferences(newValue);
     }
-  }, [setInputValue, isEditing, setPointingSelection, parseCellReferenceToSelection]);
+  }, [setInputValue, pointingSelection, parseAndHighlightCellReferences]);
 
   const handleInputBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
     // Don't close if clicking on dropdown
