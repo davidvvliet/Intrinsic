@@ -36,27 +36,26 @@ export function useFormulaEngine(cellData: CellData) {
       return { value: null, error: '#CIRCULAR!' };
     }
 
-    // Check if we have a cached computed value
-    const cached = computedData.get(key);
-    if (cached !== undefined) {
-      return cached;
-    }
-
-    // Get raw cell data
+    // Get raw cell data first to determine cell type
     const cell = cellData.get(key);
     if (!cell) {
       return null; // Empty cell
     }
 
-    // If it's a formula, evaluate it
+    // Only check computedData for formula cells
     if (cell.type === 'formula') {
+      const cached = computedData.get(key);
+      if (cached !== undefined) {
+        return cached;
+      }
+      // If not cached, evaluate it
       evaluatingCells.current.add(key);
       const result = evaluateFormula(cell.raw, getCellValue);
       evaluatingCells.current.delete(key);
       return result;
     }
 
-    // For non-formula cells, return the raw value as computed
+    // For non-formula cells, always read fresh from cellData
     if (cell.type === 'number') {
       const num = parseFloat(cell.raw);
       return { value: isNaN(num) ? cell.raw : num };
@@ -160,7 +159,7 @@ export function useFormulaEngine(cellData: CellData) {
     if (changedKeys.size > 0) {
       const cellsToRecalc = new Set<string>();
       
-      // Collect all cells that need recalculation (changed formulas + their dependents)
+      // Collect all cells that need recalculation (changed formulas + formulas that depend on changed cells)
       for (const key of changedKeys) {
         const cell = cellData.get(key);
         if (cell?.type === 'formula') {
@@ -170,6 +169,17 @@ export function useFormulaEngine(cellData: CellData) {
           if (dependents) {
             for (const dep of dependents) {
               cellsToRecalc.add(dep);
+            }
+          }
+        } else {
+          // For non-formula cells, add all formulas that depend on them
+          const dependents = depsGraph.current.dependents.get(key);
+          if (dependents) {
+            for (const dep of dependents) {
+              const depCell = cellData.get(dep);
+              if (depCell?.type === 'formula') {
+                cellsToRecalc.add(dep);
+              }
             }
           }
         }
@@ -237,11 +247,15 @@ export function useFormulaEngine(cellData: CellData) {
                 if (evaluatingCells.current.has(k)) {
                   return { value: null, error: '#CIRCULAR!' };
                 }
-                if (next.has(k)) {
-                  return next.get(k)!;
-                }
+                // Only check computedData for formula cells
                 const c = cellData.get(k);
                 if (!c) return null;
+                if (c.type === 'formula') {
+                  if (next.has(k)) {
+                    return next.get(k)!;
+                  }
+                }
+                // For non-formula cells, always read fresh from cellData
                 if (c.type === 'number') {
                   const num = parseFloat(c.raw);
                   return { value: isNaN(num) ? c.raw : num };
@@ -252,36 +266,9 @@ export function useFormulaEngine(cellData: CellData) {
               const result = evaluateFormula(cellToEval.raw, getVal);
               next.set(key, result);
               evaluatingCells.current.delete(key);
-            } else {
-              // Non-formula: store raw value as computed
-              if (cellToEval.type === 'number') {
-                const num = parseFloat(cellToEval.raw);
-                next.set(key, { value: isNaN(num) ? cellToEval.raw : num });
-              } else {
-                next.set(key, { value: cellToEval.raw });
-              }
             }
           }
 
-          return next;
-        });
-      } else {
-        // Update non-formula cells
-        setComputedData(prev => {
-          const next = new Map(prev);
-          for (const key of changedKeys) {
-            const cell = cellData.get(key);
-            if (!cell) {
-              next.delete(key);
-            } else if (cell.type !== 'formula') {
-              if (cell.type === 'number') {
-                const num = parseFloat(cell.raw);
-                next.set(key, { value: isNaN(num) ? cell.raw : num });
-              } else {
-                next.set(key, { value: cell.raw });
-              }
-            }
-          }
           return next;
         });
       }
@@ -336,11 +323,15 @@ export function useFormulaEngine(cellData: CellData) {
             if (evaluatingCells.current.has(k)) {
               return { value: null, error: '#CIRCULAR!' };
             }
-            if (next.has(k)) {
-              return next.get(k)!;
-            }
+            // Only check computedData for formula cells
             const c = cellData.get(k);
             if (!c) return null;
+            if (c.type === 'formula') {
+              if (next.has(k)) {
+                return next.get(k)!;
+              }
+            }
+            // For non-formula cells, always read fresh from cellData
             if (c.type === 'number') {
               const num = parseFloat(c.raw);
               return { value: isNaN(num) ? c.raw : num };
@@ -351,14 +342,6 @@ export function useFormulaEngine(cellData: CellData) {
           const result = evaluateFormula(cellToEval.raw, getVal);
           next.set(key, result);
           evaluatingCells.current.delete(key);
-        } else {
-          // Non-formula: store raw value as computed
-          if (cellToEval.type === 'number') {
-            const num = parseFloat(cellToEval.raw);
-            next.set(key, { value: isNaN(num) ? cellToEval.raw : num });
-          } else {
-            next.set(key, { value: cellToEval.raw });
-          }
         }
       }
 
@@ -383,15 +366,8 @@ export function useFormulaEngine(cellData: CellData) {
       if (cell.type === 'formula') {
         formulaCells.push(key);
         updateDependencies(key, cell.raw);
-      } else {
-        // Store non-formula values
-        if (cell.type === 'number') {
-          const num = parseFloat(cell.raw);
-          newComputed.set(key, { value: isNaN(num) ? cell.raw : num });
-        } else {
-          newComputed.set(key, { value: cell.raw });
-        }
       }
+      // Don't cache non-formula cells - read them fresh from cellData during evaluation
     }
 
     // Topological sort for evaluation order
@@ -428,11 +404,15 @@ export function useFormulaEngine(cellData: CellData) {
           if (evaluatingCells.current.has(k)) {
             return { value: null, error: '#CIRCULAR!' };
           }
-          if (newComputed.has(k)) {
-            return newComputed.get(k)!;
-          }
+          // Only check computedData for formula cells
           const c = cellData.get(k);
           if (!c) return null;
+          if (c.type === 'formula') {
+            if (newComputed.has(k)) {
+              return newComputed.get(k)!;
+            }
+          }
+          // For non-formula cells, always read fresh from cellData
           if (c.type === 'number') {
             const num = parseFloat(c.raw);
             return { value: isNaN(num) ? c.raw : num };
