@@ -301,6 +301,7 @@ export default function Grid() {
     parseCellReferencesFromFormula,
     setHighlightedCells,
     highlightedCells,
+    zoom,
   });
 
   // Use spreadsheet effects hook

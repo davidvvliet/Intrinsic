@@ -3,6 +3,7 @@ import { NUM_ROWS, NUM_COLS } from './config';
 import type { CellData, CellFormatData, Selection, CopiedRange } from './types';
 import { getCellKey, getColumnLabel } from './drawUtils';
 import { writeToClipboard, readFromClipboard, applyPaste } from './clipboardUtils';
+import { scrollToCell } from './scrollUtils';
 
 /**
  * Convert a Selection to a cell reference string (e.g., "A1" or "A1:B5")
@@ -144,6 +145,7 @@ export function useKeyboard({
   parseCellReferencesFromFormula,
   setHighlightedCells,
   highlightedCells,
+  zoom,
 }: {
   selection: Selection | null;
   isEditing: boolean;
@@ -170,6 +172,7 @@ export function useKeyboard({
   parseCellReferencesFromFormula: (value: string) => Selection[];
   setHighlightedCells: React.Dispatch<React.SetStateAction<Selection[] | null>>;
   highlightedCells: Selection[] | null;
+  zoom: number;
 }) {
   // Check if we're in formula mode (editing a formula)
   const isFormulaMode = isEditing && inputValue.startsWith('=');
@@ -487,6 +490,9 @@ export function useKeyboard({
       const allSelections = [...existingRefs, newSel];
       setHighlightedCells(allSelections);
       
+      // Scroll to the navigated cell
+      scrollToCell(newSel.start.row, newSel.start.col, containerRef, zoom);
+      
       return;
     }
 
@@ -609,7 +615,7 @@ export function useKeyboard({
         }
         break;
     }
-  }, [selection, isFormulaMode, inputValue, saveCurrentCell, moveToCell, cellData, setInputValue, setIsEditing, updateFormulaWithReference, containerRef, inputRef, showFunctionDropdown, filteredFunctions, selectedFunctionIndex, setShowFunctionDropdown, setSelectedFunctionIndex, insertFunction, parseCellReferencesFromFormula, setHighlightedCells, highlightedCells, endsWithOperator]);
+  }, [selection, isFormulaMode, inputValue, saveCurrentCell, moveToCell, cellData, setInputValue, setIsEditing, updateFormulaWithReference, containerRef, inputRef, showFunctionDropdown, filteredFunctions, selectedFunctionIndex, setShowFunctionDropdown, setSelectedFunctionIndex, insertFunction, parseCellReferencesFromFormula, setHighlightedCells, highlightedCells, endsWithOperator, zoom]);
 
   return {
     handleContainerKeyDown,
