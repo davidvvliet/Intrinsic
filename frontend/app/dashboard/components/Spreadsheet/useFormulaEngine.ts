@@ -470,11 +470,16 @@ export function useFormulaEngine(cellData: CellData) {
     return cell.raw;
   }, [cellData, computedData]);
 
+  const getDependencies = useCallback((cellKey: string): string[] => {
+    return Array.from(depsGraph.current.dependsOn.get(cellKey) || []);
+  }, []);
+
   return {
     computedData,
     recalculate,
     recalculateAll,
     getCellValue,
     getDisplayValue,
+    getDependencies,
   };
 }
