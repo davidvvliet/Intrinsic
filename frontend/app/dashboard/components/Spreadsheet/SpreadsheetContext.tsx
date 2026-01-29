@@ -32,7 +32,6 @@ type SpreadsheetContextType = {
   
   // Formula engine
   getDisplayValue: (key: string) => string;
-  getDependencies: (key: string) => string[];
   
   // Refs for Grid to use
   inputRef: React.RefObject<HTMLInputElement | null>;
@@ -54,7 +53,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   const [copiedRange, setCopiedRange] = useState<CopiedRange>(null);
 
   // Formula engine (auto-detects changes and recalculates)
-  const { computedData, getDisplayValue, getDependencies } = useFormulaEngine(cellData);
+  const { computedData, getDisplayValue } = useFormulaEngine(cellData);
 
   const saveCurrentCell = useCallback(() => {
     if (selection) {
@@ -124,7 +123,6 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         saveCurrentCell,
         moveToCell,
         getDisplayValue,
-        getDependencies,
         inputRef,
         containerRef,
       }}

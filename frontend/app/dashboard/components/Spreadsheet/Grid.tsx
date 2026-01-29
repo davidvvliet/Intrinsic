@@ -16,8 +16,8 @@ import {
   CELL_FONT_SIZE,
 } from './config';
 import type { ScrollPosition, Selection } from './types';
-import { drawGrid as drawGridUtil, getCellKey } from './drawUtils';
-import { parseCellRef, keyToCellRef } from './formulaEngine/cellRef';
+import { drawGrid as drawGridUtil } from './drawUtils';
+import { parseCellRef } from './formulaEngine/cellRef';
 import { FUNCTIONS } from './formulaEngine/functions';
 
 const FUNCTION_NAMES = Object.keys(FUNCTIONS).sort();
@@ -44,7 +44,6 @@ export default function Grid() {
     setCopiedRange,
     saveCurrentCell,
     moveToCell,
-    getDependencies,
     inputRef,
     containerRef,
   } = useSpreadsheetContext();
@@ -165,31 +164,6 @@ export default function Grid() {
     }
     return null;
   }, []);
-
-  // Set pointingSelection from stored dependencies when entering edit mode
-  useEffect(() => {
-    if (isEditing && selection && inputValue.startsWith('=')) {
-      const cellKey = getCellKey(selection.start.row, selection.start.col);
-      const deps = getDependencies(cellKey);
-      if (deps.length > 0) {
-        // Convert all dependency keys to cell refs
-        const cellRefs = deps.map(keyToCellRef).filter((ref): ref is NonNullable<typeof ref> => ref !== null);
-        if (cellRefs.length > 0) {
-          // Find min/max bounds to show full range
-          const rows = cellRefs.map(r => r.row);
-          const cols = cellRefs.map(r => r.col);
-          const minRow = Math.min(...rows);
-          const maxRow = Math.max(...rows);
-          const minCol = Math.min(...cols);
-          const maxCol = Math.max(...cols);
-          setPointingSelection({
-            start: { row: minRow, col: minCol },
-            end: { row: maxRow, col: maxCol },
-          });
-        }
-      }
-    }
-  }, [isEditing, selection, inputValue, getDependencies, setPointingSelection]);
 
   // Filter functions based on input
   useEffect(() => {
