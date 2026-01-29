@@ -183,6 +183,11 @@ export default function Grid() {
         setShowFunctionDropdown(false);
         return;
       }
+      // Don't show dropdown if letters are followed by a digit (cell reference like F8, A1, etc.)
+      if (/^\d/.test(afterTyped)) {
+        setShowFunctionDropdown(false);
+        return;
+      }
       
       const typedUpper = typed.toUpperCase();
       const filtered = FUNCTION_NAMES.filter(fn => fn.startsWith(typedUpper));
