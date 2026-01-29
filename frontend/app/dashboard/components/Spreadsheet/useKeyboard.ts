@@ -167,34 +167,40 @@ export function useKeyboard({
     if (!newPointingSel) return;
     
     const ref = selectionToRef(newPointingSel);
+    let newValue: string;
     
     // Check if formula ends with empty parentheses (from auto-pairing)
     if (inputValue.endsWith('()')) {
       // Insert reference before the closing parenthesis
-      setInputValue(inputValue.slice(0, -1) + ref + ')');
-      return;
-    }
-    
-    // Check if formula ends with a cell reference followed by closing parenthesis
-    // e.g., =SUM(A1) or =SUM(A1:B5)
-    const refBeforeParenMatch = inputValue.match(/(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)\)$/);
-    if (refBeforeParenMatch) {
-      // Replace the reference before the closing parenthesis
-      const refStart = inputValue.length - refBeforeParenMatch[0].length;
-      setInputValue(inputValue.slice(0, refStart) + ref + ')');
-      return;
-    }
-    
-    const trailingRefStart = findTrailingReference(inputValue);
-    
-    if (trailingRefStart >= 0 && !endsWithOperator(inputValue)) {
-      // Replace the trailing reference
-      setInputValue(inputValue.slice(0, trailingRefStart) + ref);
+      newValue = inputValue.slice(0, -1) + ref + ')';
     } else {
-      // Append new reference
-      setInputValue(inputValue + ref);
+      // Check if formula ends with a cell reference followed by closing parenthesis
+      // e.g., =SUM(A1) or =SUM(A1:B5)
+      const refBeforeParenMatch = inputValue.match(/(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)\)$/);
+      if (refBeforeParenMatch) {
+        // Replace the reference before the closing parenthesis
+        const refStart = inputValue.length - refBeforeParenMatch[0].length;
+        newValue = inputValue.slice(0, refStart) + ref + ')';
+      } else {
+        const trailingRefStart = findTrailingReference(inputValue);
+        if (trailingRefStart >= 0 && !endsWithOperator(inputValue)) {
+          // Replace the trailing reference
+          newValue = inputValue.slice(0, trailingRefStart) + ref;
+        } else {
+          // Append new reference
+          newValue = inputValue + ref;
+        }
+      }
     }
-  }, [inputValue, setInputValue]);
+    
+    // Set cursor position inside parentheses (or at end)
+    if (inputRef.current) {
+      inputRef.current.value = newValue;
+      const cursorPos = newValue.endsWith(')') ? newValue.length - 1 : newValue.length;
+      inputRef.current.setSelectionRange(cursorPos, cursorPos);
+    }
+    setInputValue(newValue);
+  }, [inputValue, setInputValue, inputRef]);
   const handleContainerKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!selection || isEditing) return;
 

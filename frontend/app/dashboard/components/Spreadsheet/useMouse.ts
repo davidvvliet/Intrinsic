@@ -67,22 +67,32 @@ export function useMouse({
   const updateFormulaWithReference = (newPointingSel: Selection) => {
     if (!newPointingSel) return;
     const ref = selectionToRef(newPointingSel);
+    let newValue: string;
+    
     if (inputValue.endsWith('()')) {
-      setInputValue(inputValue.slice(0, -1) + ref + ')');
-      return;
-    }
-    const refBeforeParenMatch = inputValue.match(/(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)\)$/);
-    if (refBeforeParenMatch) {
-      const refStart = inputValue.length - refBeforeParenMatch[0].length;
-      setInputValue(inputValue.slice(0, refStart) + ref + ')');
-      return;
-    }
-    const trailingRefStart = findTrailingReference(inputValue);
-    if (trailingRefStart >= 0 && !endsWithOperator(inputValue)) {
-      setInputValue(inputValue.slice(0, trailingRefStart) + ref);
+      newValue = inputValue.slice(0, -1) + ref + ')';
     } else {
-      setInputValue(inputValue + ref);
+      const refBeforeParenMatch = inputValue.match(/(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)\)$/);
+      if (refBeforeParenMatch) {
+        const refStart = inputValue.length - refBeforeParenMatch[0].length;
+        newValue = inputValue.slice(0, refStart) + ref + ')';
+      } else {
+        const trailingRefStart = findTrailingReference(inputValue);
+        if (trailingRefStart >= 0 && !endsWithOperator(inputValue)) {
+          newValue = inputValue.slice(0, trailingRefStart) + ref;
+        } else {
+          newValue = inputValue + ref;
+        }
+      }
     }
+    
+    // Set cursor position inside parentheses (or at end)
+    if (inputRef.current) {
+      inputRef.current.value = newValue;
+      const cursorPos = newValue.endsWith(')') ? newValue.length - 1 : newValue.length;
+      inputRef.current.setSelectionRange(cursorPos, cursorPos);
+    }
+    setInputValue(newValue);
   };
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
