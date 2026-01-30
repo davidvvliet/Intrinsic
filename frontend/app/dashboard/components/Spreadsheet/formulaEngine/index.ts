@@ -39,6 +39,12 @@ export function evaluateFormula(
   try {
     const tokens = tokenize(formula);
     const ast = parse(tokens);
+    
+    // Ranges can only be used as function arguments, not as top-level expressions
+    if (ast.type === 'range') {
+      return { value: null, error: '#VALUE!' };
+    }
+    
     return safeEvaluate(ast, getCellValue);
   } catch (err) {
     if (err instanceof TokenizerError) {
