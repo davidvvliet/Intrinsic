@@ -168,7 +168,10 @@ function toNumber(value: FunctionResult): number {
   if (typeof value === 'boolean') return value ? 1 : 0;
   if (typeof value === 'string') {
     const num = parseFloat(value);
-    return isNaN(num) ? 0 : num;
+    if (isNaN(num)) {
+      throw new EvaluatorError('#VALUE!', 'Text cannot be used in arithmetic operations');
+    }
+    return num;
   }
   return 0;
 }
