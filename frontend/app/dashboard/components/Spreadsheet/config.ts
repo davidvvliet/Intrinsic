@@ -18,8 +18,18 @@ export const EDITING_OUTLINE = 'rgba(0, 100, 200, 0.3)';
 export const ACTIVE_CELL_BORDER = '#0064c8';
 export const CELL_BORDER = 'rgba(0, 0, 0, 0.2)';
 export const HEADER_BORDER = 'rgba(0, 0, 0, 0.3)';
-export const POINTING_SELECTION_BORDER = '#b89aff';
+export const POINTING_SELECTION_BORDER = '#8b5cf6';
 export const POINTING_SELECTION_HIGHLIGHT = 'rgba(200, 180, 240, 0.3)';
+
+// Color palette for formula references (different color per reference)
+export const FORMULA_REFERENCE_COLORS = [
+  { fill: 'rgba(200, 180, 240, 0.3)', border: '#8b5cf6' },  // Original Purple 
+  { fill: 'rgba(16, 185, 129, 0.2)', border: '#10b981' },   // Green
+  { fill: 'rgba(245, 158, 11, 0.2)', border: '#f59e0b' },    // Amber
+  { fill: 'rgba(239, 68, 68, 0.2)', border: '#ef4444' },    // Red
+  { fill: 'rgba(236, 72, 153, 0.2)', border: '#ec4899' },  // Pink
+  { fill: 'rgba(14, 165, 233, 0.2)', border: '#0ea5e9' },  // Sky
+];
 
 // Font sizes
 export const CELL_FONT_SIZE = 13;

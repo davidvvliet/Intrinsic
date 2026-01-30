@@ -23,6 +23,7 @@ import {
   DASH_PATTERN,
   POINTING_SELECTION_BORDER,
   POINTING_SELECTION_HIGHLIGHT,
+  FORMULA_REFERENCE_COLORS,
 } from './config';
 import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange, CellType, ComputedData } from './types';
 import { applyFormat, shouldRightAlign } from './formatUtils';
@@ -113,21 +114,22 @@ export function drawGrid({
   // Check if selection spans multiple cells
   const isMultiCellSelection = minRow !== maxRow || minCol !== maxCol;
 
-  // Helper function to check if a cell is in highlightedCells
-  const isInHighlightedCells = (row: number, col: number): boolean => {
-    if (!highlightedCells || highlightedCells.length === 0) return false;
+  // Helper function to get the index of the highlighted cell (or -1 if not found)
+  const getHighlightedCellIndex = (row: number, col: number): number => {
+    if (!highlightedCells || highlightedCells.length === 0) return -1;
     
-    for (const sel of highlightedCells) {
+    for (let i = 0; i < highlightedCells.length; i++) {
+      const sel = highlightedCells[i];
       if (!sel) continue;
       const selMinRow = Math.min(sel.start.row, sel.end.row);
       const selMaxRow = Math.max(sel.start.row, sel.end.row);
       const selMinCol = Math.min(sel.start.col, sel.end.col);
       const selMaxCol = Math.max(sel.start.col, sel.end.col);
       if (row >= selMinRow && row <= selMaxRow && col >= selMinCol && col <= selMaxCol) {
-        return true;
+        return i;
       }
     }
-    return false;
+    return -1;
   };
 
   // PASS 1: Draw all fills first (so borders can be drawn on top)
@@ -156,9 +158,11 @@ export function drawGrid({
         ctx.fillRect(x, y, cellWidth, cellHeight);
       }
 
-      // Draw highlighted cells (formula reference mode)
-      if (isInHighlightedCells(row, col)) {
-        ctx.fillStyle = POINTING_SELECTION_HIGHLIGHT;
+      // Draw highlighted cells (formula reference mode) with different colors per reference
+      const highlightedIndex = getHighlightedCellIndex(row, col);
+      if (highlightedIndex >= 0) {
+        const colorIndex = highlightedIndex % FORMULA_REFERENCE_COLORS.length;
+        ctx.fillStyle = FORMULA_REFERENCE_COLORS[colorIndex].fill;
         ctx.fillRect(x, y, cellWidth, cellHeight);
       }
     }
@@ -281,15 +285,19 @@ export function drawGrid({
     }
   }
 
-  // Draw highlighted cells borders (formula reference mode) with marching ants
+  // Draw highlighted cells borders (formula reference mode) with marching ants and different colors per reference
   if (highlightedCells && highlightedCells.length > 0) {
     ctx.setLineDash(DASH_PATTERN);
     ctx.lineDashOffset = -dashOffset;
-    ctx.strokeStyle = POINTING_SELECTION_BORDER;
     ctx.lineWidth = ACTIVE_BORDER_WIDTH;
     
-    for (const sel of highlightedCells) {
+    for (let i = 0; i < highlightedCells.length; i++) {
+      const sel = highlightedCells[i];
       if (!sel) continue;
+      
+      const colorIndex = i % FORMULA_REFERENCE_COLORS.length;
+      ctx.strokeStyle = FORMULA_REFERENCE_COLORS[colorIndex].border;
+      
       const pointMinRow = Math.min(sel.start.row, sel.end.row);
       const pointMaxRow = Math.max(sel.start.row, sel.end.row);
       const pointMinCol = Math.min(sel.start.col, sel.end.col);
