@@ -4,3 +4,5 @@ openai
 httpx
 PyJWT
 cryptography
+asyncpg
+psycopg2-binary

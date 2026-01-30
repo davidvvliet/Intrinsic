@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.chat import router as chat_router
+from app.api.sheets import router as sheets_router
+from app.storage.async_db import get_pool, close_pool as close_async_pool
+from app.storage.search_db import close_pool as close_search_pool
 
 app = FastAPI()
 
@@ -13,3 +16,19 @@ app.add_middleware(
 )
 
 app.include_router(chat_router, prefix="/api")
+app.include_router(sheets_router, prefix="/api")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database connection pools on FastAPI startup."""
+    await get_pool()  # Eager initialization - creates pool at startup
+    print("Database pools initialized")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Close database connection pools on FastAPI shutdown."""
+    await close_async_pool()
+    close_search_pool()
+    print("Database pools closed")
