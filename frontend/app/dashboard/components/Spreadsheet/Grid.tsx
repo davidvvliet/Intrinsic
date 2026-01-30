@@ -205,12 +205,16 @@ export default function Grid() {
     }
 
     const afterEquals = inputValue.slice(1);
-    const match = afterEquals.match(/^([A-Za-z]+)/);
+    // Match letters that come after operators (+, -, *, /, (, ,) or at the start, and are at the end
+    // This allows matching "S" in "=A1+B2+ S" instead of just "A1"
+    const match = afterEquals.match(/(?:^|[\+\-\*\/\(,\s]+)([A-Za-z]+)$/);
     
     if (match) {
       const typed = match[1];
       // Don't show dropdown if function name is already followed by '(' (function already selected)
-      const afterTyped = afterEquals.slice(typed.length);
+      // Check what comes after the matched letters in the full afterEquals string
+      const typedIndex = afterEquals.lastIndexOf(typed);
+      const afterTyped = afterEquals.slice(typedIndex + typed.length);
       if (afterTyped.startsWith('(')) {
         setShowFunctionDropdown(false);
         return;
@@ -239,18 +243,22 @@ export default function Grid() {
     if (!inputValue.startsWith('=')) return;
     
     const afterEquals = inputValue.slice(1);
-    const match = afterEquals.match(/^([A-Za-z]+)/);
+    // Match letters that come after operators (+, -, *, /, (, ,) or at the start, and are at the end
+    const match = afterEquals.match(/(?:^|[\+\-\*\/\(,\s]+)([A-Za-z]+)$/);
     if (match) {
       const typed = match[1];
+      // Find the position of the typed letters in the string
+      const typedIndex = afterEquals.lastIndexOf(typed);
       // Strip any auto-paired () that might exist
-      const remaining = afterEquals.slice(typed.length).replace(/^\(\)/, '');
-      const newValue = '=' + functionName + '()' + remaining;
+      const remaining = afterEquals.slice(typedIndex + typed.length).replace(/^\(\)/, '');
+      const beforeTyped = afterEquals.slice(0, typedIndex);
+      const newValue = '=' + beforeTyped + functionName + '()' + remaining;
       setInputValue(newValue);
       setShowFunctionDropdown(false);
       setTimeout(() => {
         const input = inputRef.current;
         if (input) {
-          const cursorPos = '='.length + functionName.length + '('.length;
+          const cursorPos = '='.length + beforeTyped.length + functionName.length + '('.length;
           input.setSelectionRange(cursorPos, cursorPos);
           input.focus();
         }
