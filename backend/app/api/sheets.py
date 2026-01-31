@@ -4,6 +4,7 @@ from app.storage.async_db import execute_query_one, execute_command
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 import json
+import secrets
 
 router = APIRouter()
 
@@ -57,13 +58,44 @@ async def get_sheet(
     }
 
 
+@router.post("/sheets")
+async def create_sheet(
+    sheet_data: SheetData,
+    user = Depends(get_workos_user)
+):
+    """Create a new sheet. Returns the generated sheet ID."""
+    user_id = user["id"]
+    
+    # Generate URL-safe base64 16-character ID
+    sheet_id = secrets.token_urlsafe(12)  # 12 bytes = 16 base64 chars
+    
+    # Convert SheetData to JSONB format
+    data_jsonb = {
+        "cells": sheet_data.cells,
+        "dimensions": sheet_data.dimensions or {"rows": 1000, "cols": 26},
+        "settings": sheet_data.settings or {},
+        "formatting": sheet_data.formatting or {}
+    }
+    
+    # Create new sheet
+    await execute_command(
+        """
+        INSERT INTO sheets (id, user_id, name, data, updated_at)
+        VALUES ($1, $2, $3, $4::jsonb, NOW())
+        """,
+        sheet_id, user_id, "Untitled", data_jsonb
+    )
+    
+    return {"status": "created", "id": sheet_id}
+
+
 @router.put("/sheets/{sheet_id}")
 async def save_sheet(
     sheet_id: str,
     sheet_data: SheetData,
     user = Depends(get_workos_user)
 ):
-    """Save/update a sheet. Creates if doesn't exist, updates if it does."""
+    """Update an existing sheet. Only updates if user owns it."""
     user_id = user["id"]
     
     # Convert SheetData to JSONB format
@@ -80,32 +112,17 @@ async def save_sheet(
         sheet_id, user_id
     )
     
-    if existing:
-        # Update existing sheet
-        await execute_command(
-            """
-            UPDATE sheets 
-            SET data = $1::jsonb, updated_at = NOW()
-            WHERE id = $2 AND user_id = $3
-            """,
-            data_jsonb, sheet_id, user_id
-        )
-    else:
-        # Check if sheet exists but belongs to another user
-        other_user = await execute_query_one(
-            "SELECT id FROM sheets WHERE id = $1",
-            sheet_id
-        )
-        if other_user:
-            raise HTTPException(status_code=403, detail="Access denied")
-        
-        # Create new sheet
-        await execute_command(
-            """
-            INSERT INTO sheets (id, user_id, name, data, updated_at)
-            VALUES ($1, $2, $3, $4::jsonb, NOW())
-            """,
-            sheet_id, user_id, "Untitled", data_jsonb
-        )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Sheet not found")
     
-    return {"status": "saved", "sheet_id": sheet_id}
+    # Update existing sheet
+    await execute_command(
+        """
+        UPDATE sheets 
+        SET data = $1::jsonb, updated_at = NOW()
+        WHERE id = $2 AND user_id = $3
+        """,
+        data_jsonb, sheet_id, user_id
+    )
+    
+    return {"status": "saved", "id": sheet_id}

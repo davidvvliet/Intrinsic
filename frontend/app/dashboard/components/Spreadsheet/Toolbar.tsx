@@ -7,7 +7,7 @@ import FormatDropdown from './FormatDropdown';
 import styles from './Toolbar.module.css';
 
 export default function Toolbar() {
-  const { selection, cellFormat, setCellFormat } = useSpreadsheetContext();
+  const { selection, cellFormat, updateCellFormats } = useSpreadsheetContext();
 
   // Get current cell's format
   const getCurrentFormat = useCallback((): CellFormat => {
@@ -32,21 +32,19 @@ export default function Toolbar() {
     const anchorFormat = cellFormat.get(anchorKey) || {};
     const newValue = !anchorFormat[property];
 
-    setCellFormat(prev => {
-      const next = new Map(prev);
-      for (let row = minRow; row <= maxRow; row++) {
-        for (let col = minCol; col <= maxCol; col++) {
-          const key = getCellKey(row, col);
-          const existing = next.get(key) || {};
-          next.set(key, {
-            ...existing,
-            [property]: newValue || undefined,
-          });
-        }
+    const newCellFormat = new Map(cellFormat);
+    for (let row = minRow; row <= maxRow; row++) {
+      for (let col = minCol; col <= maxCol; col++) {
+        const key = getCellKey(row, col);
+        const existing = cellFormat.get(key) || {};
+        newCellFormat.set(key, {
+          ...existing,
+          [property]: newValue || undefined,
+        });
       }
-      return next;
-    });
-  }, [selection, cellFormat, setCellFormat]);
+    }
+    updateCellFormats(newCellFormat);
+  }, [selection, cellFormat, updateCellFormats]);
 
   // Set text color for all selected cells
   const handleTextColor = useCallback((color: string | null) => {
@@ -57,27 +55,25 @@ export default function Toolbar() {
     const minCol = Math.min(selection.start.col, selection.end.col);
     const maxCol = Math.max(selection.start.col, selection.end.col);
 
-    setCellFormat(prev => {
-      const next = new Map(prev);
-      for (let row = minRow; row <= maxRow; row++) {
-        for (let col = minCol; col <= maxCol; col++) {
-          const key = getCellKey(row, col);
-          const existing = next.get(key) || {};
-          if (color) {
-            next.set(key, { ...existing, textColor: color });
+    const newCellFormat = new Map(cellFormat);
+    for (let row = minRow; row <= maxRow; row++) {
+      for (let col = minCol; col <= maxCol; col++) {
+        const key = getCellKey(row, col);
+        const existing = cellFormat.get(key) || {};
+        if (color) {
+          newCellFormat.set(key, { ...existing, textColor: color });
+        } else {
+          const { textColor, ...rest } = existing;
+          if (Object.keys(rest).length > 0) {
+            newCellFormat.set(key, rest);
           } else {
-            const { textColor, ...rest } = existing;
-            if (Object.keys(rest).length > 0) {
-              next.set(key, rest);
-            } else {
-              next.delete(key);
-            }
+            newCellFormat.delete(key);
           }
         }
       }
-      return next;
-    });
-  }, [selection, setCellFormat]);
+    }
+    updateCellFormats(newCellFormat);
+  }, [selection, cellFormat, updateCellFormats]);
 
   // Set fill color for all selected cells
   const handleFillColor = useCallback((color: string | null) => {
@@ -88,27 +84,25 @@ export default function Toolbar() {
     const minCol = Math.min(selection.start.col, selection.end.col);
     const maxCol = Math.max(selection.start.col, selection.end.col);
 
-    setCellFormat(prev => {
-      const next = new Map(prev);
-      for (let row = minRow; row <= maxRow; row++) {
-        for (let col = minCol; col <= maxCol; col++) {
-          const key = getCellKey(row, col);
-          const existing = next.get(key) || {};
-          if (color) {
-            next.set(key, { ...existing, fillColor: color });
+    const newCellFormat = new Map(cellFormat);
+    for (let row = minRow; row <= maxRow; row++) {
+      for (let col = minCol; col <= maxCol; col++) {
+        const key = getCellKey(row, col);
+        const existing = cellFormat.get(key) || {};
+        if (color) {
+          newCellFormat.set(key, { ...existing, fillColor: color });
+        } else {
+          const { fillColor, ...rest } = existing;
+          if (Object.keys(rest).length > 0) {
+            newCellFormat.set(key, rest);
           } else {
-            const { fillColor, ...rest } = existing;
-            if (Object.keys(rest).length > 0) {
-              next.set(key, rest);
-            } else {
-              next.delete(key);
-            }
+            newCellFormat.delete(key);
           }
         }
       }
-      return next;
-    });
-  }, [selection, setCellFormat]);
+    }
+    updateCellFormats(newCellFormat);
+  }, [selection, cellFormat, updateCellFormats]);
 
   // Set number format for all selected cells
   const handleNumberFormat = useCallback((format: NumberFormatSettings | null) => {
@@ -119,27 +113,25 @@ export default function Toolbar() {
     const minCol = Math.min(selection.start.col, selection.end.col);
     const maxCol = Math.max(selection.start.col, selection.end.col);
 
-    setCellFormat(prev => {
-      const next = new Map(prev);
-      for (let row = minRow; row <= maxRow; row++) {
-        for (let col = minCol; col <= maxCol; col++) {
-          const key = getCellKey(row, col);
-          const existing = next.get(key) || {};
-          if (format) {
-            next.set(key, { ...existing, numberFormat: format });
+    const newCellFormat = new Map(cellFormat);
+    for (let row = minRow; row <= maxRow; row++) {
+      for (let col = minCol; col <= maxCol; col++) {
+        const key = getCellKey(row, col);
+        const existing = cellFormat.get(key) || {};
+        if (format) {
+          newCellFormat.set(key, { ...existing, numberFormat: format });
+        } else {
+          const { numberFormat, ...rest } = existing;
+          if (Object.keys(rest).length > 0) {
+            newCellFormat.set(key, rest);
           } else {
-            const { numberFormat, ...rest } = existing;
-            if (Object.keys(rest).length > 0) {
-              next.set(key, rest);
-            } else {
-              next.delete(key);
-            }
+            newCellFormat.delete(key);
           }
         }
       }
-      return next;
-    });
-  }, [selection, setCellFormat]);
+    }
+    updateCellFormats(newCellFormat);
+  }, [selection, cellFormat, updateCellFormats]);
 
   // Prevent focus loss when clicking toolbar buttons
   const preventFocusLoss = useCallback((e: React.MouseEvent) => {

@@ -19,6 +19,8 @@ dist/
 .env.test.local
 .env.production.local
 
+.neon
+
 # Docker
 docker-compose.override.yml
 .dockerignore

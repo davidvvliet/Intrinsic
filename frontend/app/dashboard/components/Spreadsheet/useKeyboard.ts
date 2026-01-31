@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { NUM_ROWS, NUM_COLS } from './config';
-import type { CellData, CellFormatData, Selection, CopiedRange } from './types';
+import type { CellData, CellFormatData, CellType, CellFormat, Selection, CopiedRange } from './types';
 import { getCellKey, getColumnLabel } from './drawUtils';
 import { writeToClipboard, readFromClipboard, applyPaste } from './clipboardUtils';
 import { scrollToCell } from './scrollUtils';
@@ -126,8 +126,8 @@ export function useKeyboard({
   cellData,
   cellFormat,
   copiedRange,
-  setCellData,
-  setCellFormat,
+  updateCells,
+  updateCellFormats,
   setSelection,
   setIsEditing,
   setInputValue,
@@ -153,8 +153,8 @@ export function useKeyboard({
   cellData: CellData;
   cellFormat: CellFormatData;
   copiedRange: CopiedRange;
-  setCellData: React.Dispatch<React.SetStateAction<CellData>>;
-  setCellFormat: React.Dispatch<React.SetStateAction<CellFormatData>>;
+  updateCells: (newCellData: Map<string, { raw: string; type: CellType }>) => void;
+  updateCellFormats: (newCellFormat: Map<string, CellFormat>) => void;
   setSelection: React.Dispatch<React.SetStateAction<Selection | null>>;
   setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
@@ -304,17 +304,14 @@ export function useKeyboard({
           const minCol = Math.min(selection.start.col, selection.end.col);
           const maxCol = Math.max(selection.start.col, selection.end.col);
 
-          setCellData(prev => {
-            const next = new Map(prev);
-            // Delete all cells in the selection range
-            for (let row = minRow; row <= maxRow; row++) {
-              for (let col = minCol; col <= maxCol; col++) {
-                const key = getCellKey(row, col);
-                next.delete(key);
-              }
+          // Create new Map with all current cells except the deleted ones
+          const newCellData = new Map(cellData);
+          for (let row = minRow; row <= maxRow; row++) {
+            for (let col = minCol; col <= maxCol; col++) {
+              newCellData.delete(getCellKey(row, col));
             }
-            return next;
-          });
+          }
+          updateCells(newCellData);
           setInputValue('');
         }
         break;
@@ -356,8 +353,8 @@ export function useKeyboard({
               cellFormat,
               copiedRange
             );
-            setCellData(newCellData);
-            setCellFormat(newCellFormat);
+            updateCells(newCellData);
+            updateCellFormats(newCellFormat);
             
             // Update inputValue to show pasted formula in formula bar
             const pastedKey = getCellKey(selection.start.row, selection.start.col);
@@ -379,24 +376,17 @@ export function useKeyboard({
           writeToClipboard(cellData, cellFormat, cutRange);
           
           // Delete cells and formats
-          setCellData(prev => {
-            const next = new Map(prev);
-            for (let r = cutRange.minRow; r <= cutRange.maxRow; r++) {
-              for (let c = cutRange.minCol; c <= cutRange.maxCol; c++) {
-                next.delete(getCellKey(r, c));
-              }
+          const newCellDataAfterCut = new Map(cellData);
+          const newCellFormatAfterCut = new Map(cellFormat);
+          for (let r = cutRange.minRow; r <= cutRange.maxRow; r++) {
+            for (let c = cutRange.minCol; c <= cutRange.maxCol; c++) {
+              const key = getCellKey(r, c);
+              newCellDataAfterCut.delete(key);
+              newCellFormatAfterCut.delete(key);
             }
-            return next;
-          });
-          setCellFormat(prev => {
-            const next = new Map(prev);
-            for (let r = cutRange.minRow; r <= cutRange.maxRow; r++) {
-              for (let c = cutRange.minCol; c <= cutRange.maxCol; c++) {
-                next.delete(getCellKey(r, c));
-              }
-            }
-            return next;
-          });
+          }
+          updateCells(newCellDataAfterCut);
+          updateCellFormats(newCellFormatAfterCut);
           setInputValue('');
         }
         break;
@@ -410,7 +400,7 @@ export function useKeyboard({
         }
         break;
     }
-  }, [selection, isEditing, moveToCell, setCellData, setCellFormat, setInputValue, cellData, cellFormat, setSelection, setIsEditing, setCopiedRange, inputRef]);
+  }, [selection, isEditing, moveToCell, updateCells, updateCellFormats, setInputValue, cellData, cellFormat, setSelection, setIsEditing, setCopiedRange, inputRef]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!selection) return;
