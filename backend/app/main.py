@@ -9,7 +9,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://intrinsic-kappa.vercel.app", "https://runintrinsic.com"],
+    allow_origins=["http://localhost:3000", "https://intrinsic-kappa.vercel.app", "https://runintrinsic.com", "https://intrinsic-gvfgz.ondigitalocean.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
