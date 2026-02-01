@@ -2,7 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAccessToken } from '@workos-inc/authkit-nextjs/components';
 import { useSpreadsheetContext } from './SpreadsheetContext';
-import { NUM_ROWS, NUM_COLS } from './config';
+import { NUM_ROWS, NUM_COLS, AUTO_SAVE_DELAY_MS } from './config';
 import type { CellFormat, CellType } from './types';
 
 export function useSheetPersistence() {
@@ -19,6 +19,8 @@ export function useSheetPersistence() {
     setBaselineData,
     setBaselineFormat,
     setDirtyCells,
+    activeSheetId,
+    sheets,
   } = useSpreadsheetContext();
 
   // Get sheet ID from URL (don't generate until first save)
@@ -96,7 +98,24 @@ export function useSheetPersistence() {
 
     // Update URL with sheet ID (from response for new sheets, or existing for updates)
     router.replace(`/dashboard?sheet=${returnedSheetId}`);
-  }, [dirtyCells, serializeSheetData, markSaved, sheetIdFromUrl, accessToken, router]);
+
+    // Update fetchId in localStorage for the active sheet
+    if (activeSheetId) {
+      try {
+        const stored = localStorage.getItem('spreadsheet_sheets');
+        if (stored) {
+          const sheets = JSON.parse(stored);
+          const activeSheetIndex = sheets.findIndex((s: { sheetId: string }) => s.sheetId === activeSheetId);
+          if (activeSheetIndex !== -1) {
+            sheets[activeSheetIndex].fetchId = returnedSheetId;
+            localStorage.setItem('spreadsheet_sheets', JSON.stringify(sheets));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to update fetchId in localStorage:', err);
+      }
+    }
+  }, [dirtyCells, serializeSheetData, markSaved, sheetIdFromUrl, accessToken, router, activeSheetId]);
 
   // Load sheet from server
   const loadSheet = useCallback(async (sheetIdToLoad: string) => {
@@ -156,7 +175,7 @@ export function useSheetPersistence() {
     router.replace(`/dashboard?sheet=${sheetIdToLoad}`);
   }, [accessToken, setCellData, setCellFormat, setBaselineData, setBaselineFormat, setDirtyCells, router]);
 
-  // Auto-save: debounced save after 750ms of inactivity
+  // Auto-save: debounced save after delay of inactivity
   useEffect(() => {
     if (dirtyCells.size === 0 || !accessToken) return;
 
@@ -164,18 +183,37 @@ export function useSheetPersistence() {
       saveBatch().catch(err => {
         console.error('Auto-save failed:', err);
       });
-    }, 750);
+    }, AUTO_SAVE_DELAY_MS);
 
     return () => clearTimeout(timer);
   }, [dirtyCells, accessToken, saveBatch]);
 
-  // Initialize: Load sheet from URL if param exists
+  // Watch activeSheetId and load data when it changes
   useEffect(() => {
-    if (!accessToken || !sheetIdFromUrl) return;
+    if (!activeSheetId || !accessToken) return;
 
-    // Sheet ID in URL - load it
-    loadSheet(sheetIdFromUrl).catch(err => {
-      console.error('Load sheet failed:', err);
-    });
-  }, [accessToken, sheetIdFromUrl, loadSheet]);
+    // Find active sheet from state
+    const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
+    
+    if (!activeSheet) return;
+
+    if (activeSheet.fetchId) {
+      // Sheet has backend ID - load it
+      loadSheet(activeSheet.fetchId).catch(err => {
+        console.error('Load sheet failed:', err);
+      });
+    } else {
+      // Unsaved sheet - clear cell data
+      setCellData(new Map());
+      setCellFormat(new Map());
+      setBaselineData(new Map());
+      setBaselineFormat(new Map());
+      setDirtyCells(new Set());
+      router.replace('/dashboard');
+    }
+
+    // Save activeSheetId to localStorage
+    localStorage.setItem('spreadsheet_last_active_sheet_id', activeSheetId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSheetId, accessToken, sheets]);
 }

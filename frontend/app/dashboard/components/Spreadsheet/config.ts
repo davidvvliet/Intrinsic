@@ -52,3 +52,6 @@ export const ZOOM_DELTA = 0.01;
 export const DASH_PATTERN = [5, 5];
 export const DASH_OFFSET_MODULO = 10;
 export const MARCHING_ANTS_INTERVAL_MS = 80;
+
+// Auto-save
+export const AUTO_SAVE_DELAY_MS = 300;

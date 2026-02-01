@@ -3,6 +3,7 @@ import { useSheetPersistence } from './useSheetPersistence';
 import Toolbar from './Toolbar';
 import FormulaBar from './FormulaBar';
 import Grid from './Grid';
+import SheetBar from './SheetBar';
 import styles from './Spreadsheet.module.css';
 
 function SpreadsheetContent() {
@@ -14,6 +15,7 @@ function SpreadsheetContent() {
       <Toolbar />
       <FormulaBar />
       <Grid />
+      <SheetBar />
     </div>
   );
 }

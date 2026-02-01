@@ -43,6 +43,24 @@ type SpreadsheetContextType = {
   // Formula engine
   getDisplayValue: (key: string) => string;
   
+  // Active sheet
+  activeSheetId: string | null;
+  setActiveSheetId: React.Dispatch<React.SetStateAction<string | null>>;
+  
+  // Sheets metadata
+  sheets: Array<{
+    sheetId: string;
+    fetchId: string | null;
+    name: string;
+    createdAt: string;
+  }>;
+  setSheets: React.Dispatch<React.SetStateAction<Array<{
+    sheetId: string;
+    fetchId: string | null;
+    name: string;
+    createdAt: string;
+  }>>>;
+  
   // Refs for Grid to use
   inputRef: React.RefObject<HTMLInputElement | null>;
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -53,6 +71,14 @@ const SpreadsheetContext = createContext<SpreadsheetContextType | null>(null);
 export function SpreadsheetProvider({ children }: { children: React.ReactNode }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const [activeSheetId, setActiveSheetId] = useState<string | null>(null);
+  const [sheets, setSheets] = useState<Array<{
+    sheetId: string;
+    fetchId: string | null;
+    name: string;
+    createdAt: string;
+  }>>([]);
 
   const [cellData, setCellData] = useState<CellData>(new Map());
   const [cellFormat, setCellFormat] = useState<CellFormatData>(new Map());
@@ -277,6 +303,10 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         updateCellFormats,
         markSaved,
         getDisplayValue,
+        activeSheetId,
+        setActiveSheetId,
+        sheets,
+        setSheets,
         inputRef,
         containerRef,
       }}
