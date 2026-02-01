@@ -126,3 +126,29 @@ async def save_sheet(
     )
     
     return {"status": "saved", "id": sheet_id}
+
+
+@router.delete("/sheets/{sheet_id}")
+async def delete_sheet(
+    sheet_id: str,
+    user = Depends(get_workos_user)
+):
+    """Delete a sheet. Only deletes if user owns it."""
+    user_id = user["id"]
+    
+    # Check if sheet exists and user owns it
+    existing = await execute_query_one(
+        "SELECT id FROM sheets WHERE id = $1 AND user_id = $2",
+        sheet_id, user_id
+    )
+    
+    if not existing:
+        raise HTTPException(status_code=404, detail="Sheet not found")
+    
+    # Delete the sheet
+    await execute_command(
+        "DELETE FROM sheets WHERE id = $1 AND user_id = $2",
+        sheet_id, user_id
+    )
+    
+    return {"status": "deleted", "id": sheet_id}
