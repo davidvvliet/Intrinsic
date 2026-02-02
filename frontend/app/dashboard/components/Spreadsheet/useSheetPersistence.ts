@@ -19,6 +19,11 @@ export function useSheetPersistence() {
     setBaselineData,
     setBaselineFormat,
     setDirtyCells,
+    setSelection,
+    setHighlightedCells,
+    setInputValue,
+    setIsEditing,
+    setCopiedRange,
     activeSheetId,
     sheets,
   } = useSpreadsheetContext();
@@ -171,9 +176,16 @@ export function useSheetPersistence() {
     // Clear dirty cells
     setDirtyCells(new Set());
 
+    // Clear UI state
+    setSelection(null);
+    setHighlightedCells(null);
+    setInputValue('');
+    setIsEditing(false);
+    setCopiedRange(null);
+
     // Update URL to match loaded sheet
     router.replace(`/dashboard?sheet=${sheetIdToLoad}`);
-  }, [accessToken, setCellData, setCellFormat, setBaselineData, setBaselineFormat, setDirtyCells, router]);
+  }, [accessToken, setCellData, setCellFormat, setBaselineData, setBaselineFormat, setDirtyCells, setSelection, setHighlightedCells, setInputValue, setIsEditing, setCopiedRange, router]);
 
   // Auto-save: debounced save after delay of inactivity
   useEffect(() => {
@@ -209,6 +221,14 @@ export function useSheetPersistence() {
       setBaselineData(new Map());
       setBaselineFormat(new Map());
       setDirtyCells(new Set());
+      
+      // Clear UI state
+      setSelection(null);
+      setHighlightedCells(null);
+      setInputValue('');
+      setIsEditing(false);
+      setCopiedRange(null);
+      
       router.replace('/dashboard');
     }
 
