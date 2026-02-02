@@ -46,6 +46,35 @@ export function determineCellType(value: string): CellType {
   return 'text';
 }
 
+/**
+ * Limits decimal places based on integer digit count.
+ * Shows max(0, 10 - integer_digit_count) decimal places.
+ * Formula bar should show full value, so this only affects cell display.
+ */
+function limitDecimalsByIntegerDigits(value: string): string {
+  // Try to parse as number
+  const num = Number(value);
+  if (isNaN(num) || !isFinite(num)) {
+    return value; // Not a number, return as-is
+  }
+
+  // Handle negative numbers
+  const isNegative = num < 0;
+  const absNum = Math.abs(num);
+
+  // Count integer digits
+  const integerPart = Math.floor(absNum);
+  const integerDigits = integerPart === 0 ? 1 : Math.floor(Math.log10(integerPart)) + 1;
+
+  // Calculate max decimal places: max(0, 10 - integer_digit_count)
+  const maxDecimals = Math.max(0, 10 - integerDigits);
+
+  // Format with calculated decimal places, then remove trailing zeros
+  const formatted = num.toFixed(maxDecimals);
+  // Remove trailing zeros and decimal point if no decimals remain
+  return formatted.replace(/\.?0+$/, '');
+}
+
 export function getColumnLabel(col: number): string {
   let label = '';
   let c = col;
@@ -241,6 +270,11 @@ export function drawGrid({
           }
         } else {
           displayValue = cellValue.raw;
+        }
+        
+        // Limit decimal places based on integer digit count (only for numeric values, not errors)
+        if (!hasError && isNumeric(displayValue)) {
+          displayValue = limitDecimalsByIntegerDigits(displayValue);
         }
         
         // Apply number format to get display text
