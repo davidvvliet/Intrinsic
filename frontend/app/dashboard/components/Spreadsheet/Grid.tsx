@@ -18,9 +18,9 @@ import {
 import type { ScrollPosition, Selection } from './types';
 import { drawGrid as drawGridUtil } from './drawUtils';
 import { parseCellRef } from './formulaEngine/cellRef';
-import { FUNCTIONS } from './formulaEngine/functions';
+import { EXCEL_FUNCTION_SIGNATURES } from './formulaEngine/excelfunctions';
 
-const FUNCTION_NAMES = Object.keys(FUNCTIONS).sort();
+const FUNCTION_NAMES = Object.keys(EXCEL_FUNCTION_SIGNATURES).sort();
 
 export default function Grid() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
