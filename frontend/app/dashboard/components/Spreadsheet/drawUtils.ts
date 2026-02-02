@@ -85,6 +85,33 @@ export function getColumnLabel(col: number): string {
   return label;
 }
 
+/**
+ * Convert A1 notation to row and column indices
+ * @param a1 - Cell reference in A1 notation (e.g., "A1", "B2", "AA10")
+ * @returns Object with row and col (0-indexed)
+ */
+export function a1ToRowCol(a1: string): { row: number; col: number } {
+  const match = a1.match(/^([A-Z]+)(\d+)$/i);
+  if (!match) {
+    throw new Error(`Invalid A1 notation: ${a1}`);
+  }
+  
+  const [, colStr, rowStr] = match;
+  
+  // Convert column letters to number (A=0, B=1, ..., Z=25, AA=26, etc.)
+  let col = 0;
+  for (let i = 0; i < colStr.length; i++) {
+    const char = colStr[i].toUpperCase();
+    col = col * 26 + (char.charCodeAt(0) - 64);
+  }
+  col -= 1; // Convert to 0-indexed
+  
+  // Convert row number to 0-indexed
+  const row = parseInt(rowStr, 10) - 1;
+  
+  return { row, col };
+}
+
 export function drawGrid({
   ctx,
   canvas,

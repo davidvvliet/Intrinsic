@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useAccessToken } from '@workos-inc/authkit-nextjs/components';
 import DashboardNavbar from './components/DashboardNavbar';
@@ -9,6 +9,7 @@ import ChatDisplay from './components/ChatDisplay';
 import SearchInput from './components/SearchInput';
 import { useColumnMinimize } from './hooks/useColumnMinimize';
 import { useChatStream } from './hooks/useChatStream';
+import { useChatMessages } from './hooks/useChatMessages';
 import { ChatMessage } from './types/chat';
 import styles from './page.module.css';
 
@@ -21,14 +22,25 @@ export default function Dashboard() {
   const columnMinimize = useColumnMinimize();
   const { accessToken } = useAccessToken();
   
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatMessages, setChatMessages] = useChatMessages();
   const [query, setQuery] = useState<string>('');
+  const toolCallHandlerRef = useRef<((name: string, args: any) => void) | null>(null);
 
   const handleMessageComplete = useCallback((message: string) => {
     setChatMessages(prev => [...prev, { role: 'assistant', content: message }]);
   }, []);
 
-  const { streamingText, isStreaming, isToolCalling, sendMessage } = useChatStream(handleMessageComplete);
+  const handleToolCall = useCallback((name: string, args: any) => {
+    if (toolCallHandlerRef.current) {
+      toolCallHandlerRef.current(name, args);
+    }
+  }, []);
+
+  const handleRegisterToolHandler = useCallback((handler: (name: string, args: any) => void) => {
+    toolCallHandlerRef.current = handler;
+  }, []);
+
+  const { streamingText, isStreaming, isToolCalling, sendMessage } = useChatStream(handleMessageComplete, handleToolCall);
 
   const handleSearch = useCallback(() => {
     if (!query.trim()) return;
@@ -55,7 +67,7 @@ export default function Dashboard() {
           </div> */}
         </div>
         <div className={styles.middleColumn}>
-          <Spreadsheet />
+          <Spreadsheet onToolCall={handleRegisterToolHandler} />
         </div>
         <div 
           className={`${styles.rightColumn} ${columnMinimize.rightMinimized ? styles.hidden : ''}`}

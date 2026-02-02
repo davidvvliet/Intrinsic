@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react';
 import { ChatMessage, UseChatStreamReturn } from '../types/chat';
 
 export function useChatStream(
-  onMessageComplete: (message: string) => void
+  onMessageComplete: (message: string) => void,
+  onToolCall?: (name: string, args: any) => void
 ): UseChatStreamReturn {
   const [streamingText, setStreamingText] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
@@ -61,14 +62,26 @@ export function useChatStream(
             
             try {
               const parsed = JSON.parse(data);
+              console.log('[CHAT] Parsed event:', parsed);
               
               if (parsed.content) {
+                console.log('[CHAT] Content added:', parsed.content, 'fullMessage:', fullMessage);
                 fullMessage += parsed.content;
                 setStreamingText(fullMessage);
               }
 
+              if (parsed.tool_call) {
+                console.log('[CHAT] Tool call received:', parsed.tool_call);
+                setIsToolCalling(true);
+                if (onToolCall) {
+                  onToolCall(parsed.tool_call.name, parsed.tool_call.arguments);
+                }
+                continue; // Skip further processing for tool calls
+              }
+
               if (parsed.tool_call_start) {
                 setIsToolCalling(true);
+                continue; // Skip further processing
               }
 
               if (parsed.done) {
@@ -87,6 +100,7 @@ export function useChatStream(
               }
             } catch (e) {
               // If not JSON, treat as plain text
+              console.log('[CHAT] JSON parse failed, treating as text:', data, 'error:', e);
               fullMessage += data;
               setStreamingText(fullMessage);
             }
@@ -103,7 +117,7 @@ export function useChatStream(
       setIsStreaming(false);
       setIsToolCalling(false);
     }
-  }, [onMessageComplete]);
+  }, [onMessageComplete, onToolCall]);
 
   return {
     streamingText,
