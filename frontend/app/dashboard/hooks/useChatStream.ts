@@ -76,12 +76,10 @@ export function useChatStream(
                 if (onToolCall) {
                   onToolCall(parsed.tool_call.name, parsed.tool_call.arguments);
                 }
-                continue; // Skip further processing for tool calls
               }
 
               if (parsed.tool_call_start) {
                 setIsToolCalling(true);
-                continue; // Skip further processing
               }
 
               if (parsed.done) {
