@@ -46,6 +46,9 @@ export default function Grid() {
     moveToCell,
     inputRef,
     containerRef,
+    columnWidths,
+    getColumnX,
+    autoResizeColumn,
   } = useSpreadsheetContext();
 
   // Grid-specific state
@@ -56,6 +59,7 @@ export default function Grid() {
   const [showFunctionDropdown, setShowFunctionDropdown] = useState(false);
   const [filteredFunctions, setFilteredFunctions] = useState<string[]>([]);
   const [selectedFunctionIndex, setSelectedFunctionIndex] = useState(0);
+  const [hoveredColumnBorder, setHoveredColumnBorder] = useState<number | null>(null);
 
   const drawGrid = useCallback(() => {
     const canvas = canvasRef.current;
@@ -78,8 +82,10 @@ export default function Grid() {
       dashOffset,
       zoom,
       isEditing,
+      columnWidths,
+      getColumnX,
     });
-  }, [cellData, cellFormat, computedData, selection, highlightedCells, zoom, copiedRange, dashOffset, isEditing, containerRef]);
+  }, [cellData, cellFormat, computedData, selection, highlightedCells, zoom, copiedRange, dashOffset, isEditing, containerRef, columnWidths, getColumnX]);
 
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
@@ -88,6 +94,27 @@ export default function Grid() {
     }
     drawGrid();
   }, [drawGrid, containerRef]);
+
+  // Helper to get column width
+  const getColumnWidth = useCallback((col: number): number => {
+    return (columnWidths.get(col) || CELL_WIDTH) * zoom;
+  }, [columnWidths, zoom]);
+
+  // Helper to find which column border is at a given x position
+  const findColumnBorderAtX = useCallback((x: number): number | null => {
+    let cumulativeX = 0;
+    for (let col = 0; col < NUM_COLS; col++) {
+      const width = getColumnWidth(col);
+      const borderX = cumulativeX + width;
+      
+      // Check if x is near the right border of this column (within 5px tolerance)
+      if (Math.abs(x - borderX) < 5 * zoom) {
+        return col;
+      }
+      cumulativeX += width;
+    }
+    return null;
+  }, [getColumnWidth, zoom]);
 
   const getCellFromEvent = useCallback((e: MouseEvent | React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -111,14 +138,89 @@ export default function Grid() {
     const x = canvasX - headerWidth + container.scrollLeft;
     const y = canvasY - headerHeight + container.scrollTop;
 
-    const col = Math.floor(x / (CELL_WIDTH * zoom));
+    // Use getColumnX to find column with variable widths
+    let cumulativeX = 0;
+    let col = -1;
+    for (let i = 0; i < NUM_COLS; i++) {
+      const width = getColumnWidth(i);
+      if (x >= cumulativeX && x < cumulativeX + width) {
+        col = i;
+        break;
+      }
+      cumulativeX += width;
+    }
     const row = Math.floor(y / (CELL_HEIGHT * zoom));
 
     if (col >= 0 && col < NUM_COLS && row >= 0 && row < NUM_ROWS) {
       return { row, col };
     }
     return null;
-  }, [zoom, containerRef]);
+  }, [zoom, containerRef, getColumnWidth]);
+
+  // Detect hover over column border
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const headerWidth = HEADER_WIDTH * zoom;
+    const headerHeight = HEADER_HEIGHT * zoom;
+    
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+    
+    // Only check if mouse is in the header row area
+    if (canvasY >= 0 && canvasY < headerHeight && canvasX >= headerWidth) {
+      const x = canvasX - headerWidth + container.scrollLeft;
+      const borderCol = findColumnBorderAtX(x);
+      
+      if (borderCol !== null) {
+        setHoveredColumnBorder(borderCol);
+        canvas.style.cursor = 'col-resize';
+      } else {
+        setHoveredColumnBorder(null);
+        canvas.style.cursor = 'default';
+      }
+    } else {
+      setHoveredColumnBorder(null);
+      canvas.style.cursor = 'default';
+    }
+  }, [zoom, containerRef, findColumnBorderAtX]);
+
+  const handleMouseLeave = useCallback(() => {
+    setHoveredColumnBorder(null);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.style.cursor = 'default';
+    }
+  }, []);
+
+  // Detect double-click on column border
+  const handleHeaderDoubleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const headerWidth = HEADER_WIDTH * zoom;
+    const headerHeight = HEADER_HEIGHT * zoom;
+    
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+    
+    // Only handle clicks in the header row area
+    if (canvasY >= 0 && canvasY < headerHeight && canvasX >= headerWidth) {
+      const x = canvasX - headerWidth + container.scrollLeft;
+      const borderCol = findColumnBorderAtX(x);
+      
+      if (borderCol !== null) {
+        autoResizeColumn(borderCol);
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+  }, [zoom, containerRef, findColumnBorderAtX, autoResizeColumn]);
 
   const parseCellReferenceToSelection = useCallback((ref: string): Selection | null => {
     // Handle range like "A1:B5"
@@ -336,7 +438,13 @@ export default function Grid() {
       <div 
         className={styles.scrollArea}
         style={{ 
-          width: HEADER_WIDTH * zoom + NUM_COLS * CELL_WIDTH * zoom, 
+          width: HEADER_WIDTH * zoom + (() => {
+            let totalWidth = 0;
+            for (let col = 0; col < NUM_COLS; col++) {
+              totalWidth += getColumnWidth(col);
+            }
+            return totalWidth;
+          })(), 
           height: HEADER_HEIGHT * zoom + NUM_ROWS * CELL_HEIGHT * zoom 
         }}
       />
@@ -344,7 +452,16 @@ export default function Grid() {
         ref={canvasRef}
         className={styles.canvas}
         onMouseDown={handleMouseDown}
-        onDoubleClick={handleCanvasDoubleClick}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        onDoubleClick={(e) => {
+          // Try header double-click first (column resize)
+          handleHeaderDoubleClick(e);
+          // If not handled, try cell double-click
+          if (!e.defaultPrevented) {
+            handleCanvasDoubleClick(e);
+          }
+        }}
       />
       {selection && isEditing && (
         <>
@@ -369,9 +486,9 @@ export default function Grid() {
               onMouseDown={(e) => e.preventDefault()}
               style={{
                 position: 'absolute',
-                left: HEADER_WIDTH * zoom + selection.start.col * CELL_WIDTH * zoom - scrollPosition.left,
+                left: HEADER_WIDTH * zoom + getColumnX(selection.start.col) * zoom - scrollPosition.left,
                 top: HEADER_HEIGHT * zoom + selection.start.row * CELL_HEIGHT * zoom - scrollPosition.top + CELL_HEIGHT * zoom,
-                width: CELL_WIDTH * zoom * 2,
+                width: getColumnWidth(selection.start.col) * 2,
                 backgroundColor: 'white',
                 border: '1px solid #ccc',
                 maxHeight: '200px',

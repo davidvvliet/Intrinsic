@@ -125,6 +125,8 @@ export function drawGrid({
   dashOffset,
   zoom,
   isEditing,
+  columnWidths,
+  getColumnX,
 }: {
   ctx: CanvasRenderingContext2D;
   canvas: HTMLCanvasElement;
@@ -138,12 +140,18 @@ export function drawGrid({
   dashOffset: number;
   zoom: number;
   isEditing: boolean;
+  columnWidths: Map<number, number>;
+  getColumnX: (col: number) => number;
 }) {
   const scrollLeft = container.scrollLeft;
   const scrollTop = container.scrollTop;
 
+  // Helper to get column width
+  const getColumnWidth = (col: number): number => {
+    return (columnWidths.get(col) || CELL_WIDTH) * zoom;
+  };
+
   // Effective dimensions with zoom
-  const cellWidth = CELL_WIDTH * zoom;
   const cellHeight = CELL_HEIGHT * zoom;
   const headerWidth = HEADER_WIDTH * zoom;
   const headerHeight = HEADER_HEIGHT * zoom;
@@ -152,9 +160,23 @@ export function drawGrid({
   ctx.fillStyle = CANVAS_BG;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Calculate visible range (accounting for header offset)
-  const startCol = Math.floor(scrollLeft / cellWidth);
-  const endCol = Math.min(startCol + Math.ceil((canvas.width - headerWidth) / cellWidth) + 1, NUM_COLS);
+  // Calculate visible range (accounting for header offset and variable column widths)
+  // Find startCol by iterating through columns until we find one that's visible
+  let startCol = 0;
+  let cumulativeWidth = 0;
+  while (startCol < NUM_COLS && cumulativeWidth + getColumnWidth(startCol) < scrollLeft) {
+    cumulativeWidth += getColumnWidth(startCol);
+    startCol++;
+  }
+  
+  // Find endCol by continuing until we exceed visible area
+  let endCol = startCol;
+  let visibleWidth = cumulativeWidth - scrollLeft;
+  while (endCol < NUM_COLS && visibleWidth < canvas.width - headerWidth) {
+    visibleWidth += getColumnWidth(endCol);
+    endCol++;
+  }
+  endCol = Math.min(endCol + 1, NUM_COLS);
   const startRow = Math.floor(scrollTop / cellHeight);
   const endRow = Math.min(startRow + Math.ceil((canvas.height - headerHeight) / cellHeight) + 1, NUM_ROWS);
 
@@ -191,7 +213,8 @@ export function drawGrid({
   // PASS 1: Draw all fills first (so borders can be drawn on top)
   for (let row = startRow; row < endRow; row++) {
     for (let col = startCol; col < endCol; col++) {
-      const x = headerWidth + col * cellWidth - scrollLeft;
+      const cellWidth = getColumnWidth(col);
+      const x = headerWidth + getColumnX(col) * zoom - scrollLeft;
       const y = headerHeight + row * cellHeight - scrollTop;
 
       // Skip if cell is outside visible area (behind headers)
@@ -234,7 +257,8 @@ export function drawGrid({
 
   for (let row = startRow; row < endRow; row++) {
     for (let col = startCol; col < endCol; col++) {
-      const x = headerWidth + col * cellWidth - scrollLeft;
+      const cellWidth = getColumnWidth(col);
+      const x = headerWidth + getColumnX(col) * zoom - scrollLeft;
       const y = headerHeight + row * cellHeight - scrollTop;
 
       // Skip if cell is outside visible area (behind headers)
@@ -364,9 +388,12 @@ export function drawGrid({
       const pointMinCol = Math.min(sel.start.col, sel.end.col);
       const pointMaxCol = Math.max(sel.start.col, sel.end.col);
       
-      const pointX = headerWidth + pointMinCol * cellWidth - scrollLeft;
+      const pointX = headerWidth + getColumnX(pointMinCol) * zoom - scrollLeft;
       const pointY = headerHeight + pointMinRow * cellHeight - scrollTop;
-      const pointWidth = (pointMaxCol - pointMinCol + 1) * cellWidth;
+      let pointWidth = 0;
+      for (let col = pointMinCol; col <= pointMaxCol; col++) {
+        pointWidth += getColumnWidth(col);
+      }
       const pointHeight = (pointMaxRow - pointMinRow + 1) * cellHeight;
       
       ctx.strokeRect(pointX, pointY, pointWidth, pointHeight);
@@ -379,9 +406,12 @@ export function drawGrid({
 
   // Draw marching ants around copied range (offset by headers)
   if (copiedRange) {
-    const copyX = headerWidth + copiedRange.minCol * cellWidth - scrollLeft;
+    const copyX = headerWidth + getColumnX(copiedRange.minCol) * zoom - scrollLeft;
     const copyY = headerHeight + copiedRange.minRow * cellHeight - scrollTop;
-    const copyWidth = (copiedRange.maxCol - copiedRange.minCol + 1) * cellWidth;
+    let copyWidth = 0;
+    for (let col = copiedRange.minCol; col <= copiedRange.maxCol; col++) {
+      copyWidth += getColumnWidth(col);
+    }
     const copyHeight = (copiedRange.maxRow - copiedRange.minRow + 1) * cellHeight;
     
     ctx.setLineDash(DASH_PATTERN);
@@ -402,7 +432,8 @@ export function drawGrid({
   ctx.font = `bold ${HEADER_FONT_SIZE * zoom}px Arial`;
 
   for (let col = startCol; col < endCol; col++) {
-    const x = headerWidth + col * cellWidth - scrollLeft;
+    const cellWidth = getColumnWidth(col);
+    const x = headerWidth + getColumnX(col) * zoom - scrollLeft;
     if (x + cellWidth < headerWidth) continue;
     
     // Highlight column header if in selection

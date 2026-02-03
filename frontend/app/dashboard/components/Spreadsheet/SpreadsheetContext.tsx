@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
-import { NUM_ROWS, NUM_COLS } from './config';
+import { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
+import { NUM_ROWS, NUM_COLS, CELL_WIDTH, CELL_FONT_SIZE, CELL_TEXT_PADDING } from './config';
 import type { CellData, CellFormat, CellFormatData, CellType, Selection, CopiedRange, ComputedData } from './types';
-import { getCellKey, determineCellType } from './drawUtils';
+import { getCellKey, determineCellType, getColumnLabel } from './drawUtils';
 import { useFormulaEngine } from './useFormulaEngine';
 
 type SpreadsheetContextType = {
@@ -61,6 +61,13 @@ type SpreadsheetContextType = {
     createdAt: string;
   }>>>;
   
+  // Column widths
+  columnWidths: Map<number, number>;
+  columnWidthsBySheet: Map<string, Map<number, number>>;
+  setColumnWidthsBySheet: React.Dispatch<React.SetStateAction<Map<string, Map<number, number>>>>;
+  getColumnX: (col: number) => number;
+  autoResizeColumn: (col: number) => void;
+  
   // Refs for Grid to use
   inputRef: React.RefObject<HTMLInputElement | null>;
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -90,9 +97,80 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   const [inputValue, setInputValue] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [copiedRange, setCopiedRange] = useState<CopiedRange>(null);
+  const [columnWidthsBySheet, setColumnWidthsBySheet] = useState<Map<string, Map<number, number>>>(new Map());
 
   // Formula engine (auto-detects changes and recalculates)
   const { computedData, getDisplayValue } = useFormulaEngine(cellData);
+
+  // Compute current column widths from activeSheetId
+  const columnWidths = useMemo(() => {
+    return columnWidthsBySheet.get(activeSheetId || '') || new Map<number, number>();
+  }, [columnWidthsBySheet, activeSheetId]);
+
+  // Cached cumulative widths array for O(1) lookups
+  const cumulativeWidths = useMemo(() => {
+    const arr = new Array(NUM_COLS + 1);
+    arr[0] = 0;
+    for (let i = 0; i < NUM_COLS; i++) {
+      arr[i + 1] = arr[i] + (columnWidths.get(i) || CELL_WIDTH);
+    }
+    return arr;
+  }, [columnWidths]);
+
+  // Get cumulative x position of a column (O(1) lookup)
+  const getColumnX = useCallback((col: number): number => {
+    return cumulativeWidths[col] || 0;
+  }, [cumulativeWidths]);
+
+  // Auto-resize column based on widest value
+  const autoResizeColumn = useCallback((col: number) => {
+    if (col < 0 || col >= NUM_COLS) return;
+
+    let maxWidth = CELL_WIDTH; // Default minimum width
+
+    // Measure visible rows + buffer (first 1000 rows for performance)
+    const measureRows = Math.min(1000, NUM_ROWS);
+    
+    for (let row = 0; row < measureRows; row++) {
+      const cellKey = getCellKey(row, col);
+      const displayValue = getDisplayValue(cellKey);
+      
+      if (displayValue) {
+        // Create a temporary canvas to measure text width
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const format = cellFormat.get(cellKey);
+          ctx.font = format?.bold 
+            ? `bold ${CELL_FONT_SIZE}px Arial`
+            : `${CELL_FONT_SIZE}px Arial`;
+          const textWidth = ctx.measureText(displayValue).width;
+          const cellWidth = textWidth + CELL_TEXT_PADDING * 2;
+          maxWidth = Math.max(maxWidth, cellWidth);
+        }
+      }
+    }
+
+    // Also check header label width
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.font = `bold ${CELL_FONT_SIZE}px Arial`;
+      const headerLabel = getColumnLabel(col);
+      const headerWidth = ctx.measureText(headerLabel).width + CELL_TEXT_PADDING * 2;
+      maxWidth = Math.max(maxWidth, headerWidth);
+    }
+
+    if (!activeSheetId) return;
+
+    setColumnWidthsBySheet(prev => {
+      const next = new Map(prev);
+      const sheetWidths = new Map(next.get(activeSheetId) || new Map());
+      sheetWidths.set(col, maxWidth);
+      next.set(activeSheetId, sheetWidths);
+      return next;
+    });
+  }, [cellFormat, getDisplayValue, activeSheetId]);
 
   // Computed: has unsaved changes
   const hasUnsavedChanges = dirtyCells.size > 0;
@@ -307,6 +385,11 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         setActiveSheetId,
         sheets,
         setSheets,
+        columnWidths,
+        columnWidthsBySheet,
+        setColumnWidthsBySheet,
+        getColumnX,
+        autoResizeColumn,
         inputRef,
         containerRef,
       }}

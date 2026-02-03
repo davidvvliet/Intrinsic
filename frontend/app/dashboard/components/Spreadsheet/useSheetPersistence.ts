@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAccessToken } from '@workos-inc/authkit-nextjs/components';
 import { useSpreadsheetContext } from './SpreadsheetContext';
