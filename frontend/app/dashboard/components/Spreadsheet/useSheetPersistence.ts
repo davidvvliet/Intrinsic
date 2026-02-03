@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAccessToken } from '@workos-inc/authkit-nextjs/components';
 import { useSpreadsheetContext } from './SpreadsheetContext';
@@ -209,26 +209,27 @@ export function useSheetPersistence() {
     
     if (!activeSheet) return;
 
+    // Clear cell data immediately when switching sheets (before async load)
+    // This prevents old content from showing briefly
+    setCellData(new Map());
+    setCellFormat(new Map());
+    setBaselineData(new Map());
+    setBaselineFormat(new Map());
+    setDirtyCells(new Set());
+    
+    // Clear UI state
+    setSelection(null);
+    setHighlightedCells(null);
+    setInputValue('');
+    setIsEditing(false);
+    setCopiedRange(null);
+
     if (activeSheet.fetchId) {
       // Sheet has backend ID - load it
       loadSheet(activeSheet.fetchId).catch(err => {
         console.error('Load sheet failed:', err);
       });
     } else {
-      // Unsaved sheet - clear cell data
-      setCellData(new Map());
-      setCellFormat(new Map());
-      setBaselineData(new Map());
-      setBaselineFormat(new Map());
-      setDirtyCells(new Set());
-      
-      // Clear UI state
-      setSelection(null);
-      setHighlightedCells(null);
-      setInputValue('');
-      setIsEditing(false);
-      setCopiedRange(null);
-      
       router.replace('/dashboard');
     }
 
