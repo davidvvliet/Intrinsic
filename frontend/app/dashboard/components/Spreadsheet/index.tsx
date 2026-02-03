@@ -24,14 +24,25 @@ function SpreadsheetContent({ onToolCall }: SpreadsheetContentProps) {
     if (!onToolCall) return;
     
     const handleToolCall = (name: string, args: any) => {
+      // Validate args are not empty
+      if (!args || Object.keys(args).length === 0) {
+        return { error: 'Tool call arguments are missing or empty' };
+      }
+
       if (name === 'set_cell_value') {
         const { cell, value } = args;
+        if (!cell || value === undefined) {
+          return { error: 'Missing required arguments: cell and value' };
+        }
         const { row, col } = a1ToRowCol(cell);
         const cellKey = getCellKey(row, col);
         const cellType = determineCellType(value);
         spreadsheet.updateCell(cellKey, { raw: value, type: cellType });
       } else if (name === 'set_cell_range') {
         const { startCell, endCell, values } = args;
+        if (!startCell || !endCell || !values) {
+          return { error: 'Missing required arguments: startCell, endCell, or values' };
+        }
         const start = a1ToRowCol(startCell);
         const end = a1ToRowCol(endCell);
         
@@ -59,6 +70,9 @@ function SpreadsheetContent({ onToolCall }: SpreadsheetContentProps) {
         spreadsheet.updateCells(mergedCellData);
       } else if (name === 'get_cell_range') {
         const { startCell, endCell } = args;
+        if (!startCell || !endCell) {
+          return { error: 'Missing required arguments: startCell or endCell' };
+        }
         const start = a1ToRowCol(startCell);
         const end = a1ToRowCol(endCell);
         
@@ -78,11 +92,18 @@ function SpreadsheetContent({ onToolCall }: SpreadsheetContentProps) {
         // TODO: Send result back to backend for LLM to use
         console.log('[SPREADSHEET] get_cell_range result:', result);
       } else if (name === 'format_cells') {
-        const { cells, format } = args;
+        const { formats } = args;
+        if (!formats || !Array.isArray(formats)) {
+          return { error: 'Missing or invalid required argument: formats (must be an array)' };
+        }
         
         // Apply format to each cell (merge with existing format)
-        for (const cellRef of cells) {
-          const { row, col } = a1ToRowCol(cellRef);
+        for (const item of formats) {
+          if (!item || typeof item !== 'object' || !item.cell) {
+            continue;
+          }
+          
+          const { row, col } = a1ToRowCol(item.cell);
           const cellKey = getCellKey(row, col);
           
           // Get existing format for this cell
@@ -91,13 +112,37 @@ function SpreadsheetContent({ onToolCall }: SpreadsheetContentProps) {
           // Build new format object, merging with existing
           const newFormat: CellFormat = { ...existingFormat };
           
-          if (format.bold !== undefined) newFormat.bold = format.bold;
-          if (format.italic !== undefined) newFormat.italic = format.italic;
-          if (format.fillColor !== undefined) newFormat.fillColor = format.fillColor;
-          if (format.textColor !== undefined) newFormat.textColor = format.textColor;
-          
+          if (item.bold !== undefined) newFormat.bold = item.bold;
+          if (item.italic !== undefined) newFormat.italic = item.italic;
+          if (item.fillColor !== undefined) newFormat.fillColor = item.fillColor;
+          if (item.textColor !== undefined) newFormat.textColor = item.textColor;
           
           spreadsheet.updateCellFormat(cellKey, newFormat);
+        }
+      } else if (name === 'format_cell_range') {
+        const { startCell, endCell, format } = args;
+        if (!startCell || !endCell || !format || typeof format !== 'object') {
+          return { error: 'Missing required arguments: startCell, endCell, or format' };
+        }
+        
+        const start = a1ToRowCol(startCell);
+        const end = a1ToRowCol(endCell);
+        
+        // Build format object from format properties
+        const formatToApply: Partial<CellFormat> = {};
+        if (format.bold !== undefined) formatToApply.bold = format.bold;
+        if (format.italic !== undefined) formatToApply.italic = format.italic;
+        if (format.fillColor !== undefined) formatToApply.fillColor = format.fillColor;
+        if (format.textColor !== undefined) formatToApply.textColor = format.textColor;
+        
+        // Apply format to all cells in range
+        for (let row = start.row; row <= end.row; row++) {
+          for (let col = start.col; col <= end.col; col++) {
+            const cellKey = getCellKey(row, col);
+            const existingFormat = spreadsheet.cellFormat.get(cellKey) || {};
+            const newFormat: CellFormat = { ...existingFormat, ...formatToApply };
+            spreadsheet.updateCellFormat(cellKey, newFormat);
+          }
         }
       }
     };

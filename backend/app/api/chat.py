@@ -9,13 +9,15 @@ import os
 router = APIRouter()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-SYSTEM_PROMPT = """You are Intrinsic, an AI assistant designed to help users streamline fundamental analysis on securities to spot real value. Provide clear, concise, and actionable insights to help users make informed investment decisions.
+SYSTEM_PROMPT = """You are the user's assistant for Intrinsic, an AI-powered fundamental analysis tool to help users streamline investment analysis on securities to spot real value. Provide clear, concise, and actionable insights to help users make informed investment decisions.
 
-You can edit the spreadsheet using tool calls when users request changes.
+Intrinsic has its own proprietary spreadsheet that you can edit using tool calls based on the user's requests. Note that the spreadsheet follows the same conventions as other spreadsheets.
 
 Rules:
  - Always use English.
- - Before making a tool call, briefly explain what you're doing (e.g., "I'll set cell A1 to 100" or "Setting the value in cell B2")."""
+ - Always stay in character as the user's assistant for Intrinsic and maintain focus on your purpose: helping users with fundamental analysis and investment decisions.
+ - Before making a tool call, briefly explain what you're doing (e.g., "I'll set cell A1 to 100" or "Setting the value in cell B2").
+ - The default cell background color is #FFFFE3. Be aware of this when setting fill colors."""
 
 # Define tools for spreadsheet editing
 SPREADSHEET_TOOLS = [
@@ -87,30 +89,65 @@ SPREADSHEET_TOOLS = [
     {
         "type": "function",
         "name": "format_cells",
-        "description": "Apply formatting to one or more cells (bold, colors, number format, etc.)",
+        "description": "Apply formatting to one or more cells (bold, colors, number format, etc.). You **ONLY** need to include a style property that you are actually setting - omit unused properties to reduce token usage (e.g. {'cell': 'A1', 'bold': True} instead of {'cell': 'A1', 'bold': True, 'italic': False, 'fillColor': '#FFFFFF', 'textColor': '#000000', 'numberFormat': 'number'})",
         "parameters": {
             "type": "object",
             "properties": {
-                "cells": {
+                "formats": {
                     "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Array of cell references in A1 notation"
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "cell": {"type": "string", "description": "Cell reference in A1 notation (e.g., 'A1', 'B2')"},
+                            "bold": {"type": "boolean"},
+                            "italic": {"type": "boolean"},
+                            "fillColor": {"type": "string", "description": "Hex color code (e.g., '#FF0000')"},
+                            "textColor": {"type": "string", "description": "Hex color code (e.g., '#0000FF')"},
+                            "numberFormat": {
+                                "type": "string",
+                                "description": "Number format type: 'currency', 'percent', 'number', 'date', etc."
+                            }
+                        },
+                        "required": ["cell"],
+                        "additionalProperties": False
+                    },
+                    "description": "Array of cell format objects. Each cell can have different formatting."
+                }
+            },
+            "required": ["formats"]
+        }
+    },
+    {
+        "type": "function",
+        "name": "format_cell_range",
+        "description": "Apply the same formatting to all cells in a rectangular range. Only include format properties you are actually setting - omit unused properties to reduce token usage.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "startCell": {
+                    "type": "string",
+                    "description": "Starting cell in A1 notation (e.g., 'A1')"
+                },
+                "endCell": {
+                    "type": "string",
+                    "description": "Ending cell in A1 notation (e.g., 'C3')"
                 },
                 "format": {
                     "type": "object",
                     "properties": {
-                        "bold": {"type": "boolean"},
-                        "italic": {"type": "boolean"},
-                        "fillColor": {"type": "string", "description": "Hex color code (e.g., '#FF0000')"},
-                        "textColor": {"type": "string", "description": "Hex color code (e.g., '#0000FF')"},
+                        "bold": {"type": "boolean", "description": "Set to true to make text bold. Omit if not setting."},
+                        "italic": {"type": "boolean", "description": "Set to true to make text italic. Omit if not setting."},
+                        "fillColor": {"type": "string", "description": "Hex color code for cell background (e.g., '#FF0000'). Omit if not setting."},
+                        "textColor": {"type": "string", "description": "Hex color code for text (e.g., '#0000FF'). Omit if not setting."},
                         "numberFormat": {
                             "type": "string",
-                            "description": "Number format type: 'currency', 'percent', 'number', 'date', etc."
+                            "description": "Number format type: 'currency', 'percent', 'number', 'date', etc. Omit if not setting."
                         }
-                    }
+                    },
+                    "additionalProperties": False
                 }
             },
-            "required": ["cells", "format"]
+            "required": ["startCell", "endCell", "format"]
         }
     }
 ]
@@ -131,7 +168,7 @@ async def generate_chat_stream(request: ChatRequest, user):
                     instructions=SYSTEM_PROMPT,
                     tools=SPREADSHEET_TOOLS,
                     stream=True,
-                    max_output_tokens=300
+                    max_output_tokens=3000
                 )
             elif request.message:
                 # New user message continuation
@@ -143,7 +180,7 @@ async def generate_chat_stream(request: ChatRequest, user):
                     instructions=SYSTEM_PROMPT,
                     tools=SPREADSHEET_TOOLS,
                     stream=True,
-                    max_output_tokens=300
+                    max_output_tokens=3000
                 )
             else:
                 raise ValueError("previous_response_id provided but neither function_call_outputs nor message provided")
@@ -162,7 +199,7 @@ async def generate_chat_stream(request: ChatRequest, user):
                 instructions=SYSTEM_PROMPT,
                 tools=SPREADSHEET_TOOLS,
                 stream=True,
-                max_output_tokens=300
+                max_output_tokens=3000
             )
         
         # Track tool calls and content during streaming
