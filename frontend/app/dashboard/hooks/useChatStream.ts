@@ -1,8 +1,14 @@
 import { useState, useCallback } from 'react';
 import { ChatMessage, UseChatStreamReturn } from '../types/chat';
 
+export interface ToolCall {
+  name: string;
+  args: any;
+  call_id: string;
+}
+
 export function useChatStream(
-  onMessageComplete: (message: string) => void,
+  onMessageComplete: (message: string, toolCalls?: ToolCall[], responseId?: string) => void,
   onToolCall?: (name: string, args: any) => void
 ): UseChatStreamReturn {
   const [streamingText, setStreamingText] = useState<string>('');
@@ -10,7 +16,13 @@ export function useChatStream(
   const [isToolCalling, setIsToolCalling] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendMessage = useCallback(async (message: string, conversationHistory: ChatMessage[], accessToken: string | null) => {
+  const sendMessage = useCallback(async (
+    message: string | null, 
+    conversationHistory: ChatMessage[] | null, 
+    accessToken: string | null,
+    previousResponseId?: string,
+    functionCallOutputs?: Array<{type: string, call_id: string, output: string}>
+  ) => {
     setIsStreaming(true);
     setIsToolCalling(false);
     setStreamingText('');
@@ -25,13 +37,25 @@ export function useChatStream(
         headers['Authorization'] = `Bearer ${accessToken}`;
       }
 
+      const body: any = {};
+      if (previousResponseId) {
+        body.previous_response_id = previousResponseId;
+        if (functionCallOutputs) {
+          // Tool call continuation
+          body.function_call_outputs = functionCallOutputs;
+        } else if (message) {
+          // New user message continuation
+          body.message = message;
+        }
+      } else {
+        // Initial request
+        body.message = message || '';
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          message,
-          conversation_history: conversationHistory,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -42,6 +66,7 @@ export function useChatStream(
       const decoder = new TextDecoder();
       let buffer = '';
       let fullMessage = '';
+      const toolCalls: ToolCall[] = [];
 
       if (!reader) {
         throw new Error('No response body');
@@ -62,17 +87,23 @@ export function useChatStream(
             
             try {
               const parsed = JSON.parse(data);
-              console.log('[CHAT] Parsed event:', parsed);
               
               if (parsed.content) {
-                console.log('[CHAT] Content added:', parsed.content, 'fullMessage:', fullMessage);
                 fullMessage += parsed.content;
                 setStreamingText(fullMessage);
               }
 
               if (parsed.tool_call) {
-                console.log('[CHAT] Tool call received:', parsed.tool_call);
                 setIsToolCalling(true);
+                
+                // Track tool call
+                toolCalls.push({
+                  name: parsed.tool_call.name,
+                  args: parsed.tool_call.arguments,
+                  call_id: parsed.tool_call.call_id || ''
+                });
+                
+                // Execute tool call immediately
                 if (onToolCall) {
                   onToolCall(parsed.tool_call.name, parsed.tool_call.arguments);
                 }
@@ -83,10 +114,10 @@ export function useChatStream(
               }
 
               if (parsed.done) {
+                setStreamingText('');
                 setIsStreaming(false);
                 setIsToolCalling(false);
-                onMessageComplete(fullMessage);
-                setStreamingText('');
+                onMessageComplete(fullMessage, toolCalls.length > 0 ? toolCalls : undefined, parsed.response_id);
                 return;
               }
 
@@ -98,7 +129,6 @@ export function useChatStream(
               }
             } catch (e) {
               // If not JSON, treat as plain text
-              console.log('[CHAT] JSON parse failed, treating as text:', data, 'error:', e);
               fullMessage += data;
               setStreamingText(fullMessage);
             }
@@ -110,6 +140,7 @@ export function useChatStream(
       setIsStreaming(false);
       setIsToolCalling(false);
       setStreamingText('');
+      onMessageComplete(fullMessage, toolCalls.length > 0 ? toolCalls : undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setIsStreaming(false);

@@ -7,6 +7,12 @@ export interface UseChatStreamReturn {
   streamingText: string;
   isStreaming: boolean;
   isToolCalling: boolean;
-  sendMessage: (message: string, conversationHistory: ChatMessage[], accessToken: string | null) => Promise<void>;
+  sendMessage: (
+    message: string | null, 
+    conversationHistory: ChatMessage[] | null, 
+    accessToken: string | null,
+    previousResponseId?: string,
+    functionCallOutputs?: Array<{type: string, call_id: string, output: string}>
+  ) => Promise<void>;
   error: string | null;
 }

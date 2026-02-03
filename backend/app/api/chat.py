@@ -119,98 +119,154 @@ async def generate_chat_stream(request: ChatRequest, user):
 
     client = AsyncOpenAI(api_key=OPENAI_API_KEY)
     
-    # Build message array
-    messages = []
-    if SYSTEM_PROMPT:
-        messages.append({"role": "system", "content": SYSTEM_PROMPT})
-    
-    # Add conversation history if provided
-    if request.conversation_history:
-        messages.extend(request.conversation_history)
-    
-    # Add current message
-    messages.append({"role": "user", "content": request.message})
-    
     try:
-        print(f"[CHAT] Calling OpenAI with {len(messages)} messages")
-        # Call OpenAI API with streaming
-        stream = await client.responses.create(
-            model="gpt-5.1",
-            input=messages,
-            tools=SPREADSHEET_TOOLS,
-            stream=True,
-            max_output_tokens=300
-        )
-        print(f"[CHAT] Stream created successfully", flush=True)
+        # If previous_response_id is provided, use Responses API continuation approach
+        if request.previous_response_id:
+            if request.function_call_outputs:
+                # Tool call continuation
+                stream = await client.responses.create(
+                    model="gpt-5.1",
+                    previous_response_id=request.previous_response_id,
+                    input=request.function_call_outputs,
+                    instructions=SYSTEM_PROMPT,
+                    tools=SPREADSHEET_TOOLS,
+                    stream=True,
+                    max_output_tokens=300
+                )
+            elif request.message:
+                # New user message continuation
+                user_message_input = [{"role": "user", "content": request.message}]
+                stream = await client.responses.create(
+                    model="gpt-5.1",
+                    previous_response_id=request.previous_response_id,
+                    input=user_message_input,
+                    instructions=SYSTEM_PROMPT,
+                    tools=SPREADSHEET_TOOLS,
+                    stream=True,
+                    max_output_tokens=300
+                )
+            else:
+                raise ValueError("previous_response_id provided but neither function_call_outputs nor message provided")
+        else:
+            # Build message array for initial request
+            messages = []
+            
+            # Add current message
+            if request.message:
+                messages.append({"role": "user", "content": request.message})
+            
+            # Call OpenAI API with streaming
+            stream = await client.responses.create(
+                model="gpt-5.1",
+                input=messages,
+                instructions=SYSTEM_PROMPT,
+                tools=SPREADSHEET_TOOLS,
+                stream=True,
+                max_output_tokens=300
+            )
         
         # Track tool calls and content during streaming
         final_tool_calls = {}
         accumulated_content = ""
+        response_id = None
         
         # Stream responses and accumulate tool calls
         async for event in stream:
+            # Capture response ID if available
+            if hasattr(event, 'response_id'):
+                response_id = event.response_id
+            elif hasattr(event, 'response') and hasattr(event.response, 'id'):
+                response_id = event.response.id
+            elif event.type == 'response.created':
+                if hasattr(event, 'response') and hasattr(event.response, 'id'):
+                    response_id = event.response.id
+            
             # Handle tool call events
             if event.type == 'response.output_item.added':
                 if hasattr(event, 'item'):
                     item = event.item
                     if hasattr(item, 'type') and item.type == 'function_call':
-                        # Store tool call in dict for accumulation
-                        output_index = getattr(event, 'output_index', 0)
-                        final_tool_calls[output_index] = {
+                        # Extract both IDs separately
+                        function_call_id = getattr(item, 'call_id', '')  # For tool outputs
+                        output_item_id = getattr(item, 'id', '')  # For delta events
+                        
+                        if not output_item_id:
+                            continue
+                        
+                        if not function_call_id:
+                            function_call_id = output_item_id
+                        
+                        # Store tool call keyed by output_item_id (delta events use item_id which matches this)
+                        final_tool_calls[output_item_id] = {
                             "type": item.type,
-                            "id": getattr(item, 'id', ''),
-                            "call_id": getattr(item, 'call_id', ''),
+                            "output_item_id": output_item_id,
+                            "function_call_id": function_call_id,
+                            "call_id": function_call_id,  # Keep for API compatibility
                             "name": getattr(item, 'name', ''),
                             "arguments": getattr(item, 'arguments', '') or ''
                         }
-                        print(f"[CHAT] Tool call started: {final_tool_calls[output_index]['name']} (index: {output_index})", flush=True)
             
             # Accumulate function call arguments from delta events
             elif event.type == 'response.function_call_arguments.delta':
-                output_index = getattr(event, 'output_index', 0)
-                if output_index in final_tool_calls:
-                    if 'arguments' not in final_tool_calls[output_index]:
-                        final_tool_calls[output_index]['arguments'] = ''
-                    final_tool_calls[output_index]['arguments'] += event.delta
+                # Delta events use item_id which matches output_item_id
+                output_item_id = getattr(event, 'item_id', None) or getattr(event, 'call_id', None)
+                if not output_item_id or output_item_id not in final_tool_calls:
+                    continue
+                
+                if 'arguments' not in final_tool_calls[output_item_id]:
+                    final_tool_calls[output_item_id]['arguments'] = ''
+                final_tool_calls[output_item_id]['arguments'] += event.delta
             
             # Handle function call arguments done - send complete tool call
             elif event.type == 'response.function_call_arguments.done':
-                output_index = getattr(event, 'output_index', 0)
-                if output_index in final_tool_calls:
-                    # Use event.arguments if available, otherwise use accumulated
-                    final_arguments = getattr(event, 'arguments', final_tool_calls[output_index]['arguments'])
-                    final_tool_calls[output_index]['arguments'] = final_arguments
-                    
-                    tool_call = final_tool_calls[output_index]
-                    tool_name = tool_call.get('name', '')
-                    
-                    # Parse arguments
-                    try:
-                        if isinstance(final_arguments, str):
-                            parsed_arguments = json.loads(final_arguments)
-                        else:
-                            parsed_arguments = final_arguments
-                    except (json.JSONDecodeError, TypeError) as e:
-                        print(f"[CHAT] ERROR: Failed to parse tool arguments: {e}", flush=True)
-                        parsed_arguments = {}
-                    
-                    print(f"[CHAT] Tool call complete: {tool_name} (call_id: {tool_call.get('call_id')}, arguments: {parsed_arguments})", flush=True)
-                    
-                    # Send complete tool call to frontend
-                    tool_call_data = {'tool_call': {'name': tool_name, 'arguments': parsed_arguments}}
-                    yield f"data: {json.dumps(tool_call_data)}\n\n"
+                # Done events use item_id which matches output_item_id
+                output_item_id = getattr(event, 'item_id', None) or getattr(event, 'call_id', None)
+                if not output_item_id or output_item_id not in final_tool_calls:
+                    continue
+                
+                # Use event.arguments if available, otherwise use accumulated
+                final_arguments = getattr(event, 'arguments', final_tool_calls[output_item_id]['arguments'])
+                final_tool_calls[output_item_id]['arguments'] = final_arguments
+                
+                tool_call = final_tool_calls[output_item_id]
+                tool_name = tool_call.get('name', '')
+                
+                # Parse arguments
+                try:
+                    if isinstance(final_arguments, str):
+                        parsed_arguments = json.loads(final_arguments)
+                    else:
+                        parsed_arguments = final_arguments
+                except (json.JSONDecodeError, TypeError) as e:
+                    print(f"[CHAT] ERROR: Failed to parse tool arguments: {e}", flush=True)
+                    parsed_arguments = {}
+                
+                # Use function_call_id (call_id) for sending to frontend
+                function_call_id = tool_call.get('function_call_id', '') or tool_call.get('call_id', '')
+                if not function_call_id:
+                    print(f"[CHAT] ERROR: Tool call missing function_call_id in stored data. Tool call: {tool_call}", flush=True)
+                    continue
+                
+                print(f"[CHAT] Tool call complete: {tool_name} (function_call_id: {function_call_id}, output_item_id: {output_item_id}, arguments: {parsed_arguments})", flush=True)
+                
+                # Send complete tool call to frontend (use function_call_id as call_id for API compatibility)
+                tool_call_data = {'tool_call': {'name': tool_name, 'arguments': parsed_arguments, 'call_id': function_call_id}}
+                yield f"data: {json.dumps(tool_call_data)}\n\n"
             
             # Handle content/text output
             elif event.type == 'response.output_text.delta':
                 if hasattr(event, 'delta'):
                     content = event.delta
                     accumulated_content += content
-                    print(f"[CHAT] Content chunk: {content[:50]}...", flush=True)
                     yield f"data: {json.dumps({'content': content})}\n\n"
         
         print(f"[CHAT] Stream complete", flush=True)
-        # Send completion event
-        yield f"data: {json.dumps({'done': True})}\n\n"
+        # Send completion event with response_id if available
+        done_data = {'done': True}
+        if response_id:
+            done_data['response_id'] = response_id
+            print(f"[CHAT] Response ID: {response_id}", flush=True)
+        yield f"data: {json.dumps(done_data)}\n\n"
         
     except Exception as e:
         import traceback

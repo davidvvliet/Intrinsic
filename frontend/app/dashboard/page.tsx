@@ -8,7 +8,7 @@ import Globe from './components/Globe';
 import ChatDisplay from './components/ChatDisplay';
 import SearchInput from './components/SearchInput';
 import { useColumnMinimize } from './hooks/useColumnMinimize';
-import { useChatStream } from './hooks/useChatStream';
+import { useChatStream, ToolCall } from './hooks/useChatStream';
 import { useChatMessages } from './hooks/useChatMessages';
 import { ChatMessage } from './types/chat';
 import styles from './page.module.css';
@@ -24,11 +24,73 @@ export default function Dashboard() {
   
   const [chatMessages, setChatMessages] = useChatMessages();
   const [query, setQuery] = useState<string>('');
-  const toolCallHandlerRef = useRef<((name: string, args: any) => void) | null>(null);
+  const toolCallHandlerRef = useRef<((name: string, args: any) => any) | null>(null);
+  const lastResponseIdRef = useRef<string | null>(null);
+  const iterationCountRef = useRef<number>(0);
+  const maxIterations = 10;
+  const sendMessageRef = useRef<((
+    message: string | null, 
+    conversationHistory: ChatMessage[] | null, 
+    accessToken: string | null,
+    previousResponseId?: string,
+    functionCallOutputs?: Array<{type: string, call_id: string, output: string}>
+  ) => Promise<void>) | null>(null);
 
-  const handleMessageComplete = useCallback((message: string) => {
-    setChatMessages(prev => [...prev, { role: 'assistant', content: message }]);
-  }, []);
+  const handleMessageComplete = useCallback(async (message: string, toolCalls?: ToolCall[], responseId?: string) => {
+    // Store response_id for subsequent requests
+    if (responseId) {
+      lastResponseIdRef.current = responseId;
+    }
+
+    // Add text content to chat messages (keep it visible)
+    if (message) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: message }]);
+    }
+
+    // If there are tool calls, execute them and continue the loop
+    if (toolCalls && toolCalls.length > 0 && iterationCountRef.current < maxIterations && sendMessageRef.current && responseId) {
+      iterationCountRef.current++;
+      
+      // Execute tool calls and collect results
+      const toolResults: Array<{call_id: string, result: any}> = [];
+      for (const toolCall of toolCalls) {
+        if (toolCallHandlerRef.current) {
+          const result = toolCallHandlerRef.current(toolCall.name, toolCall.args);
+          toolResults.push({
+            call_id: toolCall.call_id,
+            result: result !== undefined ? result : { status: 'success' }
+          });
+        }
+      }
+
+      // Build function_call_output items (convert results to JSON strings)
+      const functionCallOutputs = toolResults.map(tr => {
+        let output: string;
+        if (Array.isArray(tr.result)) {
+          output = JSON.stringify(tr.result);
+        } else if (tr.result && typeof tr.result === 'object' && tr.result.data && Array.isArray(tr.result.data)) {
+          output = JSON.stringify(tr.result.data);
+        } else if (typeof tr.result === 'string') {
+          output = tr.result;
+        } else {
+          output = JSON.stringify(tr.result);
+        }
+        return {
+          type: 'function_call_output',
+          call_id: tr.call_id,
+          output: output
+        };
+      });
+
+      // Make another API call using previous_response_id approach
+      if (sendMessageRef.current) {
+        sendMessageRef.current(null, null, accessToken ?? null, responseId, functionCallOutputs);
+      }
+    } else {
+      // No tool calls - reset iteration count
+      iterationCountRef.current = 0;
+    }
+  }, [accessToken]);
 
   const handleToolCall = useCallback((name: string, args: any) => {
     if (toolCallHandlerRef.current) {
@@ -36,21 +98,32 @@ export default function Dashboard() {
     }
   }, []);
 
-  const handleRegisterToolHandler = useCallback((handler: (name: string, args: any) => void) => {
+  const handleRegisterToolHandler = useCallback((handler: (name: string, args: any) => any) => {
     toolCallHandlerRef.current = handler;
   }, []);
 
   const { streamingText, isStreaming, isToolCalling, sendMessage } = useChatStream(handleMessageComplete, handleToolCall);
+  sendMessageRef.current = sendMessage;
 
   const handleSearch = useCallback(() => {
     if (!query.trim()) return;
 
+    // Reset iteration count for new conversation
+    iterationCountRef.current = 0;
+
     const userMessage: ChatMessage = { role: 'user', content: query.trim() };
-    const updatedMessages = [...chatMessages, userMessage];
-    setChatMessages(updatedMessages);
+    setChatMessages(prev => [...prev, userMessage]);
+    const messageText = query.trim();
     setQuery('');
-    sendMessage(query.trim(), updatedMessages, accessToken ?? null);
-  }, [query, chatMessages, sendMessage, accessToken]);
+    
+    // If we have a previous response_id, use it for continuation
+    // Otherwise, make an initial request
+    if (lastResponseIdRef.current && sendMessageRef.current) {
+      sendMessageRef.current(messageText, null, accessToken ?? null, lastResponseIdRef.current);
+    } else {
+      sendMessage(messageText, null, accessToken ?? null);
+    }
+  }, [query, sendMessage, accessToken]);
 
   return (
     <div className={styles.dashboard}>
