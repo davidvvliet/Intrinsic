@@ -3,7 +3,7 @@
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 16px;
+  padding: 6px 16px 16px 16px;
 }
 
 .textareaWrapper {

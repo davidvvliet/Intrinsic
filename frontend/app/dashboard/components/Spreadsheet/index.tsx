@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { SpreadsheetProvider, useSpreadsheetContext } from './SpreadsheetContext';
 import { useSheetPersistence } from './useSheetPersistence';
+import { useSelectionChange } from './useSelectionChange';
 import Toolbar from './Toolbar';
 import FormulaBar from './FormulaBar';
 import Grid from './Grid';
@@ -11,13 +12,17 @@ import styles from './Spreadsheet.module.css';
 
 interface SpreadsheetContentProps {
   onToolCall?: (handler: (name: string, args: any) => void) => void;
+  onSelectionChange?: (range: string | null) => void;
 }
 
-function SpreadsheetContent({ onToolCall }: SpreadsheetContentProps) {
+function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetContentProps) {
   const spreadsheet = useSpreadsheetContext();
   
   // Hook handles auto-save and load on mount
   useSheetPersistence();
+  
+  // Watch selection changes and notify parent
+  useSelectionChange(spreadsheet.selection, onSelectionChange);
   
   // Create tool execution handler
   useEffect(() => {
@@ -161,12 +166,13 @@ function SpreadsheetContent({ onToolCall }: SpreadsheetContentProps) {
 
 interface SpreadsheetProps {
   onToolCall?: (handler: (name: string, args: any) => void) => void;
+  onSelectionChange?: (range: string | null) => void;
 }
 
-export default function Spreadsheet({ onToolCall }: SpreadsheetProps) {
+export default function Spreadsheet({ onToolCall, onSelectionChange }: SpreadsheetProps) {
   return (
     <SpreadsheetProvider>
-      <SpreadsheetContent onToolCall={onToolCall} />
+      <SpreadsheetContent onToolCall={onToolCall} onSelectionChange={onSelectionChange} />
     </SpreadsheetProvider>
   );
 }

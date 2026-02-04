@@ -21,7 +21,8 @@ export function useChatStream(
     conversationHistory: ChatMessage[] | null, 
     accessToken: string | null,
     previousResponseId?: string,
-    functionCallOutputs?: Array<{type: string, call_id: string, output: string}>
+    functionCallOutputs?: Array<{type: string, call_id: string, output: string}>,
+    selectedRange?: string | null
   ) => {
     setIsStreaming(true);
     setIsToolCalling(false);
@@ -50,6 +51,11 @@ export function useChatStream(
       } else {
         // Initial request
         body.message = message || '';
+      }
+      
+      // Add selected range if provided
+      if (selectedRange) {
+        body.selected_range = selectedRange;
       }
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {

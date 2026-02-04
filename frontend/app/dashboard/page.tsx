@@ -24,6 +24,7 @@ export default function Dashboard() {
   
   const [chatMessages, setChatMessages] = useChatMessages();
   const [query, setQuery] = useState<string>('');
+  const [selectedRange, setSelectedRange] = useState<string | null>(null);
   const toolCallHandlerRef = useRef<((name: string, args: any) => any) | null>(null);
   const lastResponseIdRef = useRef<string | null>(null);
   const iterationCountRef = useRef<number>(0);
@@ -33,7 +34,8 @@ export default function Dashboard() {
     conversationHistory: ChatMessage[] | null, 
     accessToken: string | null,
     previousResponseId?: string,
-    functionCallOutputs?: Array<{type: string, call_id: string, output: string}>
+    functionCallOutputs?: Array<{type: string, call_id: string, output: string}>,
+    selectedRange?: string | null
   ) => Promise<void>) | null>(null);
 
   const handleMessageComplete = useCallback(async (message: string, toolCalls?: ToolCall[], responseId?: string) => {
@@ -84,7 +86,7 @@ export default function Dashboard() {
 
       // Make another API call using previous_response_id approach
       if (sendMessageRef.current) {
-        sendMessageRef.current(null, null, accessToken ?? null, responseId, functionCallOutputs);
+        sendMessageRef.current(null, null, accessToken ?? null, responseId, functionCallOutputs, selectedRange);
       }
     } else {
       // No tool calls - reset iteration count
@@ -111,19 +113,19 @@ export default function Dashboard() {
     // Reset iteration count for new conversation
     iterationCountRef.current = 0;
 
-    const userMessage: ChatMessage = { role: 'user', content: query.trim() };
-    setChatMessages(prev => [...prev, userMessage]);
     const messageText = query.trim();
+    const userMessage: ChatMessage = { role: 'user', content: messageText };
+    setChatMessages(prev => [...prev, userMessage]);
     setQuery('');
     
     // If we have a previous response_id, use it for continuation
     // Otherwise, make an initial request
     if (lastResponseIdRef.current && sendMessageRef.current) {
-      sendMessageRef.current(messageText, null, accessToken ?? null, lastResponseIdRef.current);
+      sendMessageRef.current(messageText, null, accessToken ?? null, lastResponseIdRef.current, undefined, selectedRange);
     } else {
-      sendMessage(messageText, null, accessToken ?? null);
+      sendMessage(messageText, null, accessToken ?? null, undefined, undefined, selectedRange);
     }
-  }, [query, sendMessage, accessToken]);
+  }, [query, selectedRange, sendMessage, accessToken]);
 
   return (
     <div className={styles.dashboard}>
@@ -140,7 +142,10 @@ export default function Dashboard() {
           </div> */}
         </div>
         <div className={styles.middleColumn}>
-          <Spreadsheet onToolCall={handleRegisterToolHandler} />
+          <Spreadsheet 
+            onToolCall={handleRegisterToolHandler} 
+            onSelectionChange={setSelectedRange}
+          />
         </div>
         <div 
           className={`${styles.rightColumn} ${columnMinimize.rightMinimized ? styles.hidden : ''}`}
@@ -155,6 +160,18 @@ export default function Dashboard() {
               />
             )}
             <div className={styles.searchInputWrapper}>
+              {selectedRange && (
+                <div className={styles.selectedRangeDisplay}>
+                  <span>{selectedRange}</span>
+                  <button
+                    className={styles.clearRangeButton}
+                    onClick={() => setSelectedRange(null)}
+                    aria-label="Clear selection"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
               <SearchInput
                 query={query}
                 setQuery={setQuery}
