@@ -89,8 +89,7 @@ function SpreadsheetContent({ onToolCall }: SpreadsheetContentProps) {
           result.push(rowValues);
         }
         
-        // TODO: Send result back to backend for LLM to use
-        console.log('[SPREADSHEET] get_cell_range result:', result);
+        return result;
       } else if (name === 'format_cells') {
         const { formats } = args;
         if (!formats || !Array.isArray(formats)) {
