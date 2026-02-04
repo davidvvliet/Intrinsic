@@ -26,6 +26,7 @@ export function useSheetPersistence() {
     setCopiedRange,
     activeSheetId,
     sheets,
+    setSheets,
   } = useSpreadsheetContext();
 
   // Get sheet ID from URL (don't generate until first save)
@@ -109,18 +110,28 @@ export function useSheetPersistence() {
       try {
         const stored = localStorage.getItem('spreadsheet_sheets');
         if (stored) {
-          const sheets = JSON.parse(stored);
-          const activeSheetIndex = sheets.findIndex((s: { sheetId: string }) => s.sheetId === activeSheetId);
-          if (activeSheetIndex !== -1) {
-            sheets[activeSheetIndex].fetchId = returnedSheetId;
-            localStorage.setItem('spreadsheet_sheets', JSON.stringify(sheets));
-          }
+        const sheets = JSON.parse(stored);
+        const activeSheetIndex = sheets.findIndex((s: { sheetId: string }) => s.sheetId === activeSheetId);
+        if (activeSheetIndex !== -1) {
+          sheets[activeSheetIndex].fetchId = returnedSheetId;
+          localStorage.setItem('spreadsheet_sheets', JSON.stringify(sheets));
+          
+          // Also update React state
+          setSheets(prevSheets => {
+            const updated = [...prevSheets];
+            const index = updated.findIndex(s => s.sheetId === activeSheetId);
+            if (index !== -1) {
+              updated[index] = { ...updated[index], fetchId: returnedSheetId };
+            }
+            return updated;
+          });
+        }
         }
       } catch (err) {
         console.error('Failed to update fetchId in localStorage:', err);
       }
     }
-  }, [dirtyCells, serializeSheetData, markSaved, sheetIdFromUrl, accessToken, router, activeSheetId]);
+  }, [dirtyCells, serializeSheetData, markSaved, sheetIdFromUrl, accessToken, router, activeSheetId, sheets, setSheets]);
 
   // Load sheet from server
   const loadSheet = useCallback(async (sheetIdToLoad: string) => {
@@ -236,5 +247,5 @@ export function useSheetPersistence() {
     // Save activeSheetId to localStorage
     localStorage.setItem('spreadsheet_last_active_sheet_id', activeSheetId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSheetId, accessToken, sheets]);
+  }, [activeSheetId, accessToken]);
 }
