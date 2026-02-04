@@ -158,6 +158,11 @@ async def generate_chat_stream(request: ChatRequest, user):
     client = AsyncOpenAI(api_key=OPENAI_API_KEY)
     
     try:
+        # Build instructions with optional selected range context
+        instructions = SYSTEM_PROMPT
+        if request.selected_range:
+            instructions += f"\n\nNote: The user currently has range {request.selected_range} selected. Use this as context if relevant to their request, but ignore it if the request is unrelated."
+        
         # If previous_response_id is provided, use Responses API continuation approach
         if request.previous_response_id:
             if request.function_call_outputs:
@@ -166,7 +171,7 @@ async def generate_chat_stream(request: ChatRequest, user):
                     model="gpt-5.1",
                     previous_response_id=request.previous_response_id,
                     input=request.function_call_outputs,
-                    instructions=SYSTEM_PROMPT,
+                    instructions=instructions,
                     tools=SPREADSHEET_TOOLS,
                     stream=True,
                     max_output_tokens=3000
@@ -178,7 +183,7 @@ async def generate_chat_stream(request: ChatRequest, user):
                     model="gpt-5.1",
                     previous_response_id=request.previous_response_id,
                     input=user_message_input,
-                    instructions=SYSTEM_PROMPT,
+                    instructions=instructions,
                     tools=SPREADSHEET_TOOLS,
                     stream=True,
                     max_output_tokens=3000
@@ -197,7 +202,7 @@ async def generate_chat_stream(request: ChatRequest, user):
             stream = await client.responses.create(
                 model="gpt-5.1",
                 input=messages,
-                instructions=SYSTEM_PROMPT,
+                instructions=instructions,
                 tools=SPREADSHEET_TOOLS,
                 stream=True,
                 max_output_tokens=3000

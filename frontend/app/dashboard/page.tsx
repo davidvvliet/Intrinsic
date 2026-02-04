@@ -160,7 +160,7 @@ export default function Dashboard() {
               />
             )}
             <div className={styles.searchInputWrapper}>
-              {selectedRange && (
+              {selectedRange && chatMessages.length > 0 && (
                 <div className={styles.selectedRangeDisplay}>
                   <span>{selectedRange}</span>
                   <button
@@ -178,6 +178,18 @@ export default function Dashboard() {
                 onSearch={handleSearch}
                 loading={isStreaming || isToolCalling}
               />
+              {selectedRange && chatMessages.length === 0 && (
+                <div className={styles.selectedRangeDisplayBelow}>
+                  <span>{selectedRange}</span>
+                  <button
+                    className={styles.clearRangeButton}
+                    onClick={() => setSelectedRange(null)}
+                    aria-label="Clear selection"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -5,3 +5,4 @@ class ChatRequest(BaseModel):
     message: Optional[str] = None
     previous_response_id: Optional[str] = None
     function_call_outputs: Optional[List[Dict]] = None
+    selected_range: Optional[str] = None
