@@ -23,13 +23,19 @@ export const POINTING_SELECTION_HIGHLIGHT = 'rgba(200, 180, 240, 0.3)';
 
 // Color palette for formula references (different color per reference)
 export const FORMULA_REFERENCE_COLORS = [
-  { fill: 'rgba(200, 180, 240, 0.3)', border: '#8b5cf6' },  // Original Purple 
+  { fill: 'rgba(200, 180, 240, 0.3)', border: '#8b5cf6' },  // Original Purple
   { fill: 'rgba(16, 185, 129, 0.2)', border: '#10b981' },   // Green
   { fill: 'rgba(245, 158, 11, 0.2)', border: '#f59e0b' },    // Amber
   { fill: 'rgba(239, 68, 68, 0.2)', border: '#ef4444' },    // Red
   { fill: 'rgba(236, 72, 153, 0.2)', border: '#ec4899' },  // Pink
   { fill: 'rgba(14, 165, 233, 0.2)', border: '#0ea5e9' },  // Sky
 ];
+
+// LLM animation color
+export const LLM_ANIMATION_COLOR = {
+  fill: 'rgba(5, 150, 105, 0.2)',  // Emerald-600 at 20% opacity
+  border: '#059669'                 // Emerald-600 solid
+};
 
 // Font sizes
 export const CELL_FONT_SIZE = 13;

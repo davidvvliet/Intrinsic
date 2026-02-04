@@ -19,6 +19,7 @@ export function useSpreadsheet({
   setZoom,
   drawGrid,
   copiedRange,
+  animatingRanges,
   setDashOffset,
   selection,
   highlightedCells,
@@ -29,6 +30,7 @@ export function useSpreadsheet({
   setZoom: React.Dispatch<React.SetStateAction<number>>;
   drawGrid: () => void;
   copiedRange: CopiedRange;
+  animatingRanges: CopiedRange[];
   setDashOffset: React.Dispatch<React.SetStateAction<number>>;
   selection: Selection | null;
   highlightedCells: Selection[] | null;
@@ -83,17 +85,18 @@ export function useSpreadsheet({
     return () => container.removeEventListener('wheel', handleWheel);
   }, [containerRef, setZoom]);
 
-  // Marching ants animation for copied range and highlighted cells
+  // Marching ants animation for copied range, highlighted cells, and animating ranges
   useEffect(() => {
     const hasSelections = highlightedCells && highlightedCells.length > 0;
-    if (!copiedRange && !hasSelections) return;
-    
+    const hasAnimations = animatingRanges && animatingRanges.length > 0;
+    if (!copiedRange && !hasSelections && !hasAnimations) return;
+
     const interval = setInterval(() => {
       setDashOffset(prev => (prev + 1) % DASH_OFFSET_MODULO);
     }, MARCHING_ANTS_INTERVAL_MS);
-    
+
     return () => clearInterval(interval);
-  }, [copiedRange, highlightedCells, setDashOffset]);
+  }, [copiedRange, highlightedCells, animatingRanges, setDashOffset]);
 
   // Auto-scroll to keep selected cell in view
   useEffect(() => {

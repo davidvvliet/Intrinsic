@@ -35,6 +35,7 @@ export default function Grid() {
     inputValue,
     isEditing,
     copiedRange,
+    animatingRanges,
     updateCells,
     updateCellFormats,
     setSelection,
@@ -79,13 +80,14 @@ export default function Grid() {
       selection,
       highlightedCells,
       copiedRange,
+      animatingRanges,
       dashOffset,
       zoom,
       isEditing,
       columnWidths,
       getColumnX,
     });
-  }, [cellData, cellFormat, computedData, selection, highlightedCells, zoom, copiedRange, dashOffset, isEditing, containerRef, columnWidths, getColumnX]);
+  }, [cellData, cellFormat, computedData, selection, highlightedCells, zoom, copiedRange, animatingRanges, dashOffset, isEditing, containerRef, columnWidths, getColumnX]);
 
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
@@ -422,6 +424,7 @@ export default function Grid() {
     setZoom,
     drawGrid,
     copiedRange,
+    animatingRanges,
     setDashOffset,
     selection,
     highlightedCells,

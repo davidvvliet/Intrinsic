@@ -16,9 +16,10 @@ type SpreadsheetContextType = {
   inputValue: string;
   isEditing: boolean;
   copiedRange: CopiedRange;
+  animatingRanges: CopiedRange[];
   dirtyCells: Set<string>;
   hasUnsavedChanges: boolean;
-  
+
   // Setters
   setCellData: React.Dispatch<React.SetStateAction<CellData>>;
   setCellFormat: React.Dispatch<React.SetStateAction<CellFormatData>>;
@@ -30,6 +31,7 @@ type SpreadsheetContextType = {
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
   setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
   setCopiedRange: React.Dispatch<React.SetStateAction<CopiedRange>>;
+  setAnimatingRanges: React.Dispatch<React.SetStateAction<CopiedRange[]>>;
   
   // Actions
   saveCurrentCell: () => void;
@@ -97,6 +99,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   const [inputValue, setInputValue] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [copiedRange, setCopiedRange] = useState<CopiedRange>(null);
+  const [animatingRanges, setAnimatingRanges] = useState<CopiedRange[]>([]);
   const [columnWidthsBySheet, setColumnWidthsBySheet] = useState<Map<string, Map<number, number>>>(new Map());
 
   // Formula engine (auto-detects changes and recalculates)
@@ -361,6 +364,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         inputValue,
         isEditing,
         copiedRange,
+        animatingRanges,
         dirtyCells,
         hasUnsavedChanges,
         setCellData,
@@ -373,6 +377,7 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         setInputValue,
         setIsEditing,
         setCopiedRange,
+        setAnimatingRanges,
         saveCurrentCell,
         moveToCell,
         updateCell,

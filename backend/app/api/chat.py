@@ -5,13 +5,16 @@ from app.core.deps import get_workos_user
 from openai import AsyncOpenAI
 import json
 import os
+from datetime import datetime
 
 router = APIRouter()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-SYSTEM_PROMPT = """You are the user's assistant for Intrinsic, an AI-powered fundamental analysis tool to help users streamline investment analysis on securities to spot real value. Provide clear, concise, and actionable insights to help users make informed investment decisions.
+SYSTEM_PROMPT_TEMPLATE = """You are the user's assistant for Intrinsic, an AI-powered fundamental analysis tool to help users streamline investment analysis on securities to spot real value. Provide clear, concise, and actionable insights to help users make informed investment decisions.
 
 Intrinsic has its own proprietary spreadsheet that you can edit using tool calls based on the user's requests. Note that the spreadsheet follows the same conventions as other spreadsheets.
+
+Today's date is {current_date}.
 
 Rules:
  - Always use English.
@@ -156,10 +159,13 @@ SPREADSHEET_TOOLS = [
 async def generate_chat_stream(request: ChatRequest, user):
 
     client = AsyncOpenAI(api_key=OPENAI_API_KEY)
-    
+
     try:
-        # Build instructions with optional selected range context
-        instructions = SYSTEM_PROMPT
+        # Get current date and build system prompt
+        current_date = datetime.now().strftime("%B %d, %Y")
+        instructions = SYSTEM_PROMPT_TEMPLATE.format(current_date=current_date)
+
+        # Add optional selected range context
         if request.selected_range:
             instructions += f"\n\nNote: The user currently has range {request.selected_range} selected. Use this as context if relevant to their request, but ignore it if the request is unrelated."
         

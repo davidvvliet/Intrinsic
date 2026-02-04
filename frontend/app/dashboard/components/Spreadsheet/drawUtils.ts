@@ -24,6 +24,7 @@ import {
   POINTING_SELECTION_BORDER,
   POINTING_SELECTION_HIGHLIGHT,
   FORMULA_REFERENCE_COLORS,
+  LLM_ANIMATION_COLOR,
 } from './config';
 import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange, CellType, ComputedData } from './types';
 import { applyFormat, shouldRightAlign } from './formatUtils';
@@ -122,6 +123,7 @@ export function drawGrid({
   selection,
   highlightedCells,
   copiedRange,
+  animatingRanges,
   dashOffset,
   zoom,
   isEditing,
@@ -137,6 +139,7 @@ export function drawGrid({
   selection: Selection | null;
   highlightedCells: Selection[] | null;
   copiedRange: CopiedRange;
+  animatingRanges: CopiedRange[];
   dashOffset: number;
   zoom: number;
   isEditing: boolean;
@@ -413,12 +416,35 @@ export function drawGrid({
       copyWidth += getColumnWidth(col);
     }
     const copyHeight = (copiedRange.maxRow - copiedRange.minRow + 1) * cellHeight;
-    
+
     ctx.setLineDash(DASH_PATTERN);
     ctx.lineDashOffset = -dashOffset;
     ctx.strokeStyle = TEXT_COLOR;
     ctx.lineWidth = ACTIVE_BORDER_WIDTH;
     ctx.strokeRect(copyX, copyY, copyWidth, copyHeight);
+    ctx.setLineDash([]);
+  }
+
+  // Draw marching ants around LLM animating ranges
+  if (animatingRanges && animatingRanges.length > 0) {
+    ctx.setLineDash(DASH_PATTERN);
+    ctx.lineDashOffset = -dashOffset;
+    ctx.lineWidth = ACTIVE_BORDER_WIDTH;
+    ctx.strokeStyle = LLM_ANIMATION_COLOR.border;
+
+    animatingRanges.forEach(range => {
+      if (!range) return;
+      const x = headerWidth + getColumnX(range.minCol) * zoom - scrollLeft;
+      const y = headerHeight + range.minRow * cellHeight - scrollTop;
+      let width = 0;
+      for (let col = range.minCol; col <= range.maxCol; col++) {
+        width += getColumnWidth(col);
+      }
+      const height = (range.maxRow - range.minRow + 1) * cellHeight;
+
+      ctx.strokeRect(x, y, width, height);
+    });
+
     ctx.setLineDash([]);
   }
 
