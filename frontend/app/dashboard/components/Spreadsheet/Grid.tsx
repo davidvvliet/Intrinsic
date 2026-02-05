@@ -15,7 +15,7 @@ import {
   HEADER_HEIGHT,
   CELL_FONT_SIZE,
 } from './config';
-import type { ScrollPosition, Selection } from './types';
+import type { Selection } from './types';
 import { drawGrid as drawGridUtil } from './drawUtils';
 import { parseCellRef } from './formulaEngine/cellRef';
 import { EXCEL_FUNCTION_SIGNATURES } from './formulaEngine/excelfunctions';
@@ -58,7 +58,6 @@ export default function Grid() {
 
   // Grid-specific state
   const [zoom, setZoom] = useState(1.0);
-  const [scrollPosition, setScrollPosition] = useState<ScrollPosition>({ left: 0, top: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dashOffset, setDashOffset] = useState(0);
   const [showFunctionDropdown, setShowFunctionDropdown] = useState(false);
@@ -94,12 +93,8 @@ export default function Grid() {
   }, [cellData, cellFormat, computedData, selection, highlightedCells, zoom, copiedRange, animatingRanges, dashOffset, isEditing, containerRef, columnWidths, getColumnX]);
 
   const handleScroll = useCallback(() => {
-    const container = containerRef.current;
-    if (container) {
-      setScrollPosition({ left: container.scrollLeft, top: container.scrollTop });
-    }
     drawGrid();
-  }, [drawGrid, containerRef]);
+  }, [drawGrid]);
 
   // Helper to get column width
   const getColumnWidth = useCallback((col: number): number => {
@@ -480,9 +475,9 @@ export default function Grid() {
             ref={inputRef}
             className={styles.cellInput}
             style={{
-              left: HEADER_WIDTH * zoom + selection.start.col * CELL_WIDTH * zoom - scrollPosition.left,
-              top: HEADER_HEIGHT * zoom + selection.start.row * CELL_HEIGHT * zoom - scrollPosition.top,
-              width: CELL_WIDTH * zoom,
+              left: HEADER_WIDTH * zoom + getColumnX(selection.start.col) * zoom,
+              top: HEADER_HEIGHT * zoom + selection.start.row * CELL_HEIGHT * zoom,
+              width: getColumnWidth(selection.start.col) * zoom,
               height: CELL_HEIGHT * zoom,
               fontSize: CELL_FONT_SIZE * zoom,
             }}
@@ -497,8 +492,8 @@ export default function Grid() {
               onMouseDown={(e) => e.preventDefault()}
               style={{
                 position: 'absolute',
-                left: HEADER_WIDTH * zoom + getColumnX(selection.start.col) * zoom - scrollPosition.left,
-                top: HEADER_HEIGHT * zoom + selection.start.row * CELL_HEIGHT * zoom - scrollPosition.top + CELL_HEIGHT * zoom,
+                left: HEADER_WIDTH * zoom + getColumnX(selection.start.col) * zoom,
+                top: HEADER_HEIGHT * zoom + selection.start.row * CELL_HEIGHT * zoom + CELL_HEIGHT * zoom,
                 width: getColumnWidth(selection.start.col) * 2,
                 backgroundColor: 'white',
                 border: '1px solid #ccc',
