@@ -38,8 +38,10 @@
 
 .formulaInput {
   flex: 1;
-  font-size: 13px;
-  font-family: Arial, sans-serif;
+  font-size: 14px;
+  font-family: var(--font-inconsolata), monospace;
+  line-height: 24px;
+  height: 24px;
   border: none;
   background: transparent;
   outline: none;
