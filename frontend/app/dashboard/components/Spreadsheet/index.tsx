@@ -105,15 +105,20 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
         const start = a1ToRowCol(startCell);
         const end = a1ToRowCol(endCell);
         
-        const result: string[][] = [];
-        
+        const result: ({ value: string; raw?: string })[][] = [];
+
         // Build 2D array from spreadsheet data
         for (let row = start.row; row <= end.row; row++) {
-          const rowValues: string[] = [];
+          const rowValues: ({ value: string; raw?: string })[] = [];
           for (let col = start.col; col <= end.col; col++) {
             const cellKey = getCellKey(row, col);
             const displayValue = spreadsheet.getDisplayValue(cellKey);
-            rowValues.push(displayValue);
+            const cell = spreadsheet.cellData.get(cellKey);
+            if (cell?.type === 'formula') {
+              rowValues.push({ value: displayValue, raw: cell.raw });
+            } else {
+              rowValues.push({ value: displayValue });
+            }
           }
           result.push(rowValues);
         }

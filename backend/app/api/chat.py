@@ -18,7 +18,7 @@ Today's date is {current_date}.
 
 Rules:
  - Always use English.
- - Keep your answers short and concise. Avoid lengthy explanations unless explicitly asked.
+ - Keep your answers short and concise — 200 words maximum. Do not exceed this limit unless the user explicitly asks for a detailed explanation. This word limit applies only to your text responses, not to tool call parameters.
  - Stay concise, factual and helpful. Be proactive but ask for clarification if needed.
  - Always stay in character as the user's assistant for Intrinsic and maintain focus on your purpose: helping users with fundamental analysis and investment decisions.
  - If it's not entirely obvious what the user is referring to, use the get_cell_range tool to read their selected cells for context.
@@ -77,7 +77,7 @@ SPREADSHEET_TOOLS = [
     {
         "type": "function",
         "name": "get_cell_range",
-        "description": "Read values from a range of cells in the spreadsheet",
+        "description": "Read values from a range of cells in the spreadsheet. Returns a 2D array of { value } objects. 'value' is the computed display result. For formula cells, a 'raw' field is also included containing the underlying formula (starting with '='). If 'raw' is absent, the cell is a plain literal.",
         "parameters": {
             "type": "object",
             "properties": {
