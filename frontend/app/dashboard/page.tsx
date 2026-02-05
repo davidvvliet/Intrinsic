@@ -29,6 +29,11 @@ export default function Dashboard() {
   const lastResponseIdRef = useRef<string | null>(null);
   const iterationCountRef = useRef<number>(0);
   const maxIterations = 10;
+
+  // Use ref to always get latest access token (avoids stale closure issues)
+  const accessTokenRef = useRef<string | null>(null);
+  accessTokenRef.current = accessToken ?? null;
+
   const sendMessageRef = useRef<((
     message: string | null, 
     conversationHistory: ChatMessage[] | null, 
@@ -86,13 +91,13 @@ export default function Dashboard() {
 
       // Make another API call using previous_response_id approach
       if (sendMessageRef.current) {
-        sendMessageRef.current(null, null, accessToken ?? null, responseId, functionCallOutputs, selectedRange);
+        sendMessageRef.current(null, null, accessTokenRef.current, responseId, functionCallOutputs, selectedRange);
       }
     } else {
       // No tool calls - reset iteration count
       iterationCountRef.current = 0;
     }
-  }, [accessToken]);
+  }, []);
 
   const handleToolCall = useCallback((name: string, args: any) => {
     if (toolCallHandlerRef.current) {
@@ -121,11 +126,11 @@ export default function Dashboard() {
     // If we have a previous response_id, use it for continuation
     // Otherwise, make an initial request
     if (lastResponseIdRef.current && sendMessageRef.current) {
-      sendMessageRef.current(messageText, null, accessToken ?? null, lastResponseIdRef.current, undefined, selectedRange);
+      sendMessageRef.current(messageText, null, accessTokenRef.current, lastResponseIdRef.current, undefined, selectedRange);
     } else {
-      sendMessage(messageText, null, accessToken ?? null, undefined, undefined, selectedRange);
+      sendMessage(messageText, null, accessTokenRef.current, undefined, undefined, selectedRange);
     }
-  }, [query, selectedRange, sendMessage, accessToken]);
+  }, [query, selectedRange, sendMessage]);
 
   return (
     <div className={styles.dashboard}>
