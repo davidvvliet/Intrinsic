@@ -69,3 +69,15 @@ export type ComputedValue = {
 };
 
 export type ComputedData = Map<string, ComputedValue>;
+
+// Undo/Redo types
+export type DeltaEntry<T> = {
+  old: T | null;
+  new: T | null;
+};
+
+export type Action = {
+  dataDelta: Map<string, DeltaEntry<CellValue>>;
+  formatDelta: Map<string, DeltaEntry<CellFormat>>;
+  timestamp: number;
+};

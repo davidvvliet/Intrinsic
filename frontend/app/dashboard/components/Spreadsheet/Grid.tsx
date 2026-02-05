@@ -50,6 +50,10 @@ export default function Grid() {
     columnWidths,
     getColumnX,
     autoResizeColumn,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   } = useSpreadsheetContext();
 
   // Grid-specific state
@@ -414,6 +418,10 @@ export default function Grid() {
     setHighlightedCells,
     highlightedCells,
     zoom,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   });
 
   // Use spreadsheet effects hook

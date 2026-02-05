@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
 import { NUM_ROWS, NUM_COLS, CELL_WIDTH, CELL_FONT_SIZE, CELL_TEXT_PADDING } from './config';
-import type { CellData, CellFormat, CellFormatData, CellType, Selection, CopiedRange, ComputedData } from './types';
+import type { CellData, CellFormat, CellFormatData, CellType, Selection, CopiedRange, ComputedData, Action, DeltaEntry, CellValue } from './types';
 import { getCellKey, determineCellType, getColumnLabel } from './drawUtils';
 import { useFormulaEngine } from './useFormulaEngine';
 
@@ -36,11 +36,15 @@ type SpreadsheetContextType = {
   // Actions
   saveCurrentCell: () => void;
   moveToCell: (row: number, col: number, startEditing?: boolean) => void;
-  updateCell: (key: string, value: { raw: string; type: CellType } | null) => void;
-  updateCellFormat: (key: string, format: CellFormat | null) => void;
-  updateCells: (newCellData: Map<string, { raw: string; type: CellType }>) => void;
-  updateCellFormats: (newCellFormat: Map<string, CellFormat>) => void;
+  updateCell: (key: string, value: { raw: string; type: CellType } | null, batchWithPrevious?: boolean) => void;
+  updateCellFormat: (key: string, format: CellFormat | null, batchWithPrevious?: boolean) => void;
+  updateCells: (newCellData: Map<string, { raw: string; type: CellType }>, batchWithPrevious?: boolean) => void;
+  updateCellFormats: (newCellFormat: Map<string, CellFormat>, batchWithPrevious?: boolean) => void;
   markSaved: () => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
   
   // Formula engine
   getDisplayValue: (key: string) => string;
@@ -101,6 +105,12 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   const [copiedRange, setCopiedRange] = useState<CopiedRange>(null);
   const [animatingRanges, setAnimatingRanges] = useState<CopiedRange[]>([]);
   const [columnWidthsBySheet, setColumnWidthsBySheet] = useState<Map<string, Map<number, number>>>(new Map());
+
+  // Undo/Redo stacks
+  const [undoStack, setUndoStack] = useState<Action[]>([]);
+  const [redoStack, setRedoStack] = useState<Action[]>([]);
+  const batchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const BATCH_WINDOW_MS = 500; // 500ms batching window for user typing
 
   // Formula engine (auto-detects changes and recalculates)
   const { computedData, getDisplayValue } = useFormulaEngine(cellData);
@@ -178,8 +188,211 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
   // Computed: has unsaved changes
   const hasUnsavedChanges = dirtyCells.size > 0;
 
+  // Computed: can undo/redo
+  const canUndo = undoStack.length > 0;
+  const canRedo = redoStack.length > 0;
+
+  // Helper: Add action to undo stack
+  const pushAction = useCallback((action: Action, batchWithPrevious: boolean = false) => {
+    setUndoStack(prev => {
+      const now = Date.now();
+
+      // If batching enabled and previous action exists within time window, merge
+      if (batchWithPrevious && prev.length > 0) {
+        const lastAction = prev[prev.length - 1];
+        if (now - lastAction.timestamp < BATCH_WINDOW_MS) {
+          // Merge deltas
+          const merged: Action = {
+            dataDelta: new Map([...lastAction.dataDelta, ...action.dataDelta]),
+            formatDelta: new Map([...lastAction.formatDelta, ...action.formatDelta]),
+            timestamp: lastAction.timestamp, // Keep original timestamp
+          };
+          return [...prev.slice(0, -1), merged];
+        }
+      }
+
+      return [...prev, action];
+    });
+
+    // Clear redo stack on new action
+    setRedoStack([]);
+  }, []);
+
+  // Undo function
+  const undo = useCallback(() => {
+    if (undoStack.length === 0) return;
+
+    const action = undoStack[undoStack.length - 1];
+
+    // Apply reverse of action (swap old <-> new)
+    setCellData(prev => {
+      const next = new Map(prev);
+      action.dataDelta.forEach((delta, key) => {
+        if (delta.old === null) {
+          next.delete(key);
+        } else {
+          next.set(key, delta.old);
+        }
+      });
+      return next;
+    });
+
+    setCellFormat(prev => {
+      const next = new Map(prev);
+      action.formatDelta.forEach((delta, key) => {
+        if (delta.old === null) {
+          next.delete(key);
+        } else {
+          next.set(key, delta.old);
+        }
+      });
+      return next;
+    });
+
+    // Update dirty tracking
+    const allKeys = new Set([...action.dataDelta.keys(), ...action.formatDelta.keys()]);
+    allKeys.forEach(key => {
+      const baselineValue = baselineData.get(key);
+      const baselineFmt = baselineFormat.get(key);
+
+      let isDirty = false;
+
+      // Check data
+      if (action.dataDelta.has(key)) {
+        const oldValue = action.dataDelta.get(key)!.old;
+        const oldRaw = oldValue?.raw || '';
+        const baselineRaw = baselineValue?.raw || '';
+        if (oldRaw !== baselineRaw) isDirty = true;
+      }
+
+      // Check format
+      if (action.formatDelta.has(key)) {
+        const oldFmt = action.formatDelta.get(key)!.old;
+        const oldStr = oldFmt ? JSON.stringify(oldFmt) : '';
+        const baselineStr = baselineFmt ? JSON.stringify(baselineFmt) : '';
+        if (oldStr !== baselineStr) isDirty = true;
+      }
+
+      if (isDirty) {
+        setDirtyCells(prev => new Set(prev).add(key));
+      } else {
+        setDirtyCells(prev => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      }
+    });
+
+    // Update current input if selection matches
+    if (selection) {
+      const key = getCellKey(selection.start.row, selection.start.col);
+      if (action.dataDelta.has(key)) {
+        const oldValue = action.dataDelta.get(key)!.old;
+        setInputValue(oldValue?.raw || '');
+      }
+    }
+
+    // Move action to redo stack
+    setUndoStack(prev => prev.slice(0, -1));
+    setRedoStack(prev => [...prev, action]);
+  }, [undoStack, selection, baselineData, baselineFormat]);
+
+  // Redo function
+  const redo = useCallback(() => {
+    if (redoStack.length === 0) return;
+
+    const action = redoStack[redoStack.length - 1];
+
+    // Apply action (use new values)
+    setCellData(prev => {
+      const next = new Map(prev);
+      action.dataDelta.forEach((delta, key) => {
+        if (delta.new === null) {
+          next.delete(key);
+        } else {
+          next.set(key, delta.new);
+        }
+      });
+      return next;
+    });
+
+    setCellFormat(prev => {
+      const next = new Map(prev);
+      action.formatDelta.forEach((delta, key) => {
+        if (delta.new === null) {
+          next.delete(key);
+        } else {
+          next.set(key, delta.new);
+        }
+      });
+      return next;
+    });
+
+    // Update dirty tracking
+    const allKeys = new Set([...action.dataDelta.keys(), ...action.formatDelta.keys()]);
+    allKeys.forEach(key => {
+      const baselineValue = baselineData.get(key);
+      const baselineFmt = baselineFormat.get(key);
+
+      let isDirty = false;
+
+      // Check data
+      if (action.dataDelta.has(key)) {
+        const newValue = action.dataDelta.get(key)!.new;
+        const newRaw = newValue?.raw || '';
+        const baselineRaw = baselineValue?.raw || '';
+        if (newRaw !== baselineRaw) isDirty = true;
+      }
+
+      // Check format
+      if (action.formatDelta.has(key)) {
+        const newFmt = action.formatDelta.get(key)!.new;
+        const newStr = newFmt ? JSON.stringify(newFmt) : '';
+        const baselineStr = baselineFmt ? JSON.stringify(baselineFmt) : '';
+        if (newStr !== baselineStr) isDirty = true;
+      }
+
+      if (isDirty) {
+        setDirtyCells(prev => new Set(prev).add(key));
+      } else {
+        setDirtyCells(prev => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      }
+    });
+
+    // Update current input if selection matches
+    if (selection) {
+      const key = getCellKey(selection.start.row, selection.start.col);
+      if (action.dataDelta.has(key)) {
+        const newValue = action.dataDelta.get(key)!.new;
+        setInputValue(newValue?.raw || '');
+      }
+    }
+
+    // Move action to undo stack
+    setRedoStack(prev => prev.slice(0, -1));
+    setUndoStack(prev => [...prev, action]);
+  }, [redoStack, selection, baselineData, baselineFormat]);
+
   // Wrapper to update cell and mark dirty
-  const updateCell = useCallback((key: string, value: { raw: string; type: CellType } | null) => {
+  const updateCell = useCallback((key: string, value: { raw: string; type: CellType } | null, batchWithPrevious: boolean = false) => {
+    // Capture old value before update
+    const oldValue = cellData.get(key) || null;
+
+    // Create action delta
+    const action: Action = {
+      dataDelta: new Map([[key, { old: oldValue, new: value }]]),
+      formatDelta: new Map(),
+      timestamp: Date.now(),
+    };
+
+    // Push to undo stack
+    pushAction(action, batchWithPrevious);
+
     setCellData(prev => {
       const next = new Map(prev);
       if (value) {
@@ -187,12 +400,12 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       } else {
         next.delete(key);
       }
-      
+
       // Mark dirty if different from baseline
       const baselineValue = baselineData.get(key);
       const newRaw = value?.raw || '';
       const baselineRaw = baselineValue?.raw || '';
-      
+
       if (newRaw !== baselineRaw) {
         setDirtyCells(prev => new Set(prev).add(key));
       } else {
@@ -203,13 +416,26 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
           return next;
         });
       }
-      
+
       return next;
     });
-  }, [baselineData]);
+  }, [baselineData, cellData, pushAction]);
 
   // Wrapper to update cell format and mark dirty
-  const updateCellFormat = useCallback((key: string, format: CellFormat | null) => {
+  const updateCellFormat = useCallback((key: string, format: CellFormat | null, batchWithPrevious: boolean = false) => {
+    // Capture old format before update
+    const oldFormat = cellFormat.get(key) || null;
+
+    // Create action delta
+    const action: Action = {
+      dataDelta: new Map(),
+      formatDelta: new Map([[key, { old: oldFormat, new: format }]]),
+      timestamp: Date.now(),
+    };
+
+    // Push to undo stack
+    pushAction(action, batchWithPrevious);
+
     setCellFormat(prev => {
       const next = new Map(prev);
       if (format) {
@@ -217,12 +443,12 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
       } else {
         next.delete(key);
       }
-      
+
       // Mark dirty if different from baseline
       const baselineFmt = baselineFormat.get(key);
       const formatStr = format ? JSON.stringify(format) : '';
       const baselineStr = baselineFmt ? JSON.stringify(baselineFmt) : '';
-      
+
       if (formatStr !== baselineStr) {
         setDirtyCells(prev => new Set(prev).add(key));
       } else {
@@ -232,29 +458,56 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
           return next;
         });
       }
-      
+
       return next;
     });
-  }, [baselineFormat]);
+  }, [baselineFormat, cellFormat, pushAction]);
 
   // Bulk update cells with automatic dirty tracking
   const updateCells = useCallback((
-    newCellData: Map<string, { raw: string; type: CellType }>
+    newCellData: Map<string, { raw: string; type: CellType }>,
+    batchWithPrevious: boolean = false
   ) => {
+    // Capture old values before update
+    const dataDelta = new Map<string, DeltaEntry<CellValue>>();
+    const allKeys = new Set([...cellData.keys(), ...newCellData.keys()]);
+
+    allKeys.forEach(key => {
+      const oldValue = cellData.get(key) || null;
+      const newValue = newCellData.get(key) || null;
+
+      // Only track if value actually changed
+      const oldRaw = oldValue?.raw || '';
+      const newRaw = newValue?.raw || '';
+      if (oldRaw !== newRaw) {
+        dataDelta.set(key, { old: oldValue, new: newValue });
+      }
+    });
+
+    // Create action if there are changes
+    if (dataDelta.size > 0) {
+      const action: Action = {
+        dataDelta,
+        formatDelta: new Map(),
+        timestamp: Date.now(),
+      };
+      pushAction(action, batchWithPrevious);
+    }
+
     setCellData(prev => {
       const next = new Map(newCellData);  // Use newCellData directly - deletions already handled
-      
+
       // Track dirty for all affected keys
       const allKeys = new Set([...prev.keys(), ...newCellData.keys()]);
       allKeys.forEach(key => {
         const prevValue = prev.get(key);
         const nextValue = next.get(key);
         const baselineValue = baselineData.get(key);
-        
+
         const prevRaw = prevValue?.raw || '';
         const nextRaw = nextValue?.raw || '';
         const baselineRaw = baselineValue?.raw || '';
-        
+
         if (nextRaw !== baselineRaw) {
           setDirtyCells(dirty => new Set(dirty).add(key));
         } else {
@@ -265,29 +518,56 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
           });
         }
       });
-      
+
       return next;
     });
-  }, [baselineData]);
+  }, [baselineData, cellData, pushAction]);
 
   // Bulk update cell formats with automatic dirty tracking
   const updateCellFormats = useCallback((
-    newCellFormat: Map<string, CellFormat>
+    newCellFormat: Map<string, CellFormat>,
+    batchWithPrevious: boolean = false
   ) => {
+    // Capture old formats before update
+    const formatDelta = new Map<string, DeltaEntry<CellFormat>>();
+    const allKeys = new Set([...cellFormat.keys(), ...newCellFormat.keys()]);
+
+    allKeys.forEach(key => {
+      const oldFormat = cellFormat.get(key) || null;
+      const newFormat = newCellFormat.get(key) || null;
+
+      // Only track if format actually changed
+      const oldStr = oldFormat ? JSON.stringify(oldFormat) : '';
+      const newStr = newFormat ? JSON.stringify(newFormat) : '';
+      if (oldStr !== newStr) {
+        formatDelta.set(key, { old: oldFormat, new: newFormat });
+      }
+    });
+
+    // Create action if there are changes
+    if (formatDelta.size > 0) {
+      const action: Action = {
+        dataDelta: new Map(),
+        formatDelta,
+        timestamp: Date.now(),
+      };
+      pushAction(action, batchWithPrevious);
+    }
+
     setCellFormat(prev => {
       const next = new Map(newCellFormat);  // Use newCellFormat directly - deletions already handled
-      
+
       // Track dirty for all affected keys
       const allKeys = new Set([...prev.keys(), ...newCellFormat.keys()]);
       allKeys.forEach(key => {
         const prevFormat = prev.get(key);
         const nextFormat = next.get(key);
         const baselineFmt = baselineFormat.get(key);
-        
+
         const prevStr = prevFormat ? JSON.stringify(prevFormat) : '';
         const nextStr = nextFormat ? JSON.stringify(nextFormat) : '';
         const baselineStr = baselineFmt ? JSON.stringify(baselineFmt) : '';
-        
+
         if (nextStr !== baselineStr) {
           setDirtyCells(dirty => new Set(dirty).add(key));
         } else {
@@ -298,10 +578,10 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
           });
         }
       });
-      
+
       return next;
     });
-  }, [baselineFormat]);
+  }, [baselineFormat, cellFormat, pushAction]);
 
   // Mark all changes as saved (update baseline, clear dirty)
   const markSaved = useCallback(() => {
@@ -317,9 +597,9 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         updateCell(key, {
           raw: inputValue,
           type: determineCellType(inputValue),
-        });
+        }, true); // Batch with previous for user typing
       } else {
-        updateCell(key, null);
+        updateCell(key, null, true);
       }
       // Clear highlighted cells when saving
       setHighlightedCells(null);
@@ -385,6 +665,10 @@ export function SpreadsheetProvider({ children }: { children: React.ReactNode })
         updateCells,
         updateCellFormats,
         markSaved,
+        undo,
+        redo,
+        canUndo,
+        canRedo,
         getDisplayValue,
         activeSheetId,
         setActiveSheetId,

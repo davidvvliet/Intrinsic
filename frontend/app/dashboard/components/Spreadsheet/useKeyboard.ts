@@ -146,6 +146,10 @@ export function useKeyboard({
   setHighlightedCells,
   highlightedCells,
   zoom,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
 }: {
   selection: Selection | null;
   isEditing: boolean;
@@ -173,6 +177,10 @@ export function useKeyboard({
   setHighlightedCells: React.Dispatch<React.SetStateAction<Selection[] | null>>;
   highlightedCells: Selection[] | null;
   zoom: number;
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }) {
   // Check if we're in formula mode (editing a formula)
   const isFormulaMode = isEditing && inputValue.startsWith('=');
@@ -371,10 +379,10 @@ export function useKeyboard({
             minCol: Math.min(selection.start.col, selection.end.col),
             maxCol: Math.max(selection.start.col, selection.end.col),
           };
-          
+
           // Copy with formats
           writeToClipboard(cellData, cellFormat, cutRange);
-          
+
           // Delete cells and formats
           const newCellDataAfterCut = new Map(cellData);
           const newCellFormatAfterCut = new Map(cellFormat);
@@ -390,6 +398,21 @@ export function useKeyboard({
           setInputValue('');
         }
         break;
+      case 'z':
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+          // Ctrl+Shift+Z: Redo
+          e.preventDefault();
+          if (canRedo) {
+            redo();
+          }
+        } else if (e.ctrlKey || e.metaKey) {
+          // Ctrl+Z: Undo
+          e.preventDefault();
+          if (canUndo) {
+            undo();
+          }
+        }
+        break;
       default:
         // Start editing on any printable character
         if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
@@ -400,7 +423,7 @@ export function useKeyboard({
         }
         break;
     }
-  }, [selection, isEditing, moveToCell, updateCells, updateCellFormats, setInputValue, cellData, cellFormat, setSelection, setIsEditing, setCopiedRange, inputRef]);
+  }, [selection, isEditing, moveToCell, updateCells, updateCellFormats, setInputValue, cellData, cellFormat, setSelection, setIsEditing, setCopiedRange, inputRef, undo, redo, canUndo, canRedo]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!selection) return;
