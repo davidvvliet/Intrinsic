@@ -16,6 +16,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Intrinsic | Unlock real value",
   description: "AI-powered fundamental analysis platform that automates DCF modeling and company research using real SEC data.",
+  applicationName: 'Intrinsic',
+  authors: [{ name: 'MarketRadar Intelligence, Corp.' }],
+  category: 'Financial Technology',
+  themeColor: '#FFFFE3',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Intrinsic',
+  },
   keywords: [
     "AI DCF modeling",
     "automated DCF valuation",
