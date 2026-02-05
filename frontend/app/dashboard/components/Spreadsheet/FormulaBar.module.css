@@ -36,8 +36,13 @@
   font-style: italic;
 }
 
-.formulaInput {
+.formulaInputWrapper {
   flex: 1;
+  position: relative;
+}
+
+.formulaInput {
+  width: 100%;
   font-size: 14px;
   font-family: var(--font-inconsolata), monospace;
   line-height: 24px;
@@ -47,6 +52,25 @@
   outline: none;
   padding: 0;
   margin: 0;
+}
+
+.formulaInputTransparent {
+  color: transparent;
+  caret-color: black;
+}
+
+.formulaOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 24px;
+  line-height: 24px;
+  font-size: 14px;
+  font-family: var(--font-inconsolata), monospace;
+  pointer-events: none;
+  white-space: pre;
+  overflow: hidden;
 }
 
 .formulaInput:disabled {

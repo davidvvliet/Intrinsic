@@ -1,6 +1,7 @@
-import { useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useSpreadsheetContext } from './SpreadsheetContext';
-import { getColumnLabel, getCellKey } from './drawUtils';
+import { getColumnLabel, getCellKey, getFormulaSegments } from './drawUtils';
+import { FORMULA_REFERENCE_COLORS } from './config';
 import styles from './FormulaBar.module.css';
 
 export default function FormulaBar() {
@@ -110,6 +111,9 @@ export default function FormulaBar() {
     }
   }, [selection, saveCurrentCell, moveToCell, cellData, setInputValue, setIsEditing, containerRef]);
 
+  const isFormula = inputValue.startsWith('=');
+  const segments = useMemo(() => getFormulaSegments(inputValue), [inputValue]);
+
   return (
     <div className={styles.formulaBar}>
       <div className={styles.formulaBarLabel}>{cellRef}</div>
@@ -117,15 +121,29 @@ export default function FormulaBar() {
         <span className={styles.fxLabel}>
           <span className={styles.fxF}>f</span>x
         </span>
-        <input
-          className={styles.formulaInput}
-          value={inputValue}
-          onChange={handleChange}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          disabled={!selection}
-        />
+        <div className={styles.formulaInputWrapper}>
+          <input
+            className={`${styles.formulaInput} ${isFormula ? styles.formulaInputTransparent : ''}`}
+            value={inputValue}
+            onChange={handleChange}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            disabled={!selection}
+          />
+          {isFormula && (
+            <div className={styles.formulaOverlay} aria-hidden>
+              {segments.map((seg, i) => (
+                <span
+                  key={i}
+                  style={seg.colorIndex !== null ? { color: FORMULA_REFERENCE_COLORS[seg.colorIndex % FORMULA_REFERENCE_COLORS.length].border } : undefined}
+                >
+                  {seg.text}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

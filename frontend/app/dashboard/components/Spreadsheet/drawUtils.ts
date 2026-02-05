@@ -113,6 +113,42 @@ export function a1ToRowCol(a1: string): { row: number; col: number } {
   return { row, col };
 }
 
+export type FormulaSegment = { text: string; colorIndex: number | null };
+
+export function getFormulaSegments(value: string): FormulaSegment[] {
+  if (!value.startsWith('=')) {
+    return [{ text: value, colorIndex: null }];
+  }
+
+  const cellRefPattern = /(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)/g;
+  const matches = Array.from(value.matchAll(cellRefPattern));
+
+  if (matches.length === 0) {
+    return [{ text: value, colorIndex: null }];
+  }
+
+  const segments: FormulaSegment[] = [];
+  let lastIndex = 0;
+
+  matches.forEach((match, i) => {
+    const matchStart = match.index!;
+    const matchEnd = matchStart + match[0].length;
+
+    if (matchStart > lastIndex) {
+      segments.push({ text: value.slice(lastIndex, matchStart), colorIndex: null });
+    }
+
+    segments.push({ text: match[0], colorIndex: i });
+    lastIndex = matchEnd;
+  });
+
+  if (lastIndex < value.length) {
+    segments.push({ text: value.slice(lastIndex), colorIndex: null });
+  }
+
+  return segments;
+}
+
 export function drawGrid({
   ctx,
   canvas,

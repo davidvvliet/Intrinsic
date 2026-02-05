@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useSpreadsheet } from '../../hooks/useSpreadsheet';
 import { useSpreadsheetContext } from './SpreadsheetContext';
 import { useKeyboard } from './useKeyboard';
@@ -16,7 +16,8 @@ import {
   CELL_FONT_SIZE,
 } from './config';
 import type { Selection } from './types';
-import { drawGrid as drawGridUtil } from './drawUtils';
+import { drawGrid as drawGridUtil, getFormulaSegments } from './drawUtils';
+import { FORMULA_REFERENCE_COLORS } from './config';
 import { parseCellRef } from './formulaEngine/cellRef';
 import { EXCEL_FUNCTION_SIGNATURES } from './formulaEngine/excelfunctions';
 
@@ -433,6 +434,9 @@ export default function Grid() {
     highlightedCells,
   });
 
+  const cellIsFormula = inputValue.startsWith('=');
+  const cellSegments = useMemo(() => getFormulaSegments(inputValue), [inputValue]);
+
   return (
     <div 
       ref={containerRef}
@@ -473,7 +477,7 @@ export default function Grid() {
         <>
           <input
             ref={inputRef}
-            className={styles.cellInput}
+            className={`${styles.cellInput} ${cellIsFormula ? styles.cellInputTransparent : ''}`}
             style={{
               left: HEADER_WIDTH * zoom + getColumnX(selection.start.col) * zoom,
               top: HEADER_HEIGHT * zoom + selection.start.row * CELL_HEIGHT * zoom,
@@ -486,6 +490,29 @@ export default function Grid() {
             onBlur={handleInputBlur}
             onKeyDown={handleKeyDown}
           />
+          {cellIsFormula && (
+            <div
+              className={styles.cellOverlay}
+              style={{
+                left: HEADER_WIDTH * zoom + getColumnX(selection.start.col) * zoom,
+                top: HEADER_HEIGHT * zoom + selection.start.row * CELL_HEIGHT * zoom,
+                width: getColumnWidth(selection.start.col) * zoom,
+                height: CELL_HEIGHT * zoom,
+                fontSize: CELL_FONT_SIZE * zoom,
+                lineHeight: `${CELL_HEIGHT * zoom}px`,
+              }}
+              aria-hidden
+            >
+              {cellSegments.map((seg, i) => (
+                <span
+                  key={i}
+                  style={seg.colorIndex !== null ? { color: FORMULA_REFERENCE_COLORS[seg.colorIndex % FORMULA_REFERENCE_COLORS.length].border } : undefined}
+                >
+                  {seg.text}
+                </span>
+              ))}
+            </div>
+          )}
           {showFunctionDropdown && filteredFunctions.length > 0 && (
             <div
               data-formula-dropdown
