@@ -6,8 +6,22 @@ import ColorButton from './ColorButton';
 import FormatDropdown from './FormatDropdown';
 import styles from './Toolbar.module.css';
 
+const UndoIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M5.5 3L2 6.5L5.5 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M2 6.5H10C11.933 6.5 13.5 8.067 13.5 10C13.5 11.933 11.933 13.5 10 13.5H8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const RedoIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M10.5 3L14 6.5L10.5 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M14 6.5H6C4.067 6.5 2.5 8.067 2.5 10C2.5 11.933 4.067 13.5 6 13.5H8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
 export default function Toolbar() {
-  const { selection, cellFormat, updateCellFormats } = useSpreadsheetContext();
+  const { selection, cellFormat, updateCellFormats, undo, redo, canUndo, canRedo } = useSpreadsheetContext();
 
   // Get current cell's format
   const getCurrentFormat = useCallback((): CellFormat => {
@@ -140,6 +154,25 @@ export default function Toolbar() {
 
   return (
     <div className={styles.toolbar}>
+      <button
+        className={styles.formatButton}
+        onMouseDown={preventFocusLoss}
+        onClick={undo}
+        disabled={!canUndo}
+        title="Undo (Ctrl+Z)"
+      >
+        <UndoIcon />
+      </button>
+      <button
+        className={styles.formatButton}
+        onMouseDown={preventFocusLoss}
+        onClick={redo}
+        disabled={!canRedo}
+        title="Redo (Ctrl+Shift+Z)"
+      >
+        <RedoIcon />
+      </button>
+      <div className={styles.separator} />
       <button
         className={`${styles.formatButton} ${currentFormat.bold ? styles.active : ''}`}
         onMouseDown={preventFocusLoss}
