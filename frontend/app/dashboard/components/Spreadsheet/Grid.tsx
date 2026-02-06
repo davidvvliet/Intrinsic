@@ -18,8 +18,9 @@ import {
 import type { Selection } from './types';
 import { drawGrid as drawGridUtil, getFormulaSegments } from './drawUtils';
 import { FORMULA_REFERENCE_COLORS } from './config';
-import { parseCellRef } from './formulaEngine/cellRef';
+import { parseCellRef, adjustCellRef, formatCellRef } from './formulaEngine/cellRef';
 import { EXCEL_FUNCTION_SIGNATURES } from './formulaEngine/excelfunctions';
+import { getCellKey, determineCellType } from './drawUtils';
 
 const FUNCTION_NAMES = Object.keys(EXCEL_FUNCTION_SIGNATURES).sort();
 
@@ -65,6 +66,11 @@ export default function Grid() {
   const [filteredFunctions, setFilteredFunctions] = useState<string[]>([]);
   const [selectedFunctionIndex, setSelectedFunctionIndex] = useState(0);
   const [hoveredColumnBorder, setHoveredColumnBorder] = useState<number | null>(null);
+
+  // Fill handle drag state
+  const [isFillDragging, setIsFillDragging] = useState(false);
+  const [fillDragStart, setFillDragStart] = useState<{ row: number; col: number } | null>(null);
+  const [fillDragEnd, setFillDragEnd] = useState<{ row: number; col: number } | null>(null);
 
   const drawGrid = useCallback(() => {
     const canvas = canvasRef.current;
@@ -387,6 +393,108 @@ export default function Grid() {
     setIsEditing(false);
   }, [saveCurrentCell, setIsEditing]);
 
+  // Fill handle mouse down
+  const handleFillHandleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!selection) return;
+
+    saveCurrentCell();
+
+    setIsFillDragging(true);
+    setFillDragStart({ row: selection.start.row, col: selection.start.col });
+    setFillDragEnd({ row: selection.start.row, col: selection.start.col });
+  }, [selection, saveCurrentCell]);
+
+  // Adjust formula references by row/col delta
+  const adjustFormulaReferences = useCallback((formula: string, rowDelta: number, colDelta: number): string => {
+    if (!formula.startsWith('=')) return formula;
+
+    const cellRefPattern = /\$?[A-Za-z]+\$?\d+/g;
+
+    return formula.replace(cellRefPattern, (match) => {
+      const ref = parseCellRef(match);
+      if (!ref) return match;
+
+      const adjusted = adjustCellRef(ref, rowDelta, colDelta);
+      if (adjusted.row < 0 || adjusted.col < 0) return match;
+
+      return formatCellRef(adjusted);
+    });
+  }, []);
+
+  // Execute fill operation
+  const executeFill = useCallback(() => {
+    if (!fillDragStart || !fillDragEnd) return;
+
+    const sourceRow = fillDragStart.row;
+    const sourceCol = fillDragStart.col;
+    const sourceKey = getCellKey(sourceRow, sourceCol);
+    const sourceCell = cellData.get(sourceKey);
+
+    if (!sourceCell) return;
+
+    const minRow = Math.min(fillDragStart.row, fillDragEnd.row);
+    const maxRow = Math.max(fillDragStart.row, fillDragEnd.row);
+    const minCol = Math.min(fillDragStart.col, fillDragEnd.col);
+    const maxCol = Math.max(fillDragStart.col, fillDragEnd.col);
+
+    // Start with existing data and add updates
+    const cellUpdates = new Map(cellData);
+
+    for (let row = minRow; row <= maxRow; row++) {
+      for (let col = minCol; col <= maxCol; col++) {
+        if (row === sourceRow && col === sourceCol) continue;
+
+        const rowDelta = row - sourceRow;
+        const colDelta = col - sourceCol;
+
+        let newValue: string;
+        if (sourceCell.type === 'formula') {
+          newValue = adjustFormulaReferences(sourceCell.raw, rowDelta, colDelta);
+        } else {
+          newValue = sourceCell.raw;
+        }
+
+        const key = getCellKey(row, col);
+        cellUpdates.set(key, {
+          raw: newValue,
+          type: determineCellType(newValue),
+        });
+      }
+    }
+
+    updateCells(cellUpdates);
+  }, [fillDragStart, fillDragEnd, cellData, adjustFormulaReferences, updateCells]);
+
+  // Document-level mouse events for fill drag
+  useEffect(() => {
+    if (!isFillDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const cell = getCellFromEvent(e);
+      if (cell) {
+        setFillDragEnd(cell);
+      }
+    };
+
+    const handleMouseUp = () => {
+      executeFill();
+      setIsFillDragging(false);
+      setFillDragStart(null);
+      setFillDragEnd(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isFillDragging, getCellFromEvent, executeFill]);
+
   const { handleContainerKeyDown, handleKeyDown } = useKeyboard({
     selection,
     isEditing,
@@ -512,6 +620,63 @@ export default function Grid() {
                 </span>
               ))}
             </div>
+          )}
+          {inputValue && (
+            <>
+              {/* Fill handles at corners */}
+              {(['tl', 'tr', 'bl', 'br'] as const).map((corner) => {
+                const handleSize = 6 * zoom;
+                const cellLeft = HEADER_WIDTH * zoom + getColumnX(selection.start.col) * zoom;
+                const cellTop = HEADER_HEIGHT * zoom + selection.start.row * CELL_HEIGHT * zoom;
+                const cellW = getColumnWidth(selection.start.col) * zoom;
+                const cellH = CELL_HEIGHT * zoom;
+                const positions = {
+                  tl: { left: cellLeft - handleSize / 2, top: cellTop - handleSize / 2 },
+                  tr: { left: cellLeft + cellW - handleSize / 2, top: cellTop - handleSize / 2 },
+                  bl: { left: cellLeft - handleSize / 2, top: cellTop + cellH - handleSize / 2 },
+                  br: { left: cellLeft + cellW - handleSize / 2, top: cellTop + cellH - handleSize / 2 },
+                };
+                return (
+                  <div
+                    key={corner}
+                    className={styles.fillHandle}
+                    onMouseDown={handleFillHandleMouseDown}
+                    style={{
+                      left: positions[corner].left,
+                      top: positions[corner].top,
+                      width: handleSize,
+                      height: handleSize,
+                    }}
+                  />
+                );
+              })}
+            </>
+          )}
+          {/* Fill drag highlight */}
+          {isFillDragging && fillDragStart && fillDragEnd && (
+            (() => {
+              const minRow = Math.min(fillDragStart.row, fillDragEnd.row);
+              const maxRow = Math.max(fillDragStart.row, fillDragEnd.row);
+              const minCol = Math.min(fillDragStart.col, fillDragEnd.col);
+              const maxCol = Math.max(fillDragStart.col, fillDragEnd.col);
+
+              let rangeWidth = 0;
+              for (let c = minCol; c <= maxCol; c++) {
+                rangeWidth += getColumnWidth(c);
+              }
+
+              return (
+                <div
+                  className={styles.fillDragHighlight}
+                  style={{
+                    left: HEADER_WIDTH * zoom + getColumnX(minCol) * zoom,
+                    top: HEADER_HEIGHT * zoom + minRow * CELL_HEIGHT * zoom,
+                    width: rangeWidth,
+                    height: (maxRow - minRow + 1) * CELL_HEIGHT * zoom,
+                  }}
+                />
+              );
+            })()
           )}
           {showFunctionDropdown && filteredFunctions.length > 0 && (
             <div

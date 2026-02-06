@@ -47,3 +47,19 @@
   white-space: pre;
   overflow: hidden;
 }
+
+.fillHandle {
+  position: absolute;
+  background: #0064c8;
+  cursor: crosshair;
+  z-index: 10;
+}
+
+.fillDragHighlight {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #0064c8;
+  background: rgba(0, 100, 200, 0.1);
+  pointer-events: none;
+  z-index: 5;
+}
