@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAccessToken } from '@workos-inc/authkit-nextjs/components';
-import { useSpreadsheetContext } from './SpreadsheetContext';
+import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
 import { NUM_ROWS, NUM_COLS, AUTO_SAVE_DELAY_MS } from './config';
 import type { CellFormat, CellType } from './types';
 
@@ -12,25 +12,27 @@ export function useSheetPersistence() {
   const hasLoadedRef = useRef<string | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
-  const {
-    cellData,
-    cellFormat,
-    dirtyCells,
-    markSaved,
-    setCellData,
-    setCellFormat,
-    setBaselineData,
-    setBaselineFormat,
-    setDirtyCells,
-    setSelection,
-    setHighlightedCells,
-    setInputValue,
-    setIsEditing,
-    setCopiedRange,
-    activeSheetId,
-    sheets,
-    setSheets,
-  } = useSpreadsheetContext();
+
+  // Subscribe to store state
+  const cellData = useSpreadsheetStore(state => state.cellData);
+  const cellFormat = useSpreadsheetStore(state => state.cellFormat);
+  const dirtyCells = useSpreadsheetStore(state => state.dirtyCells);
+  const activeSheetId = useSpreadsheetStore(state => state.activeSheetId);
+  const sheets = useSpreadsheetStore(state => state.sheets);
+
+  // Get actions from store
+  const markSaved = useSpreadsheetStore(state => state.markSaved);
+  const setCellData = useSpreadsheetStore(state => state.setCellData);
+  const setCellFormat = useSpreadsheetStore(state => state.setCellFormat);
+  const setBaselineData = useSpreadsheetStore(state => state.setBaselineData);
+  const setBaselineFormat = useSpreadsheetStore(state => state.setBaselineFormat);
+  const setDirtyCells = useSpreadsheetStore(state => state.setDirtyCells);
+  const setSelection = useSpreadsheetStore(state => state.setSelection);
+  const setHighlightedCells = useSpreadsheetStore(state => state.setHighlightedCells);
+  const setInputValue = useSpreadsheetStore(state => state.setInputValue);
+  const setIsEditing = useSpreadsheetStore(state => state.setIsEditing);
+  const setCopiedRange = useSpreadsheetStore(state => state.setCopiedRange);
+  const setSheets = useSpreadsheetStore(state => state.setSheets);
 
   // Get sheet ID from URL (don't generate until first save)
   const sheetIdFromUrl = searchParams.get('sheet');

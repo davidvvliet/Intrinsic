@@ -2,7 +2,9 @@
 
 import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useSpreadsheet } from '../../hooks/useSpreadsheet';
-import { useSpreadsheetContext } from './SpreadsheetContext';
+import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
+import { useRefContext } from './RefContext';
+import { useSpreadsheetActions } from './useSpreadsheetActions';
 import { useKeyboard } from './useKeyboard';
 import { useMouse } from './useMouse';
 import styles from './Grid.module.css';
@@ -26,37 +28,35 @@ const FUNCTION_NAMES = Object.keys(EXCEL_FUNCTION_SIGNATURES).sort();
 
 export default function Grid() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
-  // Get shared state from context
-  const {
-    cellData,
-    cellFormat,
-    computedData,
-    selection,
-    highlightedCells,
-    inputValue,
-    isEditing,
-    copiedRange,
-    animatingRanges,
-    updateCells,
-    updateCellFormats,
-    setSelection,
-    setHighlightedCells,
-    setInputValue,
-    setIsEditing,
-    setCopiedRange,
-    saveCurrentCell,
-    moveToCell,
-    inputRef,
-    containerRef,
-    columnWidths,
-    getColumnX,
-    autoResizeColumn,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-  } = useSpreadsheetContext();
+
+  // Get state from store
+  const cellData = useSpreadsheetStore(state => state.cellData);
+  const cellFormat = useSpreadsheetStore(state => state.cellFormat);
+  const computedData = useSpreadsheetStore(state => state.computedData);
+  const selection = useSpreadsheetStore(state => state.selection);
+  const highlightedCells = useSpreadsheetStore(state => state.highlightedCells);
+  const inputValue = useSpreadsheetStore(state => state.inputValue);
+  const isEditing = useSpreadsheetStore(state => state.isEditing);
+  const copiedRange = useSpreadsheetStore(state => state.copiedRange);
+  const animatingRanges = useSpreadsheetStore(state => state.animatingRanges);
+  const columnWidths = useSpreadsheetStore(state => state.columnWidths);
+  const canUndo = useSpreadsheetStore(state => state.canUndo);
+  const canRedo = useSpreadsheetStore(state => state.canRedo);
+
+  // Get actions from store
+  const updateCells = useSpreadsheetStore(state => state.updateCells);
+  const updateCellFormats = useSpreadsheetStore(state => state.updateCellFormats);
+  const setSelection = useSpreadsheetStore(state => state.setSelection);
+  const setHighlightedCells = useSpreadsheetStore(state => state.setHighlightedCells);
+  const setInputValue = useSpreadsheetStore(state => state.setInputValue);
+  const setIsEditing = useSpreadsheetStore(state => state.setIsEditing);
+  const setCopiedRange = useSpreadsheetStore(state => state.setCopiedRange);
+  const undo = useSpreadsheetStore(state => state.undo);
+  const redo = useSpreadsheetStore(state => state.redo);
+
+  // Get refs and actions that need refs
+  const { inputRef, containerRef } = useRefContext();
+  const { saveCurrentCell, moveToCell, getColumnX, autoResizeColumn } = useSpreadsheetActions();
 
   // Grid-specific state
   const [zoom, setZoom] = useState(1.0);

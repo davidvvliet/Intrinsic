@@ -1,21 +1,22 @@
 import { useMemo, useCallback } from 'react';
-import { useSpreadsheetContext } from './SpreadsheetContext';
+import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
+import { useRefContext } from './RefContext';
+import { useSpreadsheetActions } from './useSpreadsheetActions';
 import { getColumnLabel, getCellKey, getFormulaSegments } from './drawUtils';
 import { FORMULA_REFERENCE_COLORS } from './config';
 import styles from './FormulaBar.module.css';
 
 export default function FormulaBar() {
-  const {
-    selection,
-    inputValue,
-    setInputValue,
-    isEditing,
-    setIsEditing,
-    saveCurrentCell,
-    moveToCell,
-    cellData,
-    containerRef,
-  } = useSpreadsheetContext();
+  // Get state from store
+  const selection = useSpreadsheetStore(state => state.selection);
+  const inputValue = useSpreadsheetStore(state => state.inputValue);
+  const setInputValue = useSpreadsheetStore(state => state.setInputValue);
+  const setIsEditing = useSpreadsheetStore(state => state.setIsEditing);
+  const cellData = useSpreadsheetStore(state => state.cellData);
+
+  // Get refs and actions
+  const { containerRef } = useRefContext();
+  const { saveCurrentCell, moveToCell } = useSpreadsheetActions();
 
   // Format cell reference (e.g., "A1", "B5")
   const cellRef = selection

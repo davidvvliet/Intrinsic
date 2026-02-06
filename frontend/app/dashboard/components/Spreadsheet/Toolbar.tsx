@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useSpreadsheetContext } from './SpreadsheetContext';
+import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
 import { getCellKey } from './drawUtils';
 import type { CellFormat, NumberFormatSettings } from './types';
 import ColorButton from './ColorButton';
@@ -21,7 +21,13 @@ const RedoIcon = () => (
 );
 
 export default function Toolbar() {
-  const { selection, cellFormat, updateCellFormats, undo, redo, canUndo, canRedo } = useSpreadsheetContext();
+  const selection = useSpreadsheetStore(state => state.selection);
+  const cellFormat = useSpreadsheetStore(state => state.cellFormat);
+  const updateCellFormats = useSpreadsheetStore(state => state.updateCellFormats);
+  const undo = useSpreadsheetStore(state => state.undo);
+  const redo = useSpreadsheetStore(state => state.redo);
+  const canUndo = useSpreadsheetStore(state => state.canUndo);
+  const canRedo = useSpreadsheetStore(state => state.canRedo);
 
   // Get current cell's format
   const getCurrentFormat = useCallback((): CellFormat => {

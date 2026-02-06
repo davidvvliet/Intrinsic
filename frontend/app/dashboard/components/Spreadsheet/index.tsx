@@ -1,14 +1,16 @@
 import { useEffect } from 'react';
 import { flushSync } from 'react-dom';
-import { SpreadsheetProvider, useSpreadsheetContext } from './SpreadsheetContext';
+import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
+import { RefProvider } from './RefContext';
 import { useSheetPersistence } from './useSheetPersistence';
 import { useSelectionChange } from './useSelectionChange';
+import { useFormulaSync } from './useFormulaSync';
 import Toolbar from './Toolbar';
 import FormulaBar from './FormulaBar';
 import Grid from './Grid';
 import SheetBar from './SheetBar';
 import { getCellKey, determineCellType, a1ToRowCol } from './drawUtils';
-import type { CellType, CellFormat, NumberFormatType } from './types';
+import type { CellFormat } from './types';
 import styles from './Spreadsheet.module.css';
 
 interface SpreadsheetContentProps {
@@ -17,13 +19,21 @@ interface SpreadsheetContentProps {
 }
 
 function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetContentProps) {
-  const spreadsheet = useSpreadsheetContext();
+  // Get state and actions from store
+  const selection = useSpreadsheetStore(state => state.selection);
+  const setAnimatingRanges = useSpreadsheetStore(state => state.setAnimatingRanges);
+  const updateCell = useSpreadsheetStore(state => state.updateCell);
+  const updateCells = useSpreadsheetStore(state => state.updateCells);
+  const updateCellFormat = useSpreadsheetStore(state => state.updateCellFormat);
+
+  // Sync formula engine with store
+  useFormulaSync();
 
   // Hook handles auto-save and load on mount
   useSheetPersistence();
 
   // Watch selection changes and notify parent
-  useSelectionChange(spreadsheet.selection, onSelectionChange);
+  useSelectionChange(selection, onSelectionChange);
 
   // Create tool execution handler
   useEffect(() => {
@@ -47,14 +57,14 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
         // Add animation for single cell - force immediate render
         const range = { minRow: row, maxRow: row, minCol: col, maxCol: col };
         flushSync(() => {
-          spreadsheet.setAnimatingRanges(prev => [...prev, range]);
+          setAnimatingRanges(prev => [...prev, range]);
         });
 
-        spreadsheet.updateCell(cellKey, { raw: value, type: cellType });
+        updateCell(cellKey, { raw: value, type: cellType });
 
         // Remove animation after delay
         setTimeout(() => {
-          spreadsheet.setAnimatingRanges(prev => prev.filter(r => r !== range));
+          setAnimatingRanges(prev => prev.filter(r => r !== range));
         }, 2000);
       } else if (name === 'set_cell_range') {
         const { startCell, endCell, values } = args;
@@ -67,11 +77,12 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
         // Add animation for range - force immediate render
         const range = { minRow: start.row, maxRow: end.row, minCol: start.col, maxCol: end.col };
         flushSync(() => {
-          spreadsheet.setAnimatingRanges(prev => [...prev, range]);
+          setAnimatingRanges(prev => [...prev, range]);
         });
 
         // Clone existing cellData to preserve all cells
-        const mergedCellData = new Map(spreadsheet.cellData);
+        const currentCellData = useSpreadsheetStore.getState().cellData;
+        const mergedCellData = new Map(currentCellData);
 
         // Update only the range cells in the cloned Map
         for (let rowIdx = 0; rowIdx < values.length; rowIdx++) {
@@ -91,11 +102,11 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
         }
 
         // Single bulk update with merged data (preserves all existing cells)
-        spreadsheet.updateCells(mergedCellData);
+        updateCells(mergedCellData);
 
         // Remove animation after delay
         setTimeout(() => {
-          spreadsheet.setAnimatingRanges(prev => prev.filter(r => r !== range));
+          setAnimatingRanges(prev => prev.filter(r => r !== range));
         }, 2000);
       } else if (name === 'get_cell_range') {
         const { startCell, endCell } = args;
@@ -104,16 +115,18 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
         }
         const start = a1ToRowCol(startCell);
         const end = a1ToRowCol(endCell);
-        
+
         const result: ({ value: string; raw?: string })[][] = [];
+        const currentCellData = useSpreadsheetStore.getState().cellData;
+        const currentGetDisplayValue = useSpreadsheetStore.getState().getDisplayValue;
 
         // Build 2D array from spreadsheet data
         for (let row = start.row; row <= end.row; row++) {
           const rowValues: ({ value: string; raw?: string })[] = [];
           for (let col = start.col; col <= end.col; col++) {
             const cellKey = getCellKey(row, col);
-            const displayValue = spreadsheet.getDisplayValue(cellKey);
-            const cell = spreadsheet.cellData.get(cellKey);
+            const displayValue = currentGetDisplayValue(cellKey);
+            const cell = currentCellData.get(cellKey);
             if (cell?.type === 'formula') {
               rowValues.push({ value: displayValue, raw: cell.raw });
             } else {
@@ -122,7 +135,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           }
           result.push(rowValues);
         }
-        
+
         return result;
       } else if (name === 'format_cells') {
         const { formats } = args;
@@ -132,6 +145,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
 
         // Collect all cells being formatted for animation
         const animatingCells: Array<{ row: number; col: number }> = [];
+        const currentCellFormat = useSpreadsheetStore.getState().cellFormat;
 
         // Apply format to each cell (merge with existing format)
         for (const item of formats) {
@@ -144,7 +158,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           animatingCells.push({ row, col });
 
           // Get existing format for this cell
-          const existingFormat = spreadsheet.cellFormat.get(cellKey) || {};
+          const existingFormat = currentCellFormat.get(cellKey) || {};
 
           // Build new format object, merging with existing
           const newFormat: CellFormat = { ...existingFormat };
@@ -154,7 +168,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           if (item.fillColor !== undefined) newFormat.fillColor = item.fillColor;
           if (item.textColor !== undefined) newFormat.textColor = item.textColor;
 
-          spreadsheet.updateCellFormat(cellKey, newFormat);
+          updateCellFormat(cellKey, newFormat);
         }
 
         // Add animations for all affected cells (create bounding box)
@@ -165,12 +179,12 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           const maxCol = Math.max(...animatingCells.map(c => c.col));
           const range = { minRow, maxRow, minCol, maxCol };
           flushSync(() => {
-            spreadsheet.setAnimatingRanges(prev => [...prev, range]);
+            setAnimatingRanges(prev => [...prev, range]);
           });
 
           // Remove animation after delay
           setTimeout(() => {
-            spreadsheet.setAnimatingRanges(prev => prev.filter(r => r !== range));
+            setAnimatingRanges(prev => prev.filter(r => r !== range));
           }, 2000);
         }
       } else if (name === 'format_cell_range') {
@@ -185,7 +199,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
         // Add animation for range - force immediate render
         const range = { minRow: start.row, maxRow: end.row, minCol: start.col, maxCol: end.col };
         flushSync(() => {
-          spreadsheet.setAnimatingRanges(prev => [...prev, range]);
+          setAnimatingRanges(prev => [...prev, range]);
         });
 
         // Build format object from format properties
@@ -195,26 +209,28 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
         if (format.fillColor !== undefined) formatToApply.fillColor = format.fillColor;
         if (format.textColor !== undefined) formatToApply.textColor = format.textColor;
 
+        const currentCellFormat = useSpreadsheetStore.getState().cellFormat;
+
         // Apply format to all cells in range
         for (let row = start.row; row <= end.row; row++) {
           for (let col = start.col; col <= end.col; col++) {
             const cellKey = getCellKey(row, col);
-            const existingFormat = spreadsheet.cellFormat.get(cellKey) || {};
+            const existingFormat = currentCellFormat.get(cellKey) || {};
             const newFormat: CellFormat = { ...existingFormat, ...formatToApply };
-            spreadsheet.updateCellFormat(cellKey, newFormat);
+            updateCellFormat(cellKey, newFormat);
           }
         }
 
         // Remove animation after delay
         setTimeout(() => {
-          spreadsheet.setAnimatingRanges(prev => prev.filter(r => r !== range));
+          setAnimatingRanges(prev => prev.filter(r => r !== range));
         }, 2000);
       }
     };
-    
+
     onToolCall(handleToolCall);
-  }, [onToolCall, spreadsheet]);
-  
+  }, [onToolCall, setAnimatingRanges, updateCell, updateCells, updateCellFormat]);
+
   return (
     <div className={styles.spreadsheet}>
       <Toolbar />
@@ -232,8 +248,8 @@ interface SpreadsheetProps {
 
 export default function Spreadsheet({ onToolCall, onSelectionChange }: SpreadsheetProps) {
   return (
-    <SpreadsheetProvider>
+    <RefProvider>
       <SpreadsheetContent onToolCall={onToolCall} onSelectionChange={onSelectionChange} />
-    </SpreadsheetProvider>
+    </RefProvider>
   );
 }

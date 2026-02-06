@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useAccessToken } from '@workos-inc/authkit-nextjs/components';
-import { useSpreadsheetContext } from './SpreadsheetContext';
+import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
 import styles from './SheetBar.module.css';
 
 type SheetMetadata = {
@@ -12,7 +12,10 @@ type SheetMetadata = {
 
 export default function SheetBar() {
   const { accessToken } = useAccessToken();
-  const { activeSheetId, setActiveSheetId, sheets, setSheets } = useSpreadsheetContext();
+  const activeSheetId = useSpreadsheetStore(state => state.activeSheetId);
+  const setActiveSheetId = useSpreadsheetStore(state => state.setActiveSheetId);
+  const sheets = useSpreadsheetStore(state => state.sheets);
+  const setSheets = useSpreadsheetStore(state => state.setSheets);
 
   // Load sheets from localStorage on mount, create default if none exist
   useEffect(() => {
