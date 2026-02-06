@@ -9,6 +9,7 @@ export function useSheetPersistence() {
   const { accessToken } = useAccessToken();
   const accessTokenRef = useRef<string | null>(null);
   accessTokenRef.current = accessToken ?? null;
+  const hasLoadedRef = useRef<string | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const {
@@ -217,10 +218,16 @@ export function useSheetPersistence() {
   useEffect(() => {
     if (!activeSheetId || !accessTokenRef.current) return;
 
+    // Skip if we already loaded this sheet (prevents reload on token refresh)
+    if (hasLoadedRef.current === activeSheetId) return;
+
     // Find active sheet from state
     const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
-    
+
     if (!activeSheet) return;
+
+    // Mark as loaded for this sheet
+    hasLoadedRef.current = activeSheetId;
 
     // Clear cell data immediately when switching sheets (before async load)
     // This prevents old content from showing briefly
@@ -249,5 +256,5 @@ export function useSheetPersistence() {
     // Save activeSheetId to localStorage
     localStorage.setItem('spreadsheet_last_active_sheet_id', activeSheetId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSheetId]);
+  }, [activeSheetId, accessToken]);
 }
