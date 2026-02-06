@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { NUM_ROWS, NUM_COLS } from './config';
 import type { CellData, CellFormatData, CellType, CellFormat, Selection, CopiedRange } from './types';
-import { getCellKey, getColumnLabel } from './drawUtils';
+import { getCellKey, getColumnLabel, determineCellType } from './drawUtils';
+import { parseCellRef, adjustCellRef, formatCellRef } from './formulaEngine/cellRef';
 import { writeToClipboard, readFromClipboard, applyPaste } from './clipboardUtils';
 import { scrollToCell } from './scrollUtils';
 
@@ -117,6 +118,25 @@ function findJumpTarget(
   }
 
   return { row, col };
+}
+
+/**
+ * Adjust formula references by row/col delta (handles $absolute markers)
+ */
+function adjustFormulaReferences(formula: string, rowDelta: number, colDelta: number): string {
+  if (!formula.startsWith('=')) return formula;
+
+  const cellRefPattern = /\$?[A-Za-z]+\$?\d+/g;
+
+  return formula.replace(cellRefPattern, (match) => {
+    const ref = parseCellRef(match);
+    if (!ref) return match;
+
+    const adjusted = adjustCellRef(ref, rowDelta, colDelta);
+    if (adjusted.row < 0 || adjusted.col < 0) return match;
+
+    return formatCellRef(adjusted);
+  });
 }
 
 export function useKeyboard({
@@ -410,6 +430,61 @@ export function useKeyboard({
           e.preventDefault();
           if (canUndo) {
             undo();
+          }
+        }
+        break;
+      case 'd':
+        // Ctrl+D: Fill (down if multi-row, right if multi-col horizontal)
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const minRow = Math.min(selection.start.row, selection.end.row);
+          const maxRow = Math.max(selection.start.row, selection.end.row);
+          const minCol = Math.min(selection.start.col, selection.end.col);
+          const maxCol = Math.max(selection.start.col, selection.end.col);
+
+          const cellUpdates = new Map(cellData);
+
+          // Fill down if multi-row
+          if (maxRow > minRow) {
+            for (let col = minCol; col <= maxCol; col++) {
+              const sourceKey = getCellKey(minRow, col);
+              const sourceCell = cellData.get(sourceKey);
+              if (!sourceCell) continue;
+
+              for (let row = minRow + 1; row <= maxRow; row++) {
+                const rowDelta = row - minRow;
+                let newValue: string;
+                if (sourceCell.type === 'formula') {
+                  newValue = adjustFormulaReferences(sourceCell.raw, rowDelta, 0);
+                } else {
+                  newValue = sourceCell.raw;
+                }
+                const key = getCellKey(row, col);
+                cellUpdates.set(key, { raw: newValue, type: determineCellType(newValue) });
+              }
+            }
+            updateCells(cellUpdates);
+          }
+          // Fill right if multi-col (and single row)
+          else if (maxCol > minCol) {
+            for (let row = minRow; row <= maxRow; row++) {
+              const sourceKey = getCellKey(row, minCol);
+              const sourceCell = cellData.get(sourceKey);
+              if (!sourceCell) continue;
+
+              for (let col = minCol + 1; col <= maxCol; col++) {
+                const colDelta = col - minCol;
+                let newValue: string;
+                if (sourceCell.type === 'formula') {
+                  newValue = adjustFormulaReferences(sourceCell.raw, 0, colDelta);
+                } else {
+                  newValue = sourceCell.raw;
+                }
+                const key = getCellKey(row, col);
+                cellUpdates.set(key, { raw: newValue, type: determineCellType(newValue) });
+              }
+            }
+            updateCells(cellUpdates);
           }
         }
         break;
