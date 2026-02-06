@@ -488,6 +488,66 @@ export function useKeyboard({
           }
         }
         break;
+      case 'b':
+        // Ctrl+B: Toggle bold
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const minRow = Math.min(selection.start.row, selection.end.row);
+          const maxRow = Math.max(selection.start.row, selection.end.row);
+          const minCol = Math.min(selection.start.col, selection.end.col);
+          const maxCol = Math.max(selection.start.col, selection.end.col);
+
+          // Check if any cell in selection is bold
+          let anyBold = false;
+          for (let r = minRow; r <= maxRow && !anyBold; r++) {
+            for (let c = minCol; c <= maxCol && !anyBold; c++) {
+              const format = cellFormat.get(getCellKey(r, c));
+              if (format?.bold) anyBold = true;
+            }
+          }
+
+          // Toggle: if any bold, remove all; else add all
+          const newFormats = new Map(cellFormat);
+          for (let r = minRow; r <= maxRow; r++) {
+            for (let c = minCol; c <= maxCol; c++) {
+              const key = getCellKey(r, c);
+              const existing = cellFormat.get(key) || {};
+              newFormats.set(key, { ...existing, bold: !anyBold });
+            }
+          }
+          updateCellFormats(newFormats);
+        }
+        break;
+      case 'i':
+        // Ctrl+I: Toggle italic
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const minRow = Math.min(selection.start.row, selection.end.row);
+          const maxRow = Math.max(selection.start.row, selection.end.row);
+          const minCol = Math.min(selection.start.col, selection.end.col);
+          const maxCol = Math.max(selection.start.col, selection.end.col);
+
+          // Check if any cell in selection is italic
+          let anyItalic = false;
+          for (let r = minRow; r <= maxRow && !anyItalic; r++) {
+            for (let c = minCol; c <= maxCol && !anyItalic; c++) {
+              const format = cellFormat.get(getCellKey(r, c));
+              if (format?.italic) anyItalic = true;
+            }
+          }
+
+          // Toggle: if any italic, remove all; else add all
+          const newFormats = new Map(cellFormat);
+          for (let r = minRow; r <= maxRow; r++) {
+            for (let c = minCol; c <= maxCol; c++) {
+              const key = getCellKey(r, c);
+              const existing = cellFormat.get(key) || {};
+              newFormats.set(key, { ...existing, italic: !anyItalic });
+            }
+          }
+          updateCellFormats(newFormats);
+        }
+        break;
       default:
         // Start editing on any printable character
         if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
