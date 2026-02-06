@@ -26,6 +26,7 @@ export type CellFormat = {
   bold?: boolean;
   italic?: boolean;
   strikethrough?: boolean;
+  underline?: boolean;
   textColor?: string;
   fillColor?: string;
   numberFormat?: NumberFormatSettings;

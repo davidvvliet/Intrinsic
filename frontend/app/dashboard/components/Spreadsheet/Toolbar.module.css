@@ -46,6 +46,10 @@
   text-decoration: line-through;
 }
 
+.underline {
+  text-decoration: underline;
+}
+
 .separator {
   width: 1px;
   height: 20px;

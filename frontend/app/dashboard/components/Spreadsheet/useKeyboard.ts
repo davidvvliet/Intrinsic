@@ -548,6 +548,36 @@ export function useKeyboard({
           updateCellFormats(newFormats);
         }
         break;
+      case 'u':
+        // Ctrl+U: Toggle underline
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const minRow = Math.min(selection.start.row, selection.end.row);
+          const maxRow = Math.max(selection.start.row, selection.end.row);
+          const minCol = Math.min(selection.start.col, selection.end.col);
+          const maxCol = Math.max(selection.start.col, selection.end.col);
+
+          // Check if any cell in selection is underlined
+          let anyUnderline = false;
+          for (let r = minRow; r <= maxRow && !anyUnderline; r++) {
+            for (let c = minCol; c <= maxCol && !anyUnderline; c++) {
+              const format = cellFormat.get(getCellKey(r, c));
+              if (format?.underline) anyUnderline = true;
+            }
+          }
+
+          // Toggle: if any underlined, remove all; else add all
+          const newFormats = new Map(cellFormat);
+          for (let r = minRow; r <= maxRow; r++) {
+            for (let c = minCol; c <= maxCol; c++) {
+              const key = getCellKey(r, c);
+              const existing = cellFormat.get(key) || {};
+              newFormats.set(key, { ...existing, underline: !anyUnderline });
+            }
+          }
+          updateCellFormats(newFormats);
+        }
+        break;
       default:
         // Start editing on any printable character
         if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {

@@ -400,7 +400,25 @@ export function drawGrid({
           ctx.lineWidth = 1;
           ctx.stroke();
         }
-        
+
+        // Draw underline if needed
+        if (format.underline) {
+          const textWidth = ctx.measureText(displayText).width;
+          const lineY = textY + CELL_FONT_SIZE * 0.35 * zoom; // Position below descenders
+          let lineStartX: number;
+          if (shouldRightAlign(displayValue, format.numberFormat)) {
+            lineStartX = textX - textWidth;
+          } else {
+            lineStartX = textX;
+          }
+          ctx.beginPath();
+          ctx.moveTo(lineStartX, lineY);
+          ctx.lineTo(lineStartX + textWidth, lineY);
+          ctx.strokeStyle = hasError ? '#dc2626' : (format.textColor || TEXT_COLOR);
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
         // Reset text align and fill style
         ctx.textAlign = 'left';
         ctx.fillStyle = TEXT_COLOR;

@@ -192,6 +192,15 @@ export default function Toolbar() {
         I
       </button>
       <button
+        className={`${styles.formatButton} ${currentFormat.underline ? styles.active : ''}`}
+        onMouseDown={preventFocusLoss}
+        onClick={() => toggleFormat('underline')}
+        disabled={!selection}
+        title="Underline (Ctrl+U)"
+      >
+        <span className={styles.underline}>U</span>
+      </button>
+      <button
         className={`${styles.formatButton} ${currentFormat.strikethrough ? styles.active : ''}`}
         onMouseDown={preventFocusLoss}
         onClick={() => toggleFormat('strikethrough')}
