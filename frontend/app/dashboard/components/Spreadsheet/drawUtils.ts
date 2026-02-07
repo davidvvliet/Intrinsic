@@ -182,6 +182,14 @@ export function drawGrid({
   columnWidths: Map<number, number>;
   getColumnX: (col: number) => number;
 }) {
+  // Apply DPR scaling for crisp rendering on all displays
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // Use CSS pixel dimensions (not canvas pixel dimensions)
+  const cssWidth = canvas.width / dpr;
+  const cssHeight = canvas.height / dpr;
+
   const scrollLeft = container.scrollLeft;
   const scrollTop = container.scrollTop;
 
@@ -197,7 +205,7 @@ export function drawGrid({
 
   // Clear canvas
   ctx.fillStyle = CANVAS_BG;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, cssWidth, cssHeight);
 
   // Calculate visible range (accounting for header offset and variable column widths)
   // Find startCol by iterating through columns until we find one that's visible
@@ -207,17 +215,17 @@ export function drawGrid({
     cumulativeWidth += getColumnWidth(startCol);
     startCol++;
   }
-  
+
   // Find endCol by continuing until we exceed visible area
   let endCol = startCol;
   let visibleWidth = cumulativeWidth - scrollLeft;
-  while (endCol < NUM_COLS && visibleWidth < canvas.width - headerWidth) {
+  while (endCol < NUM_COLS && visibleWidth < cssWidth - headerWidth) {
     visibleWidth += getColumnWidth(endCol);
     endCol++;
   }
   endCol = Math.min(endCol + 1, NUM_COLS);
   const startRow = Math.floor(scrollTop / cellHeight);
-  const endRow = Math.min(startRow + Math.ceil((canvas.height - headerHeight) / cellHeight) + 1, NUM_ROWS);
+  const endRow = Math.min(startRow + Math.ceil((cssHeight - headerHeight) / cellHeight) + 1, NUM_ROWS);
 
   // Calculate selection bounds
   let minRow = -1, maxRow = -1, minCol = -1, maxCol = -1;
@@ -504,7 +512,7 @@ export function drawGrid({
 
   // Draw column headers (A, B, C...)
   ctx.fillStyle = HEADER_BG;
-  ctx.fillRect(headerWidth, 0, canvas.width - headerWidth, headerHeight);
+  ctx.fillRect(headerWidth, 0, cssWidth - headerWidth, headerHeight);
   ctx.strokeStyle = HEADER_BORDER;
   ctx.lineWidth = DEFAULT_BORDER_WIDTH;
   ctx.fillStyle = TEXT_COLOR;
@@ -535,7 +543,7 @@ export function drawGrid({
 
   // Draw row headers (1, 2, 3...)
   ctx.fillStyle = HEADER_BG;
-  ctx.fillRect(0, headerHeight, headerWidth, canvas.height - headerHeight);
+  ctx.fillRect(0, headerHeight, headerWidth, cssHeight - headerHeight);
   ctx.strokeStyle = HEADER_BORDER;
   ctx.fillStyle = TEXT_COLOR;
   ctx.textAlign = 'center';
