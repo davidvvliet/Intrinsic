@@ -172,9 +172,9 @@ async def generate_chat_stream(request: ChatRequest, user):
 
         # Build sheet context
         if request.sheet_id and request.sheet_name:
-            sheet_context = f"The user is currently viewing sheet: \"{request.sheet_name}\" (ID: {request.sheet_id})"
+            sheet_context = f"The user is currently viewing sheet \"{request.sheet_name}\" (ID: {request.sheet_id}). The ID is the stable unique identifier; the name can be changed by the user."
         elif request.sheet_name:
-            sheet_context = f"The user is currently viewing sheet: \"{request.sheet_name}\""
+            sheet_context = f"The user is currently viewing sheet: \"{request.sheet_name}\" (unsaved)"
         elif request.sheet_id:
             sheet_context = f"The user is currently viewing sheet ID: {request.sheet_id}"
         else:

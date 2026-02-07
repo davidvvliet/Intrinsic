@@ -22,6 +22,11 @@ export default function SheetBar() {
   const [editingName, setEditingName] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Get next sheet number based on total sheet count
+  const getNextSheetNumber = (existingSheets: SheetMetadata[]) => {
+    return existingSheets.length + 1;
+  };
+
   // Load sheets from localStorage on mount, create default if none exist
   useEffect(() => {
     try {
@@ -38,7 +43,7 @@ export default function SheetBar() {
         const defaultSheet: SheetMetadata = {
           sheetId,
           fetchId: null, // Unsaved sheet
-          name: 'Sheet',
+          name: 'Sheet 1',
           createdAt: new Date().toISOString(),
         };
         parsed = [defaultSheet];
@@ -74,7 +79,7 @@ export default function SheetBar() {
     const newSheet: SheetMetadata = {
       sheetId,
       fetchId: null, // Unsaved sheet
-      name: 'Sheet',
+      name: `Sheet ${getNextSheetNumber(sheets)}`,
       createdAt: new Date().toISOString(),
     };
 
@@ -178,7 +183,7 @@ export default function SheetBar() {
       const defaultSheet: SheetMetadata = {
         sheetId,
         fetchId: null,
-        name: 'Sheet',
+        name: 'Sheet 1',
         createdAt: new Date().toISOString(),
       };
       const newSheets = [defaultSheet];
@@ -257,8 +262,13 @@ export default function SheetBar() {
             ) : (
               <button
                 className={styles.tab}
-                onClick={() => handleTabClick(sheet)}
-                onDoubleClick={() => handleStartRename(sheet)}
+                onClick={() => {
+                  if (activeSheetId === sheet.sheetId) {
+                    handleStartRename(sheet);
+                  } else {
+                    handleTabClick(sheet);
+                  }
+                }}
               >
                 {sheet.name}
               </button>
