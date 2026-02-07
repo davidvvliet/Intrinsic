@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.chat import router as chat_router
 from app.api.sheets import router as sheets_router
+from app.api.sec import load_company_tickers
 from app.storage.async_db import get_pool, close_pool as close_async_pool
 from app.storage.search_db import close_pool as close_search_pool
 
@@ -23,6 +24,7 @@ app.include_router(sheets_router, prefix="/api")
 async def startup_event():
     """Initialize database connection pools on FastAPI startup."""
     await get_pool()  # Eager initialization - creates pool at startup
+    load_company_tickers()  # Load SEC ticker mappings
     print("Database pools initialized")
 
 

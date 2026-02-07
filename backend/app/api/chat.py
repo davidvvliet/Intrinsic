@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from app.api.schemas import ChatRequest
 from app.core.deps import get_workos_user
+from app.api.sec import get_financial_data
 from openai import AsyncOpenAI
 import json
 import os
@@ -159,6 +160,31 @@ SPREADSHEET_TOOLS = [
             },
             "required": ["startCell", "endCell", "format"]
         }
+    },
+    {
+        "type": "function",
+        "name": "get_financial_data",
+        "description": "Get verified financial data from official SEC filings for a publicly traded company. Returns historical data for the requested metrics. Use this to get accurate, audited numbers for fundamental analysis.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "ticker": {
+                    "type": "string",
+                    "description": "Stock ticker symbol (e.g., 'AAPL', 'META', 'MSFT')"
+                },
+                "metrics": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of metrics to fetch. Available: 'revenue', 'net_income', 'gross_profit', 'operating_income', 'total_assets', 'total_liabilities', 'stockholders_equity', 'cash', 'total_debt', 'eps', 'eps_diluted', 'shares_outstanding'"
+                },
+                "periods": {
+                    "type": "string",
+                    "enum": ["annual", "quarterly"],
+                    "description": "Time period granularity. 'annual' for yearly 10-K data, 'quarterly' for 10-Q data. Defaults to 'annual'."
+                }
+            },
+            "required": ["ticker", "metrics"]
+        }
     }
 ]
 
@@ -185,159 +211,116 @@ async def generate_chat_stream(request: ChatRequest, user):
         # Add optional selected range context
         if request.selected_range:
             instructions += f"\n\nNote: The user currently has range {request.selected_range} selected. Use this as context if relevant to their request, but ignore it if the request is unrelated."
-        
-        # If previous_response_id is provided, use Responses API continuation approach
+
+        # Determine initial input based on request type
+        prev_response_id = request.previous_response_id
         if request.previous_response_id:
             if request.function_call_outputs:
-                # Tool call continuation
-                stream = await client.responses.create(
-                    model="gpt-5.1",
-                    previous_response_id=request.previous_response_id,
-                    input=request.function_call_outputs,
-                    instructions=instructions,
-                    tools=SPREADSHEET_TOOLS,
-                    stream=True,
-                    max_output_tokens=3000
-                )
+                input_data = request.function_call_outputs
             elif request.message:
-                # New user message continuation
-                user_message_input = [{"role": "user", "content": request.message}]
-                stream = await client.responses.create(
-                    model="gpt-5.1",
-                    previous_response_id=request.previous_response_id,
-                    input=user_message_input,
-                    instructions=instructions,
-                    tools=SPREADSHEET_TOOLS,
-                    stream=True,
-                    max_output_tokens=3000
-                )
+                input_data = [{"role": "user", "content": request.message}]
             else:
                 raise ValueError("previous_response_id provided but neither function_call_outputs nor message provided")
         else:
-            # Build message array for initial request
-            messages = []
-            
-            # Add current message
+            input_data = []
             if request.message:
-                messages.append({"role": "user", "content": request.message})
-            
-            # Call OpenAI API with streaming
+                input_data.append({"role": "user", "content": request.message})
+
+        response_id = None
+
+        # True streaming loop with server-side tool interception
+        while True:
+            # Make STREAMING call
             stream = await client.responses.create(
                 model="gpt-5.1",
-                input=messages,
+                previous_response_id=prev_response_id,
+                input=input_data,
                 instructions=instructions,
                 tools=SPREADSHEET_TOOLS,
                 stream=True,
                 max_output_tokens=3000
             )
-        
-        # Track tool calls and content during streaming
-        final_tool_calls = {}
-        accumulated_content = ""
-        response_id = None
-        
-        # Stream responses and accumulate tool calls
-        async for event in stream:
-            # Capture response ID if available
-            if hasattr(event, 'response_id'):
-                response_id = event.response_id
-            elif hasattr(event, 'response') and hasattr(event.response, 'id'):
-                response_id = event.response.id
-            elif event.type == 'response.created':
-                if hasattr(event, 'response') and hasattr(event.response, 'id'):
+
+            server_tools = []
+
+            # Process streaming events
+            async for event in stream:
+                event_type = getattr(event, 'type', None)
+
+                # Capture response_id
+                if event_type == 'response.created':
                     response_id = event.response.id
-            
-            # Handle tool call events
-            if event.type == 'response.output_item.added':
-                if hasattr(event, 'item'):
+
+                # Stream text deltas IMMEDIATELY to client
+                elif event_type == 'response.output_text.delta':
+                    if hasattr(event, 'delta'):
+                        yield f"data: {json.dumps({'content': event.delta})}\n\n"
+
+                # Handle completed output items
+                elif event_type == 'response.output_item.done':
                     item = event.item
-                    if hasattr(item, 'type') and item.type == 'function_call':
-                        # Extract both IDs separately
-                        function_call_id = getattr(item, 'call_id', '')  # For tool outputs
-                        output_item_id = getattr(item, 'id', '')  # For delta events
-                        
-                        if not output_item_id:
-                            continue
-                        
-                        if not function_call_id:
-                            function_call_id = output_item_id
-                        
-                        # Store tool call keyed by output_item_id (delta events use item_id which matches this)
-                        final_tool_calls[output_item_id] = {
-                            "type": item.type,
-                            "output_item_id": output_item_id,
-                            "function_call_id": function_call_id,
-                            "call_id": function_call_id,  # Keep for API compatibility
-                            "name": getattr(item, 'name', ''),
-                            "arguments": getattr(item, 'arguments', '') or ''
-                        }
-            
-            # Accumulate function call arguments from delta events
-            elif event.type == 'response.function_call_arguments.delta':
-                # Delta events use item_id which matches output_item_id
-                output_item_id = getattr(event, 'item_id', None) or getattr(event, 'call_id', None)
-                if not output_item_id or output_item_id not in final_tool_calls:
-                    continue
-                
-                if 'arguments' not in final_tool_calls[output_item_id]:
-                    final_tool_calls[output_item_id]['arguments'] = ''
-                final_tool_calls[output_item_id]['arguments'] += event.delta
-            
-            # Handle function call arguments done - send complete tool call
-            elif event.type == 'response.function_call_arguments.done':
-                # Done events use item_id which matches output_item_id
-                output_item_id = getattr(event, 'item_id', None) or getattr(event, 'call_id', None)
-                if not output_item_id or output_item_id not in final_tool_calls:
-                    continue
-                
-                # Use event.arguments if available, otherwise use accumulated
-                final_arguments = getattr(event, 'arguments', final_tool_calls[output_item_id]['arguments'])
-                final_tool_calls[output_item_id]['arguments'] = final_arguments
-                
-                tool_call = final_tool_calls[output_item_id]
-                tool_name = tool_call.get('name', '')
-                
-                # Parse arguments
+                    if item.type == 'function_call':
+                        if item.name == 'get_financial_data':
+                            # Server-side tool - collect for later, don't yield
+                            server_tools.append(item)
+                        else:
+                            # Client-side tool - yield immediately
+                            try:
+                                args = json.loads(item.arguments) if isinstance(item.arguments, str) else item.arguments
+                            except (json.JSONDecodeError, TypeError):
+                                args = {}
+
+                            tool_call_data = {
+                                'tool_call': {
+                                    'name': item.name,
+                                    'arguments': args,
+                                    'call_id': item.call_id
+                                }
+                            }
+                            yield f"data: {json.dumps(tool_call_data)}\n\n"
+
+                # Capture response_id from response.completed as fallback
+                elif event_type == 'response.completed':
+                    if hasattr(event, 'response') and hasattr(event.response, 'id'):
+                        response_id = event.response.id
+
+            # Stream finished - check if we need to execute server-side tools
+            if not server_tools:
+                break  # No server tools, we're done
+
+            # Execute server-side tools (SEC API)
+            tool_outputs = []
+            for tool in server_tools:
                 try:
-                    if isinstance(final_arguments, str):
-                        parsed_arguments = json.loads(final_arguments)
-                    else:
-                        parsed_arguments = final_arguments
-                except (json.JSONDecodeError, TypeError) as e:
-                    print(f"[CHAT] ERROR: Failed to parse tool arguments: {e}", flush=True)
-                    parsed_arguments = {}
-                
-                # Use function_call_id (call_id) for sending to frontend
-                function_call_id = tool_call.get('function_call_id', '') or tool_call.get('call_id', '')
-                if not function_call_id:
-                    print(f"[CHAT] ERROR: Tool call missing function_call_id in stored data. Tool call: {tool_call}", flush=True)
-                    continue
-                
-                print(f"[CHAT] Tool call complete: {tool_name} (function_call_id: {function_call_id}, output_item_id: {output_item_id}, arguments: {parsed_arguments})", flush=True)
-                
-                # Send complete tool call to frontend (use function_call_id as call_id for API compatibility)
-                tool_call_data = {'tool_call': {'name': tool_name, 'arguments': parsed_arguments, 'call_id': function_call_id}}
-                yield f"data: {json.dumps(tool_call_data)}\n\n"
-            
-            # Handle content/text output
-            elif event.type == 'response.output_text.delta':
-                if hasattr(event, 'delta'):
-                    content = event.delta
-                    accumulated_content += content
-                    yield f"data: {json.dumps({'content': content})}\n\n"
-        
-        print(f"[CHAT] Stream complete", flush=True)
-        # Send completion event with response_id if available
-        done_data = {'done': True}
-        if response_id:
-            done_data['response_id'] = response_id
-            print(f"[CHAT] Response ID: {response_id}", flush=True)
+                    args = json.loads(tool.arguments) if isinstance(tool.arguments, str) else tool.arguments
+                except (json.JSONDecodeError, TypeError):
+                    args = {}
+
+                try:
+                    sec_result = await get_financial_data(
+                        ticker=args.get('ticker', ''),
+                        metrics=args.get('metrics', []),
+                        periods=args.get('periods', 'annual')
+                    )
+                    result_json = json.dumps(sec_result)
+                except Exception as e:
+                    result_json = json.dumps({"error": str(e)})
+
+                tool_outputs.append({
+                    "type": "function_call_output",
+                    "call_id": tool.call_id,
+                    "output": result_json
+                })
+
+            # Continue loop with tool outputs - next iteration streams the continuation
+            prev_response_id = response_id
+            input_data = tool_outputs
+
+        # Send completion event with final response_id
+        done_data = {'done': True, 'response_id': response_id}
         yield f"data: {json.dumps(done_data)}\n\n"
-        
+
     except Exception as e:
-        import traceback
-        print(f"[CHAT] ERROR: Exception in generate_chat_stream: {e}", flush=True)
-        print(f"[CHAT] ERROR: Traceback: {traceback.format_exc()}", flush=True)
         yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
 @router.post("/chat")
