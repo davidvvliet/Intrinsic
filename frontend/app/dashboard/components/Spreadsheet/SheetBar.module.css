@@ -44,7 +44,6 @@
   align-items: center;
   gap: 4px;
   height: 32px;
-  border-radius: 4px 4px 0 0;
   background: transparent;
   transition: background 0.1s ease-in-out;
 }
@@ -54,7 +53,7 @@
 }
 
 .tabContainer.active {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.08);
   border-bottom: 2px solid #6d8196;
 }
 
