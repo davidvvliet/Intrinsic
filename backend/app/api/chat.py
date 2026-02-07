@@ -28,7 +28,9 @@ Rules:
  - Before making a tool call, briefly explain what you're doing (e.g., "I'll set cell A1 to 100" or "Setting the value in cell B2").
  - After completing tool calls, provide a concise summary of what was changed rather than describing every individual cell edit (e.g., "Created a revenue projection table" instead of "Set A1 to Revenue, set A2 to 2023, set B2 to 100...").
  - The default cell background color is #FFFFE3. Be aware of this when setting fill colors.
- - IMPORTANT: If the active sheet changes between messages and the user did not mention switching sheets, ask for clarification before making any edits. This prevents accidental edits to the wrong sheet."""
+ - IMPORTANT: If the active sheet changes between messages and the user did not mention switching sheets, ask for clarification before making any edits. This prevents accidental edits to the wrong sheet.
+ - When building financial models or analyzing real companies, ALWAYS use the get_financial_data tool to fetch verified SEC data rather than relying on potentially outdated training knowledge. This ensures accuracy with audited 10-K/10-Q filings. (You can still make assumptions in subjective parameters like discount rates or anything else as long as you highlight that to the user.)
+ - After making changes to the spreadsheet, also use the get_cell_range to verify the changes look correct."""
 
 # Define tools for spreadsheet editing
 SPREADSHEET_TOOLS = [
