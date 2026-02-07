@@ -11,6 +11,7 @@ import { useColumnMinimize } from './hooks/useColumnMinimize';
 import { useChatStream, ToolCall } from './hooks/useChatStream';
 import { useChatMessages } from './hooks/useChatMessages';
 import { ChatMessage } from './types/chat';
+import { useSpreadsheetStore } from './stores/spreadsheetStore';
 import styles from './page.module.css';
 
 const Spreadsheet = dynamic(
@@ -21,7 +22,14 @@ const Spreadsheet = dynamic(
 export default function Dashboard() {
   const columnMinimize = useColumnMinimize();
   const { accessToken } = useAccessToken();
-  
+
+  // Get active sheet info from store
+  const activeSheetId = useSpreadsheetStore(state => state.activeSheetId);
+  const sheets = useSpreadsheetStore(state => state.sheets);
+  const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
+  const sheetId = activeSheet?.fetchId || null;
+  const sheetName = activeSheet?.name || null;
+
   const [chatMessages, setChatMessages] = useChatMessages();
   const [query, setQuery] = useState<string>('');
   const [selectedRange, setSelectedRange] = useState<string | null>(null);
@@ -30,17 +38,23 @@ export default function Dashboard() {
   const iterationCountRef = useRef<number>(0);
   const maxIterations = 10;
 
-  // Use ref to always get latest access token (avoids stale closure issues)
+  // Use refs to always get latest values (avoids stale closure issues)
   const accessTokenRef = useRef<string | null>(null);
   accessTokenRef.current = accessToken ?? null;
+  const sheetIdRef = useRef<string | null>(null);
+  sheetIdRef.current = sheetId;
+  const sheetNameRef = useRef<string | null>(null);
+  sheetNameRef.current = sheetName;
 
   const sendMessageRef = useRef<((
-    message: string | null, 
-    conversationHistory: ChatMessage[] | null, 
+    message: string | null,
+    conversationHistory: ChatMessage[] | null,
     accessToken: string | null,
     previousResponseId?: string,
     functionCallOutputs?: Array<{type: string, call_id: string, output: string}>,
-    selectedRange?: string | null
+    selectedRange?: string | null,
+    sheetId?: string | null,
+    sheetName?: string | null
   ) => Promise<void>) | null>(null);
 
   const handleMessageComplete = useCallback(async (message: string, toolCalls?: ToolCall[], responseId?: string) => {
@@ -91,7 +105,7 @@ export default function Dashboard() {
 
       // Make another API call using previous_response_id approach
       if (sendMessageRef.current) {
-        sendMessageRef.current(null, null, accessTokenRef.current, responseId, functionCallOutputs, selectedRange);
+        sendMessageRef.current(null, null, accessTokenRef.current, responseId, functionCallOutputs, selectedRange, sheetIdRef.current, sheetNameRef.current);
       }
     } else {
       // No tool calls - reset iteration count
@@ -126,9 +140,9 @@ export default function Dashboard() {
     // If we have a previous response_id, use it for continuation
     // Otherwise, make an initial request
     if (lastResponseIdRef.current && sendMessageRef.current) {
-      sendMessageRef.current(messageText, null, accessTokenRef.current, lastResponseIdRef.current, undefined, selectedRange);
+      sendMessageRef.current(messageText, null, accessTokenRef.current, lastResponseIdRef.current, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current);
     } else {
-      sendMessage(messageText, null, accessTokenRef.current, undefined, undefined, selectedRange);
+      sendMessage(messageText, null, accessTokenRef.current, undefined, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current);
     }
   }, [query, selectedRange, sendMessage]);
 

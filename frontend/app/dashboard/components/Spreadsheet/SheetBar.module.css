@@ -54,8 +54,8 @@
 }
 
 .tabContainer.active {
-  background: rgba(255, 255, 255, 0.8);
-  border-bottom: 2px solid #0066cc;
+  background: rgba(0, 0, 0, 0.05);
+  border-bottom: 2px solid #6d8196;
 }
 
 .tab {
@@ -103,4 +103,17 @@
 .deleteButton:focus,
 .deleteButton:active {
   outline: none;
+}
+
+.renameInput {
+  height: 100%;
+  padding: 0 8px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  color: #000000;
+  outline: none;
+  max-width: 100px;
 }

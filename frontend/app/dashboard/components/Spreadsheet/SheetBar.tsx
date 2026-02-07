@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAccessToken } from '@workos-inc/authkit-nextjs/components';
 import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
 import styles from './SheetBar.module.css';
@@ -16,6 +16,11 @@ export default function SheetBar() {
   const setActiveSheetId = useSpreadsheetStore(state => state.setActiveSheetId);
   const sheets = useSpreadsheetStore(state => state.sheets);
   const setSheets = useSpreadsheetStore(state => state.setSheets);
+
+  // State for inline renaming
+  const [editingSheetId, setEditingSheetId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Load sheets from localStorage on mount, create default if none exist
   useEffect(() => {
@@ -89,6 +94,56 @@ export default function SheetBar() {
   // Handle tab click
   const handleTabClick = (sheet: SheetMetadata) => {
     setActiveSheetId(sheet.sheetId);
+  };
+
+  // Start editing sheet name
+  const handleStartRename = (sheet: SheetMetadata) => {
+    setEditingSheetId(sheet.sheetId);
+    setEditingName(sheet.name);
+    // Focus input after render
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  // Save sheet name
+  const handleSaveRename = () => {
+    if (!editingSheetId) return;
+
+    const trimmed = editingName.trim() || 'Untitled';
+    const updated = sheets.map(s =>
+      s.sheetId === editingSheetId ? { ...s, name: trimmed } : s
+    );
+    setSheets(updated);
+    localStorage.setItem('spreadsheet_sheets', JSON.stringify(updated));
+    setEditingSheetId(null);
+
+    // Save to backend if sheet exists there
+    const sheet = updated.find(s => s.sheetId === editingSheetId);
+    if (sheet?.fetchId && accessToken) {
+      fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/sheets/${sheet.fetchId}/name`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ name: trimmed }),
+      }).catch(err => {
+        console.error('Failed to rename sheet on backend:', err);
+      });
+    }
+  };
+
+  // Cancel editing
+  const handleCancelRename = () => {
+    setEditingSheetId(null);
+  };
+
+  // Handle key events in rename input
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveRename();
+    } else if (e.key === 'Escape') {
+      handleCancelRename();
+    }
   };
 
   // Handle delete sheet
@@ -184,17 +239,30 @@ export default function SheetBar() {
         +
       </button>
       <div className={styles.tabs}>
-        {sheets.map((sheet, index) => (
+        {sheets.map((sheet) => (
           <div
             key={sheet.sheetId}
             className={`${styles.tabContainer} ${activeSheetId === sheet.sheetId ? styles.active : ''}`}
           >
-            <button
-              className={styles.tab}
-              onClick={() => handleTabClick(sheet)}
-            >
-              {sheet.name} {index + 1}
-            </button>
+            {editingSheetId === sheet.sheetId ? (
+              <input
+                ref={inputRef}
+                type="text"
+                className={styles.renameInput}
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                onKeyDown={handleRenameKeyDown}
+                onBlur={handleSaveRename}
+              />
+            ) : (
+              <button
+                className={styles.tab}
+                onClick={() => handleTabClick(sheet)}
+                onDoubleClick={() => handleStartRename(sheet)}
+              >
+                {sheet.name}
+              </button>
+            )}
             <button
               className={styles.deleteButton}
               onClick={(e) => {

@@ -16,6 +16,8 @@ Intrinsic has its own proprietary spreadsheet that you can edit using tool calls
 
 Today's date is {current_date}.
 
+{sheet_context}
+
 Rules:
  - Always use English.
  - Keep your answers short and concise — 200 words maximum. Do not exceed this limit unless the user explicitly asks for a detailed explanation. This word limit applies only to your text responses, not to tool call parameters.
@@ -24,7 +26,8 @@ Rules:
  - If it's not entirely obvious what the user is referring to, use the get_cell_range tool to read their selected cells for context.
  - Before making a tool call, briefly explain what you're doing (e.g., "I'll set cell A1 to 100" or "Setting the value in cell B2").
  - After completing tool calls, provide a concise summary of what was changed rather than describing every individual cell edit (e.g., "Created a revenue projection table" instead of "Set A1 to Revenue, set A2 to 2023, set B2 to 100...").
- - The default cell background color is #FFFFE3. Be aware of this when setting fill colors."""
+ - The default cell background color is #FFFFE3. Be aware of this when setting fill colors.
+ - IMPORTANT: If the active sheet changes between messages and the user did not mention switching sheets, ask for clarification before making any edits. This prevents accidental edits to the wrong sheet."""
 
 # Define tools for spreadsheet editing
 SPREADSHEET_TOOLS = [
@@ -166,7 +169,18 @@ async def generate_chat_stream(request: ChatRequest, user):
     try:
         # Get current date and build system prompt
         current_date = datetime.now().strftime("%B %d, %Y")
-        instructions = SYSTEM_PROMPT_TEMPLATE.format(current_date=current_date)
+
+        # Build sheet context
+        if request.sheet_id and request.sheet_name:
+            sheet_context = f"The user is currently viewing sheet: \"{request.sheet_name}\" (ID: {request.sheet_id})"
+        elif request.sheet_name:
+            sheet_context = f"The user is currently viewing sheet: \"{request.sheet_name}\""
+        elif request.sheet_id:
+            sheet_context = f"The user is currently viewing sheet ID: {request.sheet_id}"
+        else:
+            sheet_context = "The user is viewing an unnamed/unsaved sheet."
+
+        instructions = SYSTEM_PROMPT_TEMPLATE.format(current_date=current_date, sheet_context=sheet_context)
 
         # Add optional selected range context
         if request.selected_range:

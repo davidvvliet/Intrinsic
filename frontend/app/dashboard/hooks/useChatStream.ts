@@ -17,12 +17,14 @@ export function useChatStream(
   const [error, setError] = useState<string | null>(null);
 
   const sendMessage = useCallback(async (
-    message: string | null, 
-    conversationHistory: ChatMessage[] | null, 
+    message: string | null,
+    conversationHistory: ChatMessage[] | null,
     accessToken: string | null,
     previousResponseId?: string,
     functionCallOutputs?: Array<{type: string, call_id: string, output: string}>,
-    selectedRange?: string | null
+    selectedRange?: string | null,
+    sheetId?: string | null,
+    sheetName?: string | null
   ) => {
     setIsStreaming(true);
     setIsToolCalling(false);
@@ -56,6 +58,14 @@ export function useChatStream(
       // Add selected range if provided
       if (selectedRange) {
         body.selected_range = selectedRange;
+      }
+
+      // Add sheet context
+      if (sheetId) {
+        body.sheet_id = sheetId;
+      }
+      if (sheetName) {
+        body.sheet_name = sheetName;
       }
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {

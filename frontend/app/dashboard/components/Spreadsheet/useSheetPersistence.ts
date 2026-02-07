@@ -52,13 +52,18 @@ export function useSheetPersistence() {
       formatting[key] = format;
     });
 
+    // Get current sheet name
+    const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
+    const name = activeSheet?.name || 'Untitled';
+
     return {
       cells,
       dimensions: { rows: NUM_ROWS, cols: NUM_COLS },
       settings: {},
       formatting,
+      name,
     };
-  }, [cellData, cellFormat]);
+  }, [cellData, cellFormat, sheets, activeSheetId]);
 
   // Save batch of dirty cells to server
   const saveBatch = useCallback(async () => {
@@ -161,6 +166,7 @@ export function useSheetPersistence() {
 
     const sheet = await response.json();
     const data = sheet.data;
+    const backendName = sheet.name;
 
     // Deserialize cells
     const newCellData = new Map<string, { raw: string; type: CellType }>();
@@ -201,7 +207,22 @@ export function useSheetPersistence() {
 
     // Update URL to match loaded sheet
     router.replace(`/dashboard?sheet=${sheetIdToLoad}`);
-  }, [setCellData, setCellFormat, setBaselineData, setBaselineFormat, setDirtyCells, setSelection, setHighlightedCells, setInputValue, setIsEditing, setCopiedRange, router]);
+
+    // Update sheet name from backend if it differs
+    if (backendName) {
+      setSheets(prevSheets => {
+        const updated = prevSheets.map(s => {
+          if (s.fetchId === sheetIdToLoad && s.name !== backendName) {
+            return { ...s, name: backendName };
+          }
+          return s;
+        });
+        // Also update localStorage
+        localStorage.setItem('spreadsheet_sheets', JSON.stringify(updated));
+        return updated;
+      });
+    }
+  }, [setCellData, setCellFormat, setBaselineData, setBaselineFormat, setDirtyCells, setSelection, setHighlightedCells, setInputValue, setIsEditing, setCopiedRange, router, setSheets]);
 
   // Auto-save: debounced save after delay of inactivity
   useEffect(() => {

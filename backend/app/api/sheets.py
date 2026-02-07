@@ -14,6 +14,7 @@ class SheetData(BaseModel):
     dimensions: Optional[Dict[str, int]] = None
     settings: Optional[Dict[str, Any]] = None
     formatting: Optional[Dict[str, Any]] = None
+    name: Optional[str] = None
 
 
 class SheetResponse(BaseModel):
@@ -83,7 +84,7 @@ async def create_sheet(
         INSERT INTO sheets (id, user_id, name, data, updated_at)
         VALUES ($1, $2, $3, $4::jsonb, NOW())
         """,
-        sheet_id, user_id, "Untitled", data_jsonb
+        sheet_id, user_id, sheet_data.name or "Untitled", data_jsonb
     )
     
     return {"status": "created", "id": sheet_id}
@@ -115,17 +116,56 @@ async def save_sheet(
     if not existing:
         raise HTTPException(status_code=404, detail="Sheet not found")
     
-    # Update existing sheet
-    await execute_command(
-        """
-        UPDATE sheets 
-        SET data = $1::jsonb, updated_at = NOW()
-        WHERE id = $2 AND user_id = $3
-        """,
-        data_jsonb, sheet_id, user_id
-    )
+    # Update existing sheet (include name if provided)
+    if sheet_data.name is not None:
+        await execute_command(
+            """
+            UPDATE sheets
+            SET data = $1::jsonb, name = $2, updated_at = NOW()
+            WHERE id = $3 AND user_id = $4
+            """,
+            data_jsonb, sheet_data.name, sheet_id, user_id
+        )
+    else:
+        await execute_command(
+            """
+            UPDATE sheets
+            SET data = $1::jsonb, updated_at = NOW()
+            WHERE id = $2 AND user_id = $3
+            """,
+            data_jsonb, sheet_id, user_id
+        )
     
     return {"status": "saved", "id": sheet_id}
+
+
+class RenameRequest(BaseModel):
+    name: str
+
+
+@router.patch("/sheets/{sheet_id}/name")
+async def rename_sheet(
+    sheet_id: str,
+    body: RenameRequest,
+    user = Depends(get_workos_user)
+):
+    """Rename a sheet. Only renames if user owns it."""
+    user_id = user["id"]
+
+    existing = await execute_query_one(
+        "SELECT id FROM sheets WHERE id = $1 AND user_id = $2",
+        sheet_id, user_id
+    )
+
+    if not existing:
+        raise HTTPException(status_code=404, detail="Sheet not found")
+
+    await execute_command(
+        "UPDATE sheets SET name = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3",
+        body.name or "Untitled", sheet_id, user_id
+    )
+
+    return {"status": "renamed", "id": sheet_id}
 
 
 @router.delete("/sheets/{sheet_id}")
