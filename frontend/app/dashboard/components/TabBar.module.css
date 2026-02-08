@@ -1,0 +1,143 @@
+.tabBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 8px 8px;
+  flex-shrink: 0;
+  background: transparent;
+}
+
+.tabsContainer {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.tabsContainer::-webkit-scrollbar {
+  height: 4px;
+}
+
+.tabsContainer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tabsContainer::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 2px;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: transparent;
+  transition: background 0.1s ease-in-out;
+  min-width: 0;
+  max-width: 160px;
+}
+
+.tab:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.tabActive {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.tabActive:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.tabTitle {
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  color: #000000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tabActive .tabTitle {
+  font-weight: 500;
+}
+
+.closeButtonWrapper {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding-right: 4px;
+  padding-left: 16px;
+  background: linear-gradient(to right, transparent, #ffffe3 40%);
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out;
+}
+
+.tab:hover .closeButtonWrapper {
+  background: linear-gradient(to right, transparent, #f2f2d0 40%);
+  opacity: 1;
+}
+
+.tabActive .closeButtonWrapper {
+  background: linear-gradient(to right, transparent, #eaeac5 40%);
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.5);
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 2px;
+  flex-shrink: 0;
+  line-height: 1;
+  padding: 0;
+  outline: none;
+}
+
+.closeButton:hover {
+  color: #000000;
+}
+
+.closeButton:focus,
+.closeButton:active {
+  outline: none;
+}
+
+.newTabButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: #000000;
+  font-family: Arial, sans-serif;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.newTabButton:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}

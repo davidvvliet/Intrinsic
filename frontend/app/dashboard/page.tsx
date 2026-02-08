@@ -1,17 +1,18 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useAccessToken } from '@workos-inc/authkit-nextjs/components';
 import DashboardNavbar from './components/DashboardNavbar';
 import Globe from './components/Globe';
 import ChatDisplay from './components/ChatDisplay';
 import SearchInput from './components/SearchInput';
+import TabBar from './components/TabBar';
 import { useColumnMinimize } from './hooks/useColumnMinimize';
 import { useChatStream, ToolCall } from './hooks/useChatStream';
-import { useChatMessages } from './hooks/useChatMessages';
 import { ChatMessage } from './types/chat';
 import { useSpreadsheetStore } from './stores/spreadsheetStore';
+import { useConversationsStore } from './stores/conversationsStore';
 import styles from './page.module.css';
 
 const Spreadsheet = dynamic(
@@ -30,11 +31,33 @@ export default function Dashboard() {
   const sheetId = activeSheet?.fetchId || null;
   const sheetName = activeSheet?.name || null;
 
-  const [chatMessages, setChatMessages] = useChatMessages();
+  // Conversations store
+  const conversations = useConversationsStore(state => state.conversations);
+  const activeConversationId = useConversationsStore(state => state.activeConversationId);
+  const createConversation = useConversationsStore(state => state.createConversation);
+  const deleteConversation = useConversationsStore(state => state.deleteConversation);
+  const setActiveConversation = useConversationsStore(state => state.setActiveConversation);
+  const addMessage = useConversationsStore(state => state.addMessage);
+  const setLastResponseId = useConversationsStore(state => state.setLastResponseId);
+
+  // Get active conversation
+  const activeConversation = conversations.find(c => c.id === activeConversationId);
+  const chatMessages = activeConversation?.messages ?? [];
+  const lastResponseId = activeConversation?.lastResponseId ?? null;
+
+  // Map conversations to tabs format
+  const tabs = conversations.map(c => ({ id: c.id, title: c.title }));
+
+  // Ensure there's always an active conversation
+  useEffect(() => {
+    if (conversations.length > 0 && !activeConversationId) {
+      setActiveConversation(conversations[0].id);
+    }
+  }, [conversations, activeConversationId, setActiveConversation]);
+
   const [query, setQuery] = useState<string>('');
   const [selectedRange, setSelectedRange] = useState<string | null>(null);
   const toolCallHandlerRef = useRef<((name: string, args: any) => any) | null>(null);
-  const lastResponseIdRef = useRef<string | null>(null);
   const iterationCountRef = useRef<number>(0);
   const maxIterations = 50;
 
@@ -58,20 +81,23 @@ export default function Dashboard() {
   ) => Promise<void>) | null>(null);
 
   const handleMessageComplete = useCallback(async (message: string, toolCalls?: ToolCall[], responseId?: string) => {
+    const convId = useConversationsStore.getState().activeConversationId;
+    if (!convId) return;
+
     // Store response_id for subsequent requests
     if (responseId) {
-      lastResponseIdRef.current = responseId;
+      setLastResponseId(convId, responseId);
     }
 
     // Add text content to chat messages (keep it visible)
     if (message) {
-      setChatMessages(prev => [...prev, { role: 'assistant', content: message }]);
+      addMessage(convId, { role: 'assistant', content: message });
     }
 
     // If there are tool calls, execute them and continue the loop
     if (toolCalls && toolCalls.length > 0 && iterationCountRef.current < maxIterations && sendMessageRef.current && responseId) {
       iterationCountRef.current++;
-      
+
       // Execute tool calls and collect results
       const toolResults: Array<{call_id: string, result: any}> = [];
       for (const toolCall of toolCalls) {
@@ -110,16 +136,16 @@ export default function Dashboard() {
     } else if (toolCalls && toolCalls.length > 0 && iterationCountRef.current >= maxIterations) {
       // Hit iteration limit - add warning message
       console.warn(`Hit max iterations (${maxIterations}) for tool calls`);
-      setChatMessages(prev => [...prev, {
+      addMessage(convId, {
         role: 'assistant',
         content: 'I made many changes but had to stop due to iteration limits. Let me know if you need me to continue.'
-      }]);
+      });
       iterationCountRef.current = 0;
     } else {
       // No tool calls - reset iteration count
       iterationCountRef.current = 0;
     }
-  }, []);
+  }, [addMessage, setLastResponseId]);
 
   const handleToolCall = useCallback((name: string, args: any) => {
     if (toolCallHandlerRef.current) {
@@ -136,23 +162,24 @@ export default function Dashboard() {
 
   const handleSearch = useCallback(() => {
     if (!query.trim()) return;
+    if (!activeConversationId) return;
 
     // Reset iteration count for new conversation
     iterationCountRef.current = 0;
 
     const messageText = query.trim();
     const userMessage: ChatMessage = { role: 'user', content: messageText };
-    setChatMessages(prev => [...prev, userMessage]);
+    addMessage(activeConversationId, userMessage);
     setQuery('');
-    
+
     // If we have a previous response_id, use it for continuation
     // Otherwise, make an initial request
-    if (lastResponseIdRef.current && sendMessageRef.current) {
-      sendMessageRef.current(messageText, null, accessTokenRef.current, lastResponseIdRef.current, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current);
+    if (lastResponseId && sendMessageRef.current) {
+      sendMessageRef.current(messageText, null, accessTokenRef.current, lastResponseId, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current);
     } else {
       sendMessage(messageText, null, accessTokenRef.current, undefined, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current);
     }
-  }, [query, selectedRange, sendMessage]);
+  }, [query, selectedRange, sendMessage, activeConversationId, lastResponseId, addMessage]);
 
   return (
     <div className={styles.dashboard}>
@@ -178,6 +205,14 @@ export default function Dashboard() {
           className={`${styles.rightColumn} ${columnMinimize.rightMinimized ? styles.hidden : ''}`}
         >
           <div className={styles.rightColumnContent}>
+            <TabBar
+              tabs={tabs}
+              activeTabId={activeConversationId}
+              onTabClick={setActiveConversation}
+              onTabClose={deleteConversation}
+              onNewTab={createConversation}
+              disabled={isStreaming || isToolCalling}
+            />
             {chatMessages.length > 0 && (
               <ChatDisplay
                 messages={chatMessages}
