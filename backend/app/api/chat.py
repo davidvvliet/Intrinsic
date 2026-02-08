@@ -31,7 +31,8 @@ Rules:
  - The default cell background color is #FFFFE3. Be aware of this when setting fill colors.
  - IMPORTANT: If the active sheet changes between messages and the user did not mention switching sheets, ask for clarification before making any edits. This prevents accidental edits to the wrong sheet.
  - When building financial models or analyzing real companies, ALWAYS use the get_financial_data tool to fetch verified SEC data rather than relying on potentially outdated training knowledge. This ensures accuracy with audited 10-K/10-Q filings. (You can still make assumptions in subjective parameters like discount rates or anything else as long as you highlight that to the user.)
- - After making changes to the spreadsheet, also use the get_cell_range to verify the changes look correct."""
+ - After making changes to the spreadsheet, also use the get_cell_range to verify the changes look correct.
+ - IMPORTANT: Never tell the user to do something themselves. Instead, proactively do it for them using your available tools. Only explain how to do something manually if it's truly outside the scope of your tool capabilities."""
 
 # Define tools for spreadsheet editing
 SPREADSHEET_TOOLS = [
@@ -308,8 +309,10 @@ async def generate_chat_stream(request: ChatRequest, user):
 
             # Stream finished - check if we need to execute server-side tools
             if not server_tools:
+                print(f"[chat] No server tools, ending stream")
                 break  # No server tools, we're done
 
+            print(f"[chat] Executing {len(server_tools)} server-side tools")
             # Execute server-side tools (SEC API)
             tool_outputs = []
             for tool in server_tools:
@@ -345,10 +348,12 @@ async def generate_chat_stream(request: ChatRequest, user):
             input_data = tool_outputs
 
         # Send completion event with final response_id
+        print(f"[chat] Stream complete, response_id={response_id}")
         done_data = {'done': True, 'response_id': response_id}
         yield f"data: {json.dumps(done_data)}\n\n"
 
     except Exception as e:
+        print(f"[chat] ERROR: {e}")
         yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
 @router.post("/chat")
