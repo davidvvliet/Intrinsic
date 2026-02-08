@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 from app.api.schemas import ChatRequest
 from app.core.deps import get_workos_user
 from app.api.sec import get_financial_data
+from app.api.market import get_stock_quote
 from openai import AsyncOpenAI
 import json
 import os
@@ -191,6 +192,21 @@ SPREADSHEET_TOOLS = [
             },
             "required": ["ticker", "metrics"]
         }
+    },
+    {
+        "type": "function",
+        "name": "get_stock_quote",
+        "description": "Get current stock price and market data for a ticker. Returns real-time price, market cap, PE ratio, 52-week range, beta, and other valuation metrics. Use this when you need current market prices or valuation multiples.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "ticker": {
+                    "type": "string",
+                    "description": "Stock ticker symbol (e.g., 'AAPL', 'TSLA', 'MSFT')"
+                }
+            },
+            "required": ["ticker"]
+        }
     }
 ]
 
@@ -266,7 +282,7 @@ async def generate_chat_stream(request: ChatRequest, user):
                 elif event_type == 'response.output_item.done':
                     item = event.item
                     if item.type == 'function_call':
-                        if item.name == 'get_financial_data':
+                        if item.name in ['get_financial_data', 'get_stock_quote']:
                             # Server-side tool - collect for later, don't yield
                             server_tools.append(item)
                         else:
@@ -303,13 +319,18 @@ async def generate_chat_stream(request: ChatRequest, user):
                     args = {}
 
                 try:
-                    sec_result = await get_financial_data(
-                        ticker=args.get('ticker', ''),
-                        metrics=args.get('metrics', []),
-                        periods=args.get('periods', 'annual'),
-                        limit_years=args.get('limit_years', 5)
-                    )
-                    result_json = json.dumps(sec_result)
+                    if tool.name == 'get_financial_data':
+                        result = await get_financial_data(
+                            ticker=args.get('ticker', ''),
+                            metrics=args.get('metrics', []),
+                            periods=args.get('periods', 'annual'),
+                            limit_years=args.get('limit_years', 5)
+                        )
+                    elif tool.name == 'get_stock_quote':
+                        result = get_stock_quote(args.get('ticker', ''))
+                    else:
+                        result = {"error": f"Unknown tool: {tool.name}"}
+                    result_json = json.dumps(result)
                 except Exception as e:
                     result_json = json.dumps({"error": str(e)})
 

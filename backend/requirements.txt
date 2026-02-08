@@ -6,3 +6,4 @@ PyJWT
 cryptography
 asyncpg
 psycopg2-binary
+yfinance
