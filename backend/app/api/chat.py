@@ -177,12 +177,16 @@ SPREADSHEET_TOOLS = [
                 "metrics": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "List of metrics to fetch. Available: 'revenue', 'net_income', 'gross_profit', 'operating_income', 'total_assets', 'total_liabilities', 'stockholders_equity', 'cash', 'total_debt', 'eps', 'eps_diluted', 'shares_outstanding'"
+                    "description": "List of metrics to fetch. Statement shortcuts: 'income_statement', 'balance_sheet', 'cash_flow_statement'. Individual metrics: 'revenue', 'cost_of_revenue', 'gross_profit', 'operating_income', 'net_income', 'eps', 'eps_diluted', 'total_assets', 'current_assets', 'total_liabilities', 'current_liabilities', 'stockholders_equity', 'cash', 'total_debt', 'shares_outstanding', 'operating_cash_flow', 'capex', 'depreciation', 'free_cash_flow'. You can mix shortcuts with individual metrics."
                 },
                 "periods": {
                     "type": "string",
                     "enum": ["annual", "quarterly"],
                     "description": "Time period granularity. 'annual' for yearly 10-K data, 'quarterly' for 10-Q data. Defaults to 'annual'."
+                },
+                "limit_years": {
+                    "type": "integer",
+                    "description": "Maximum number of years/periods to return. Defaults to 5. Increase if user needs more historical data."
                 }
             },
             "required": ["ticker", "metrics"]
@@ -302,7 +306,8 @@ async def generate_chat_stream(request: ChatRequest, user):
                     sec_result = await get_financial_data(
                         ticker=args.get('ticker', ''),
                         metrics=args.get('metrics', []),
-                        periods=args.get('periods', 'annual')
+                        periods=args.get('periods', 'annual'),
+                        limit_years=args.get('limit_years', 5)
                     )
                     result_json = json.dumps(sec_result)
                 except Exception as e:

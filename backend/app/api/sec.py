@@ -80,6 +80,7 @@ async def get_company_facts(ticker: str) -> Optional[dict]:
 # Mapping of common metric names to possible XBRL tags
 # SEC filings use different tag names depending on the company
 METRIC_MAPPINGS = {
+    # Income Statement
     "revenue": [
         "Revenues",
         "RevenueFromContractWithCustomerExcludingAssessedTax",
@@ -88,10 +89,11 @@ METRIC_MAPPINGS = {
         "SalesRevenueGoodsNet",
         "TotalRevenuesAndOtherIncome",
     ],
-    "net_income": [
-        "NetIncomeLoss",
-        "NetIncomeLossAvailableToCommonStockholdersBasic",
-        "ProfitLoss",
+    "cost_of_revenue": [
+        "CostOfRevenue",
+        "CostOfGoodsAndServicesSold",
+        "CostOfGoodsSold",
+        "CostOfSales",
     ],
     "gross_profit": [
         "GrossProfit",
@@ -99,11 +101,29 @@ METRIC_MAPPINGS = {
     "operating_income": [
         "OperatingIncomeLoss",
     ],
+    "net_income": [
+        "NetIncomeLoss",
+        "NetIncomeLossAvailableToCommonStockholdersBasic",
+        "ProfitLoss",
+    ],
+    "eps": [
+        "EarningsPerShareBasic",
+    ],
+    "eps_diluted": [
+        "EarningsPerShareDiluted",
+    ],
+    # Balance Sheet
     "total_assets": [
         "Assets",
     ],
+    "current_assets": [
+        "AssetsCurrent",
+    ],
     "total_liabilities": [
         "Liabilities",
+    ],
+    "current_liabilities": [
+        "LiabilitiesCurrent",
     ],
     "stockholders_equity": [
         "StockholdersEquity",
@@ -118,17 +138,58 @@ METRIC_MAPPINGS = {
         "LongTermDebtAndCapitalLeaseObligations",
         "DebtCurrent",
     ],
-    "eps": [
-        "EarningsPerShareBasic",
-    ],
-    "eps_diluted": [
-        "EarningsPerShareDiluted",
-    ],
     "shares_outstanding": [
         "CommonStockSharesOutstanding",
         "WeightedAverageNumberOfSharesOutstandingBasic",
     ],
+    # Cash Flow Statement
+    "operating_cash_flow": [
+        "NetCashProvidedByUsedInOperatingActivities",
+        "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+    ],
+    "capex": [
+        "PaymentsToAcquirePropertyPlantAndEquipment",
+        "PaymentsToAcquireProductiveAssets",
+    ],
+    "depreciation": [
+        "DepreciationDepletionAndAmortization",
+        "DepreciationAndAmortization",
+        "Depreciation",
+    ],
+    "free_cash_flow": [
+        "FreeCashFlow",  # Some companies report this directly
+    ],
 }
+
+# Statement shortcuts that expand to multiple metrics
+STATEMENT_SHORTCUTS = {
+    "income_statement": [
+        "revenue", "cost_of_revenue", "gross_profit", "operating_income",
+        "net_income", "eps", "eps_diluted"
+    ],
+    "balance_sheet": [
+        "total_assets", "current_assets", "total_liabilities", "current_liabilities",
+        "stockholders_equity", "cash", "total_debt", "shares_outstanding"
+    ],
+    "cash_flow_statement": [
+        "operating_cash_flow", "capex", "depreciation", "free_cash_flow"
+    ],
+}
+
+
+def expand_metrics(metrics: list[str]) -> list[str]:
+    """
+    Expand statement shortcuts into individual metrics.
+    Deduplicates while preserving order.
+    """
+    expanded = []
+    for m in metrics:
+        if m in STATEMENT_SHORTCUTS:
+            expanded.extend(STATEMENT_SHORTCUTS[m])
+        else:
+            expanded.append(m)
+    # Dedupe preserving order
+    return list(dict.fromkeys(expanded))
 
 
 def extract_metric(facts: dict, metric: str, periods: str = "annual") -> list[dict]:
@@ -214,15 +275,18 @@ def extract_metric(facts: dict, metric: str, periods: str = "annual") -> list[di
 async def get_financial_data(
     ticker: str,
     metrics: list[str],
-    periods: str = "annual"
+    periods: str = "annual",
+    limit_years: int = 5
 ) -> dict:
     """
     Get financial data for a company.
 
     Args:
         ticker: Stock ticker symbol (e.g., "AAPL")
-        metrics: List of metrics to fetch (e.g., ["revenue", "net_income"])
+        metrics: List of metrics to fetch. Can include statement shortcuts like
+                 "income_statement", "balance_sheet", "cash_flow_statement"
         periods: "annual" or "quarterly"
+        limit_years: Maximum number of years/periods to return (default 5)
 
     Returns:
         {
@@ -250,6 +314,9 @@ async def get_financial_data(
             "error": "Could not fetch SEC data for this company"
         }
 
+    # Expand any statement shortcuts
+    expanded_metrics = expand_metrics(metrics)
+
     result = {
         "ticker": ticker.upper(),
         "company_name": company_name,
@@ -257,10 +324,11 @@ async def get_financial_data(
         "errors": []
     }
 
-    for metric in metrics:
+    for metric in expanded_metrics:
         metric_data = extract_metric(facts, metric, periods)
         if metric_data:
-            result["data"][metric] = metric_data
+            # Limit to requested number of years/periods
+            result["data"][metric] = metric_data[:limit_years]
         else:
             result["errors"].append(f"{metric} not found")
 
