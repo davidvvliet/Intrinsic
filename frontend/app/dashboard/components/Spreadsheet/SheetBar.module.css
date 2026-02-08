@@ -40,9 +40,9 @@
 }
 
 .tabContainer {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
   height: 32px;
   background: transparent;
   transition: background 0.1s ease-in-out;
@@ -54,12 +54,11 @@
 
 .tabContainer.active {
   background: rgba(0, 0, 0, 0.08);
-  border-bottom: 2px solid #6d8196;
 }
 
 .tab {
   height: 100%;
-  padding: 0 8px;
+  padding: 0 12px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -73,6 +72,29 @@
 
 .tabContainer.active .tab {
   font-weight: 500;
+}
+
+.deleteButtonWrapper {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding-right: 4px;
+  padding-left: 16px;
+  background: linear-gradient(to right, transparent, #ffffe3 40%);
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out;
+}
+
+.tabContainer:hover .deleteButtonWrapper {
+  background: linear-gradient(to right, transparent, #f2f2d0 40%);
+  opacity: 1;
+}
+
+.tabContainer.active .deleteButtonWrapper {
+  background: linear-gradient(to right, transparent, #eaeac5 40%);
 }
 
 .deleteButton {

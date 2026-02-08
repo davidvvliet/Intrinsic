@@ -273,16 +273,18 @@ export default function SheetBar() {
                 {sheet.name}
               </button>
             )}
-            <button
-              className={styles.deleteButton}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteSheet(sheet);
-              }}
-              title="Delete sheet"
-            >
-              ×
-            </button>
+            <div className={styles.deleteButtonWrapper}>
+              <button
+                className={styles.deleteButton}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteSheet(sheet);
+                }}
+                title="Delete sheet"
+              >
+                ×
+              </button>
+            </div>
           </div>
         ))}
       </div>
