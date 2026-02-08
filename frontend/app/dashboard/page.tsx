@@ -36,7 +36,7 @@ export default function Dashboard() {
   const toolCallHandlerRef = useRef<((name: string, args: any) => any) | null>(null);
   const lastResponseIdRef = useRef<string | null>(null);
   const iterationCountRef = useRef<number>(0);
-  const maxIterations = 10;
+  const maxIterations = 50;
 
   // Use refs to always get latest values (avoids stale closure issues)
   const accessTokenRef = useRef<string | null>(null);
@@ -107,6 +107,14 @@ export default function Dashboard() {
       if (sendMessageRef.current) {
         sendMessageRef.current(null, null, accessTokenRef.current, responseId, functionCallOutputs, selectedRange, sheetIdRef.current, sheetNameRef.current);
       }
+    } else if (toolCalls && toolCalls.length > 0 && iterationCountRef.current >= maxIterations) {
+      // Hit iteration limit - add warning message
+      console.warn(`Hit max iterations (${maxIterations}) for tool calls`);
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'I made many changes but had to stop due to iteration limits. Let me know if you need me to continue.'
+      }]);
+      iterationCountRef.current = 0;
     } else {
       // No tool calls - reset iteration count
       iterationCountRef.current = 0;

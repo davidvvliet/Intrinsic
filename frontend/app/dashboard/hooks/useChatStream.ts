@@ -153,6 +153,11 @@ export function useChatStream(
       }
 
       // Reset state if stream ended without explicit 'done' event
+      console.warn('Stream ended without done event', {
+        hasMessage: !!fullMessage,
+        toolCallCount: toolCalls.length,
+        bufferRemaining: buffer
+      });
       setIsStreaming(false);
       setIsToolCalling(false);
       setStreamingText('');
