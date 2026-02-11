@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
 import { useRefContext } from './RefContext';
-import { getCellKey, determineCellType, getColumnLabel } from './drawUtils';
+import { getCellKey, parseInputValue, getColumnLabel } from './drawUtils';
 import { NUM_ROWS, NUM_COLS, CELL_WIDTH, CELL_FONT_SIZE, CELL_TEXT_PADDING } from './config';
 
 /**
@@ -24,6 +24,7 @@ export function useSpreadsheetActions() {
   const setHighlightedCells = useSpreadsheetStore(state => state.setHighlightedCells);
   const setColumnWidthsBySheet = useSpreadsheetStore(state => state.setColumnWidthsBySheet);
   const updateCell = useSpreadsheetStore(state => state.updateCell);
+  const updateCellFormat = useSpreadsheetStore(state => state.updateCellFormat);
   const getDisplayValue = useSpreadsheetStore(state => state.getDisplayValue);
 
   // Compute column widths for active sheet
@@ -90,16 +91,25 @@ export function useSpreadsheetActions() {
     if (selection) {
       const key = getCellKey(selection.start.row, selection.start.col);
       if (inputValue.trim()) {
+        const parsed = parseInputValue(inputValue);
         updateCell(key, {
-          raw: inputValue,
-          type: determineCellType(inputValue),
+          raw: parsed.value,
+          type: parsed.type,
         }, true);
+        // Apply inferred format if detected
+        if (parsed.inferredFormat) {
+          const existingFormat = cellFormat.get(key) || {};
+          updateCellFormat(key, {
+            ...existingFormat,
+            numberFormat: { type: parsed.inferredFormat }
+          });
+        }
       } else {
         updateCell(key, null, true);
       }
       setHighlightedCells(null);
     }
-  }, [selection, inputValue, updateCell, setHighlightedCells]);
+  }, [selection, inputValue, updateCell, updateCellFormat, cellFormat, setHighlightedCells]);
 
   // Move to cell
   const moveToCell = useCallback((row: number, col: number, startEditing = false) => {

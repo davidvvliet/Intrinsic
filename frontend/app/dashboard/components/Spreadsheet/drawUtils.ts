@@ -26,7 +26,7 @@ import {
   FORMULA_REFERENCE_COLORS,
   LLM_ANIMATION_COLOR,
 } from './config';
-import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange, CellType, ComputedData } from './types';
+import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange, CellType, ComputedData, NumberFormatType } from './types';
 import { applyFormat, shouldRightAlign } from './formatUtils';
 
 export function getCellKey(row: number, col: number): string {
@@ -45,6 +45,74 @@ export function determineCellType(value: string): CellType {
     return 'number';
   }
   return 'text';
+}
+
+export type ParsedInputValue = {
+  value: string;
+  type: CellType;
+  inferredFormat?: NumberFormatType;
+};
+
+/**
+ * Parse user input to extract canonical value, type, and inferred format.
+ * Converts formatted numbers to their actual values:
+ * - "10%" → { value: "0.1", type: "number", inferredFormat: "percent" }
+ * - "$100" → { value: "100", type: "number", inferredFormat: "currency" }
+ * - "1,000" → { value: "1000", type: "number" }
+ */
+export function parseInputValue(input: string): ParsedInputValue {
+  if (input.startsWith('=')) {
+    return { value: input, type: 'formula' };
+  }
+
+  const trimmed = input.trim();
+
+  // Percentage: "10%" → 0.1
+  if (trimmed.endsWith('%')) {
+    const numPart = trimmed.slice(0, -1).replace(/,/g, '');
+    const num = parseFloat(numPart);
+    if (!isNaN(num)) {
+      return {
+        value: String(num / 100),
+        type: 'number',
+        inferredFormat: 'percent'
+      };
+    }
+  }
+
+  // Currency: "$100", "£50", "€25", "¥1000"
+  const currencyMatch = trimmed.match(/^([\$£€¥])(.+)$/);
+  if (currencyMatch) {
+    const numPart = currencyMatch[2].replace(/,/g, '').trim();
+    const num = parseFloat(numPart);
+    if (!isNaN(num)) {
+      return {
+        value: String(num),
+        type: 'number',
+        inferredFormat: 'currency'
+      };
+    }
+  }
+
+  // Number with commas: "1,000" → 1000
+  if (trimmed.includes(',')) {
+    const numPart = trimmed.replace(/,/g, '');
+    const num = parseFloat(numPart);
+    if (!isNaN(num) && isFinite(num)) {
+      return {
+        value: String(num),
+        type: 'number'
+      };
+    }
+  }
+
+  // Plain number
+  if (isNumeric(trimmed)) {
+    return { value: trimmed, type: 'number' };
+  }
+
+  // Text
+  return { value: input, type: 'text' };
 }
 
 /**

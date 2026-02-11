@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { NUM_ROWS, NUM_COLS } from './config';
 import type { CellData, CellFormatData, CellType, CellFormat, Selection, CopiedRange } from './types';
-import { getCellKey, getColumnLabel, determineCellType } from './drawUtils';
+import { getCellKey, getColumnLabel, parseInputValue } from './drawUtils';
 import { parseCellRef, adjustCellRef, formatCellRef } from './formulaEngine/cellRef';
 import { writeToClipboard, readFromClipboard, applyPaste } from './clipboardUtils';
 import { scrollToCell } from './scrollUtils';
@@ -460,7 +460,8 @@ export function useKeyboard({
                   newValue = sourceCell.raw;
                 }
                 const key = getCellKey(row, col);
-                cellUpdates.set(key, { raw: newValue, type: determineCellType(newValue) });
+                const parsed = parseInputValue(newValue);
+                cellUpdates.set(key, { raw: parsed.value, type: parsed.type });
               }
             }
             updateCells(cellUpdates);
@@ -481,7 +482,8 @@ export function useKeyboard({
                   newValue = sourceCell.raw;
                 }
                 const key = getCellKey(row, col);
-                cellUpdates.set(key, { raw: newValue, type: determineCellType(newValue) });
+                const parsed = parseInputValue(newValue);
+                cellUpdates.set(key, { raw: parsed.value, type: parsed.type });
               }
             }
             updateCells(cellUpdates);

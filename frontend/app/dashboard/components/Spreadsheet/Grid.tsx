@@ -22,7 +22,7 @@ import { drawGrid as drawGridUtil, getFormulaSegments } from './drawUtils';
 import { FORMULA_REFERENCE_COLORS } from './config';
 import { parseCellRef, adjustCellRef, formatCellRef } from './formulaEngine/cellRef';
 import { EXCEL_FUNCTION_SIGNATURES } from './formulaEngine/excelfunctions';
-import { getCellKey, determineCellType } from './drawUtils';
+import { getCellKey, parseInputValue } from './drawUtils';
 
 const FUNCTION_NAMES = Object.keys(EXCEL_FUNCTION_SIGNATURES).sort();
 
@@ -458,9 +458,10 @@ export default function Grid() {
         }
 
         const key = getCellKey(row, col);
+        const parsed = parseInputValue(newValue);
         cellUpdates.set(key, {
-          raw: newValue,
-          type: determineCellType(newValue),
+          raw: parsed.value,
+          type: parsed.type,
         });
       }
     }

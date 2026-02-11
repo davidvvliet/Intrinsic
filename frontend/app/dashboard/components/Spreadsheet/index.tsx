@@ -9,7 +9,7 @@ import Toolbar from './Toolbar';
 import FormulaBar from './FormulaBar';
 import Grid from './Grid';
 import SheetBar from './SheetBar';
-import { getCellKey, determineCellType, a1ToRowCol } from './drawUtils';
+import { getCellKey, parseInputValue, a1ToRowCol } from './drawUtils';
 import type { CellFormat } from './types';
 import styles from './Spreadsheet.module.css';
 
@@ -52,7 +52,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
         }
         const { row, col } = a1ToRowCol(cell);
         const cellKey = getCellKey(row, col);
-        const cellType = determineCellType(value);
+        const parsed = parseInputValue(value);
 
         // Add animation for single cell - force immediate render
         const range = { minRow: row, maxRow: row, minCol: col, maxCol: col };
@@ -60,7 +60,17 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           setAnimatingRanges(prev => [...prev, range]);
         });
 
-        updateCell(cellKey, { raw: value, type: cellType });
+        updateCell(cellKey, { raw: parsed.value, type: parsed.type });
+
+        // Apply inferred format if detected
+        if (parsed.inferredFormat) {
+          const currentCellFormat = useSpreadsheetStore.getState().cellFormat;
+          const existingFormat = currentCellFormat.get(cellKey) || {};
+          updateCellFormat(cellKey, {
+            ...existingFormat,
+            numberFormat: { type: parsed.inferredFormat }
+          });
+        }
 
         // Remove animation after delay
         setTimeout(() => {
@@ -82,7 +92,9 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
 
         // Clone existing cellData to preserve all cells
         const currentCellData = useSpreadsheetStore.getState().cellData;
+        const currentCellFormat = useSpreadsheetStore.getState().cellFormat;
         const mergedCellData = new Map(currentCellData);
+        const formatUpdates: Array<{ cellKey: string; format: CellFormat }> = [];
 
         // Update only the range cells in the cloned Map
         for (let rowIdx = 0; rowIdx < values.length; rowIdx++) {
@@ -96,13 +108,27 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
 
             const value = rowValues[colIdx];
             const cellKey = getCellKey(row, col);
-            const cellType = determineCellType(value);
-            mergedCellData.set(cellKey, { raw: value, type: cellType });
+            const parsed = parseInputValue(value);
+            mergedCellData.set(cellKey, { raw: parsed.value, type: parsed.type });
+
+            // Collect format updates for cells with inferred formats
+            if (parsed.inferredFormat) {
+              const existingFormat = currentCellFormat.get(cellKey) || {};
+              formatUpdates.push({
+                cellKey,
+                format: { ...existingFormat, numberFormat: { type: parsed.inferredFormat } }
+              });
+            }
           }
         }
 
         // Single bulk update with merged data (preserves all existing cells)
         updateCells(mergedCellData);
+
+        // Apply format updates
+        for (const { cellKey, format } of formatUpdates) {
+          updateCellFormat(cellKey, format);
+        }
 
         // Remove animation after delay
         setTimeout(() => {

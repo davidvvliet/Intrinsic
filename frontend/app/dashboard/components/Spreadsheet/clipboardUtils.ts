@@ -1,5 +1,5 @@
 import type { CellData, CellFormat, CellFormatData, NumberFormatSettings, CopiedRange } from './types';
-import { getCellKey, determineCellType } from './drawUtils';
+import { getCellKey, parseInputValue } from './drawUtils';
 import { adjustFormulaReferences } from './formulaEngine';
 
 export type CopyRange = {
@@ -295,9 +295,10 @@ export function applyPaste(
         
         // Set value
         if (finalValue.trim()) {
+          const parsed = parseInputValue(finalValue);
           newCellData.set(key, {
-            raw: finalValue,
-            type: determineCellType(finalValue),
+            raw: parsed.value,
+            type: parsed.type,
           });
         } else {
           newCellData.delete(key);
