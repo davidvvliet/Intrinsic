@@ -10,13 +10,15 @@ interface ChatDisplayProps {
   streamingText: string;
   isStreaming: boolean;
   isToolCalling: boolean;
+  isCompacting?: boolean;
 }
 
 export default function ChatDisplay({
   messages,
   streamingText,
   isStreaming,
-  isToolCalling
+  isToolCalling,
+  isCompacting
 }: ChatDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -83,6 +85,13 @@ export default function ChatDisplay({
           </div>
         </div>
       ))}
+      {isCompacting && (
+        <div data-streaming="true" className={styles.message}>
+          <div className={styles.messageContent}>
+            <span className={styles.loadingText}>Summarizing context...</span>
+          </div>
+        </div>
+      )}
       {isStreaming && streamingText && (
         <div data-streaming="true" className={styles.message}>
           <div className={styles.messageContent}>
@@ -90,7 +99,7 @@ export default function ChatDisplay({
           </div>
         </div>
       )}
-      {isStreaming && !streamingText.trim() && !isToolCalling && (
+      {isStreaming && !streamingText.trim() && !isToolCalling && !isCompacting && (
         <div data-streaming="true" className={styles.message}>
           <div className={styles.messageContent}>
             <span className={styles.loadingText}>Planning next moves</span>

@@ -7,6 +7,8 @@ export interface Conversation {
   title: string;
   messages: ChatMessage[];
   lastResponseId: string | null;
+  summary: string | null;
+  messageCountAtLastCompaction: number;
   createdAt: number;
 }
 
@@ -21,6 +23,8 @@ interface ConversationsActions {
   setActiveConversation: (id: string) => void;
   addMessage: (conversationId: string, message: ChatMessage) => void;
   setLastResponseId: (conversationId: string, responseId: string) => void;
+  clearLastResponseId: (conversationId: string) => void;
+  setSummary: (conversationId: string, summary: string) => void;
   updateTitle: (conversationId: string, title: string) => void;
 }
 
@@ -31,6 +35,8 @@ const createDefaultConversation = (): Conversation => ({
   title: 'New Chat',
   messages: [],
   lastResponseId: null,
+  summary: null,
+  messageCountAtLastCompaction: 0,
   createdAt: Date.now(),
 });
 
@@ -41,11 +47,15 @@ export const useConversationsStore = create<ConversationsStore>()(
       activeConversationId: null,
 
       createConversation: () => {
+        const state = get();
+        if (state.conversations.length >= 8) {
+          return state.activeConversationId || state.conversations[0]?.id || '';
+        }
         const newConversation = createDefaultConversation();
-        set(state => ({
+        set({
           conversations: [...state.conversations, newConversation],
           activeConversationId: newConversation.id,
-        }));
+        });
         return newConversation.id;
       },
 
@@ -110,6 +120,26 @@ export const useConversationsStore = create<ConversationsStore>()(
           conversations: state.conversations.map(conv =>
             conv.id === conversationId
               ? { ...conv, lastResponseId: responseId }
+              : conv
+          ),
+        }));
+      },
+
+      clearLastResponseId: (conversationId: string) => {
+        set(state => ({
+          conversations: state.conversations.map(conv =>
+            conv.id === conversationId
+              ? { ...conv, lastResponseId: null }
+              : conv
+          ),
+        }));
+      },
+
+      setSummary: (conversationId: string, summary: string) => {
+        set(state => ({
+          conversations: state.conversations.map(conv =>
+            conv.id === conversationId
+              ? { ...conv, summary, messageCountAtLastCompaction: conv.messages.filter(m => m.role === 'user').length }
               : conv
           ),
         }));

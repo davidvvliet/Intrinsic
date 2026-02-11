@@ -24,7 +24,8 @@ export function useChatStream(
     functionCallOutputs?: Array<{type: string, call_id: string, output: string}>,
     selectedRange?: string | null,
     sheetId?: string | null,
-    sheetName?: string | null
+    sheetName?: string | null,
+    summaryContext?: string | null
   ) => {
     setIsStreaming(true);
     setIsToolCalling(false);
@@ -51,8 +52,12 @@ export function useChatStream(
           body.message = message;
         }
       } else {
-        // Initial request
-        body.message = message || '';
+        // Initial request - prepend summary context if available
+        if (summaryContext) {
+          body.message = `[Previous conversation summary: ${summaryContext}]\n\n${message || ''}`;
+        } else {
+          body.message = message || '';
+        }
       }
       
       // Add selected range if provided

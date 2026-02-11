@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from app.api.schemas import ChatRequest
+from app.api.schemas import ChatRequest, CompactRequest, CompactResponse
 from app.core.deps import get_workos_user
 from app.api.sec import get_financial_data
 from app.api.market import get_stock_quote
@@ -26,13 +26,17 @@ Rules:
  - Stay concise, factual and helpful. Be proactive but ask for clarification if needed.
  - Always stay in character as the user's assistant for Intrinsic and maintain focus on your purpose: helping users with fundamental analysis and investment decisions.
  - If it's not entirely obvious what the user is referring to, use the get_cell_range tool to read their selected cells for context.
- - Before making a tool call, briefly explain what you're doing (e.g., "I'll set cell A1 to 100" or "Setting the value in cell B2").
+ - For significant operations (fetching data, building a model, large edits), briefly state your intent. For routine edits, just do them.
  - After completing tool calls, provide a concise summary of what was changed rather than describing every individual cell edit (e.g., "Created a revenue projection table" instead of "Set A1 to Revenue, set A2 to 2023, set B2 to 100...").
+ - The user can see the spreadsheet in real-time as you make changes. Do NOT read out or recite cell values, formulas, or data that you've written — the user can already see it. Instead, briefly describe what you did (e.g., "Added the revenue projections" not "I set A1 to Revenue, A2 to 2024, B2 to $5.2M..."). Similarly, when fetching financial data, don't narrate every number — just confirm the data was retrieved and point out key insights if relevant.
  - The default cell background color is #FFFFE3. Be aware of this when setting fill colors.
  - IMPORTANT: If the active sheet changes between messages and the user did not mention switching sheets, ask for clarification before making any edits. This prevents accidental edits to the wrong sheet.
  - When building financial models or analyzing real companies, ALWAYS use the get_financial_data tool to fetch verified SEC data rather than relying on potentially outdated training knowledge. This ensures accuracy with audited 10-K/10-Q filings. (You can still make assumptions in subjective parameters like discount rates or anything else as long as you highlight that to the user.)
- - After making changes to the spreadsheet, also use the get_cell_range to verify the changes look correct.
- - IMPORTANT: Never tell the user to do something themselves. Instead, proactively do it for them using your available tools. Only explain how to do something manually if it's truly outside the scope of your tool capabilities."""
+ - After making changes, use get_cell_range to read back what you wrote. Compare the actual values against your intent. If anything is wrong (wrong cell, typo, formula error, misaligned data), briefly acknowledge the mistake and fix it immediately before responding to the user.
+ - IMPORTANT: Never tell the user to do something themselves. Instead, proactively do it for them using your available tools. Only explain how to do something manually if it's truly outside the scope of your tool capabilities.
+ - When making multiple related edits, prefer set_cell_range over multiple set_cell_value calls to reduce latency.
+ - If a tool call fails or returns unexpected results, acknowledge the issue briefly and attempt a fix rather than repeating the same action.
+ - Before making changes that affect more than ~50 cells, briefly confirm your approach with the user."""
 
 # Define tools for spreadsheet editing
 SPREADSHEET_TOOLS = [
@@ -370,3 +374,44 @@ async def chat_stream(
             "X-Accel-Buffering": "no"
         }
     )
+
+COMPACT_PROMPT = """Summarize this conversation concisely for context continuity. Focus on:
+- What the user was trying to accomplish
+- Key actions taken on the spreadsheet (cells modified, formulas added, data fetched)
+- Current state of the work
+- Any ongoing tasks or context needed for continuation
+
+Keep it under 400 words. Write in past tense, third person perspective (e.g., "The user requested...", "A DCF model was built...")."""
+
+@router.post("/compact", response_model=CompactResponse)
+async def compact_conversation(
+    request: CompactRequest,
+    user = Depends(get_workos_user)
+):
+    """Generate a summary of the conversation for context compaction."""
+    client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+
+    try:
+        response = await client.responses.create(
+            model="gpt-5-mini",
+            previous_response_id=request.previous_response_id,
+            input=[{"role": "user", "content": "Please summarize our conversation so far."}],
+            instructions=COMPACT_PROMPT,
+            max_output_tokens=800
+        )
+
+        # Extract text from response
+        print(f"[compact] Response output: {response.output}")
+        summary = ""
+        for item in response.output:
+            print(f"[compact] Item: type={type(item).__name__}, has_content={hasattr(item, 'content')}, content={getattr(item, 'content', 'NO_ATTR')}")
+            if hasattr(item, 'content') and item.content:
+                for content in item.content:
+                    if hasattr(content, 'text'):
+                        summary += content.text
+
+        return CompactResponse(summary=summary.strip())
+
+    except Exception as e:
+        print(f"[compact] ERROR: {e}")
+        raise

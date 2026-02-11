@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useAccessToken } from '@workos-inc/authkit-nextjs/components';
 import DashboardNavbar from './components/DashboardNavbar';
@@ -33,30 +33,33 @@ export default function Dashboard() {
 
   // Conversations store
   const conversations = useConversationsStore(state => state.conversations);
-  const activeConversationId = useConversationsStore(state => state.activeConversationId);
+  // Use validated selector - if stored id is invalid, fallback to first conversation
+  const activeConversationId = useConversationsStore(state =>
+    state.conversations.some(c => c.id === state.activeConversationId)
+      ? state.activeConversationId
+      : state.conversations[0]?.id ?? null
+  );
   const createConversation = useConversationsStore(state => state.createConversation);
   const deleteConversation = useConversationsStore(state => state.deleteConversation);
   const setActiveConversation = useConversationsStore(state => state.setActiveConversation);
   const addMessage = useConversationsStore(state => state.addMessage);
   const setLastResponseId = useConversationsStore(state => state.setLastResponseId);
+  const clearLastResponseId = useConversationsStore(state => state.clearLastResponseId);
+  const setSummary = useConversationsStore(state => state.setSummary);
 
   // Get active conversation
   const activeConversation = conversations.find(c => c.id === activeConversationId);
   const chatMessages = activeConversation?.messages ?? [];
   const lastResponseId = activeConversation?.lastResponseId ?? null;
+  const summary = activeConversation?.summary ?? null;
+  const messageCountAtLastCompaction = activeConversation?.messageCountAtLastCompaction ?? 0;
 
   // Map conversations to tabs format
   const tabs = conversations.map(c => ({ id: c.id, title: c.title }));
 
-  // Ensure there's always an active conversation
-  useEffect(() => {
-    if (conversations.length > 0 && !activeConversationId) {
-      setActiveConversation(conversations[0].id);
-    }
-  }, [conversations, activeConversationId, setActiveConversation]);
-
   const [query, setQuery] = useState<string>('');
   const [selectedRange, setSelectedRange] = useState<string | null>(null);
+  const [isCompacting, setIsCompacting] = useState<boolean>(false);
   const toolCallHandlerRef = useRef<((name: string, args: any) => any) | null>(null);
   const iterationCountRef = useRef<number>(0);
   const maxIterations = 50;
@@ -77,7 +80,8 @@ export default function Dashboard() {
     functionCallOutputs?: Array<{type: string, call_id: string, output: string}>,
     selectedRange?: string | null,
     sheetId?: string | null,
-    sheetName?: string | null
+    sheetName?: string | null,
+    summaryContext?: string | null
   ) => Promise<void>) | null>(null);
 
   const handleMessageComplete = useCallback(async (message: string, toolCalls?: ToolCall[], responseId?: string) => {
@@ -160,7 +164,7 @@ export default function Dashboard() {
   const { streamingText, isStreaming, isToolCalling, sendMessage } = useChatStream(handleMessageComplete, handleToolCall);
   sendMessageRef.current = sendMessage;
 
-  const handleSearch = useCallback(() => {
+  const handleSearch = useCallback(async () => {
     if (!query.trim()) return;
     if (!activeConversationId) return;
 
@@ -172,14 +176,49 @@ export default function Dashboard() {
     addMessage(activeConversationId, userMessage);
     setQuery('');
 
-    // If we have a previous response_id, use it for continuation
-    // Otherwise, make an initial request
-    if (lastResponseId && sendMessageRef.current) {
-      sendMessageRef.current(messageText, null, accessTokenRef.current, lastResponseId, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current);
-    } else {
-      sendMessage(messageText, null, accessTokenRef.current, undefined, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current);
+    // Check if we need to compact (20+ user messages since last compaction)
+    const userMessageCount = chatMessages.filter(m => m.role === 'user').length + 1; // +1 for the message we just added
+    const messagesSinceCompaction = userMessageCount - messageCountAtLastCompaction;
+    let currentSummary = summary;
+    let currentResponseId = lastResponseId;
+
+    if (messagesSinceCompaction >= 20 && lastResponseId && accessTokenRef.current) {
+      try {
+        setIsCompacting(true);
+        console.log('[compact] Triggering compaction at', messagesSinceCompaction, 'messages since last compaction');
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/compact`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessTokenRef.current}`,
+          },
+          body: JSON.stringify({ previous_response_id: lastResponseId }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setSummary(activeConversationId, data.summary);
+          clearLastResponseId(activeConversationId);
+          currentSummary = data.summary;
+          currentResponseId = null;
+          console.log('[compact] Compaction complete, starting fresh chain with summary');
+        }
+      } catch (err) {
+        console.error('[compact] Compaction failed, continuing with existing chain:', err);
+      } finally {
+        setIsCompacting(false);
+      }
     }
-  }, [query, selectedRange, sendMessage, activeConversationId, lastResponseId, addMessage]);
+
+    // Send message with appropriate context
+    if (currentResponseId && sendMessageRef.current) {
+      // Continue existing chain
+      sendMessageRef.current(messageText, null, accessTokenRef.current, currentResponseId, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current);
+    } else {
+      // Start fresh chain (possibly with summary context)
+      sendMessage(messageText, null, accessTokenRef.current, undefined, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, currentSummary);
+    }
+  }, [query, selectedRange, sendMessage, activeConversationId, lastResponseId, addMessage, chatMessages, summary, setSummary, clearLastResponseId]);
 
   return (
     <div className={styles.dashboard}>
@@ -211,7 +250,7 @@ export default function Dashboard() {
               onTabClick={setActiveConversation}
               onTabClose={deleteConversation}
               onNewTab={createConversation}
-              disabled={isStreaming || isToolCalling}
+              disabled={isStreaming || isToolCalling || isCompacting}
             />
             {chatMessages.length > 0 && (
               <ChatDisplay
@@ -219,6 +258,7 @@ export default function Dashboard() {
                 streamingText={streamingText}
                 isStreaming={isStreaming}
                 isToolCalling={isToolCalling}
+                isCompacting={isCompacting}
               />
             )}
             <div className={styles.searchInputWrapper}>
