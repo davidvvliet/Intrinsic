@@ -584,7 +584,14 @@ export function useKeyboard({
         // Start editing on any printable character
         if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
           e.preventDefault();
-          setInputValue(e.key);
+          const key = getCellKey(selection.start.row, selection.start.col);
+          const format = cellFormat.get(key);
+          // Preserve percent format when typing over
+          if (format?.numberFormat?.type === 'percent') {
+            setInputValue(e.key + '%');
+          } else {
+            setInputValue(e.key);
+          }
           setIsEditing(true);
           setTimeout(() => inputRef.current?.focus(), 0);
         }
