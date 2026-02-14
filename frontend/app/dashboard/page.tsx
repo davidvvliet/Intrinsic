@@ -175,13 +175,13 @@ export default function Dashboard() {
     addMessage(activeConversationId, userMessage);
     setQuery('');
 
-    // Check if we need to compact (20+ user messages since last compaction)
+    // Check if we need to compact (25+ user messages since last compaction)
     const userMessageCount = chatMessages.filter(m => m.role === 'user').length + 1; // +1 for the message we just added
     const messagesSinceCompaction = userMessageCount - messageCountAtLastCompaction;
     let currentSummary = summary;
     let currentResponseId = lastResponseId;
 
-    if (messagesSinceCompaction >= 20 && lastResponseId) {
+    if (messagesSinceCompaction >= 25 && lastResponseId) {
       try {
         setIsCompacting(true);
         console.log('[compact] Triggering compaction at', messagesSinceCompaction, 'messages since last compaction');
