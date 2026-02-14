@@ -1,14 +1,12 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useAccessToken } from '@workos-inc/authkit-nextjs/components';
 import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
 import { NUM_ROWS, NUM_COLS, AUTO_SAVE_DELAY_MS } from './config';
 import type { CellFormat, CellType } from './types';
 
 export function useSheetPersistence() {
-  const { accessToken } = useAccessToken();
-  const accessTokenRef = useRef<string | null>(null);
-  accessTokenRef.current = accessToken ?? null;
+  const { fetchWithAuth } = useAuthFetch();
   const hasLoadedRef = useRef<string | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -67,23 +65,18 @@ export function useSheetPersistence() {
 
   // Save batch of dirty cells to server
   const saveBatch = useCallback(async () => {
-    if (dirtyCells.size === 0 || !accessTokenRef.current) return;
+    if (dirtyCells.size === 0) return;
 
     const sheetData = serializeSheetData();
-
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessTokenRef.current}`,
-    };
 
     let response: Response;
     let returnedSheetId: string;
 
     if (!sheetIdFromUrl) {
       // First save - create new sheet via POST
-      response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/sheets`, {
+      response = await fetchWithAuth('/api/sheets', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sheetData),
       });
 
@@ -95,9 +88,9 @@ export function useSheetPersistence() {
       returnedSheetId = result.id;
     } else {
       // Update existing sheet via PUT
-      response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/sheets/${sheetIdFromUrl}`, {
+      response = await fetchWithAuth(`/api/sheets/${sheetIdFromUrl}`, {
         method: 'PUT',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sheetData),
       });
 
@@ -141,19 +134,12 @@ export function useSheetPersistence() {
         console.error('Failed to update fetchId in localStorage:', err);
       }
     }
-  }, [dirtyCells, serializeSheetData, markSaved, sheetIdFromUrl, router, activeSheetId, sheets, setSheets]);
+  }, [dirtyCells, serializeSheetData, markSaved, sheetIdFromUrl, router, activeSheetId, sheets, setSheets, fetchWithAuth]);
 
   // Load sheet from server
   const loadSheet = useCallback(async (sheetIdToLoad: string) => {
-    if (!accessTokenRef.current) return;
-
-    const headers: HeadersInit = {
-      'Authorization': `Bearer ${accessTokenRef.current}`,
-    };
-
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/sheets/${sheetIdToLoad}`, {
+    const response = await fetchWithAuth(`/api/sheets/${sheetIdToLoad}`, {
       method: 'GET',
-      headers,
     });
 
     if (!response.ok) {
@@ -222,11 +208,11 @@ export function useSheetPersistence() {
         return updated;
       });
     }
-  }, [setCellData, setCellFormat, setBaselineData, setBaselineFormat, setDirtyCells, setSelection, setHighlightedCells, setInputValue, setIsEditing, setCopiedRange, router, setSheets]);
+  }, [setCellData, setCellFormat, setBaselineData, setBaselineFormat, setDirtyCells, setSelection, setHighlightedCells, setInputValue, setIsEditing, setCopiedRange, router, setSheets, fetchWithAuth]);
 
   // Auto-save: debounced save after delay of inactivity
   useEffect(() => {
-    if (dirtyCells.size === 0 || !accessTokenRef.current) return;
+    if (dirtyCells.size === 0) return;
 
     const timer = setTimeout(() => {
       saveBatch().catch(err => {
@@ -239,7 +225,7 @@ export function useSheetPersistence() {
 
   // Watch activeSheetId and load data when it changes
   useEffect(() => {
-    if (!activeSheetId || !accessTokenRef.current) return;
+    if (!activeSheetId) return;
 
     // Skip if we already loaded this sheet (prevents reload on token refresh)
     if (hasLoadedRef.current === activeSheetId) return;
@@ -279,5 +265,5 @@ export function useSheetPersistence() {
     // Save activeSheetId to localStorage
     localStorage.setItem('spreadsheet_last_active_sheet_id', activeSheetId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSheetId, accessToken]);
+  }, [activeSheetId]);
 }

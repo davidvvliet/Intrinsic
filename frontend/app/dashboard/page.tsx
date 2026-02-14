@@ -2,7 +2,6 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { useAccessToken } from '@workos-inc/authkit-nextjs/components';
 import DashboardNavbar from './components/DashboardNavbar';
 import Globe from './components/Globe';
 import ChatDisplay from './components/ChatDisplay';
@@ -10,6 +9,7 @@ import SearchInput from './components/SearchInput';
 import TabBar from './components/TabBar';
 import { useColumnMinimize } from './hooks/useColumnMinimize';
 import { useChatStream, ToolCall } from './hooks/useChatStream';
+import { useAuthFetch } from './hooks/useAuthFetch';
 import { ChatMessage } from './types/chat';
 import { useSpreadsheetStore } from './stores/spreadsheetStore';
 import { useConversationsStore } from './stores/conversationsStore';
@@ -23,7 +23,7 @@ const Spreadsheet = dynamic(
 
 export default function Dashboard() {
   const columnMinimize = useColumnMinimize();
-  const { accessToken } = useAccessToken();
+  const { fetchWithAuth } = useAuthFetch();
 
   // Get active sheet info from store
   const activeSheetId = useSpreadsheetStore(state => state.activeSheetId);
@@ -66,8 +66,6 @@ export default function Dashboard() {
   const maxIterations = 50;
 
   // Use refs to always get latest values (avoids stale closure issues)
-  const accessTokenRef = useRef<string | null>(null);
-  accessTokenRef.current = accessToken ?? null;
   const sheetIdRef = useRef<string | null>(null);
   sheetIdRef.current = sheetId;
   const sheetNameRef = useRef<string | null>(null);
@@ -76,7 +74,6 @@ export default function Dashboard() {
   const sendMessageRef = useRef<((
     message: string | null,
     conversationHistory: ChatMessage[] | null,
-    accessToken: string | null,
     previousResponseId?: string,
     functionCallOutputs?: Array<{type: string, call_id: string, output: string}>,
     selectedRange?: string | null,
@@ -137,7 +134,7 @@ export default function Dashboard() {
 
       // Make another API call using previous_response_id approach
       if (sendMessageRef.current) {
-        sendMessageRef.current(null, null, accessTokenRef.current, responseId, functionCallOutputs, selectedRange, sheetIdRef.current, sheetNameRef.current);
+        sendMessageRef.current(null, null, responseId, functionCallOutputs, selectedRange, sheetIdRef.current, sheetNameRef.current);
       }
     } else if (toolCalls && toolCalls.length > 0 && iterationCountRef.current >= maxIterations) {
       // Hit iteration limit - add warning message
@@ -184,16 +181,13 @@ export default function Dashboard() {
     let currentSummary = summary;
     let currentResponseId = lastResponseId;
 
-    if (messagesSinceCompaction >= 20 && lastResponseId && accessTokenRef.current) {
+    if (messagesSinceCompaction >= 20 && lastResponseId) {
       try {
         setIsCompacting(true);
         console.log('[compact] Triggering compaction at', messagesSinceCompaction, 'messages since last compaction');
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/compact`, {
+        const response = await fetchWithAuth('/api/compact', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessTokenRef.current}`,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ previous_response_id: lastResponseId }),
         });
 
@@ -221,12 +215,12 @@ export default function Dashboard() {
     // Send message with appropriate context
     if (currentResponseId && sendMessageRef.current) {
       // Continue existing chain
-      sendMessageRef.current(messageText, null, accessTokenRef.current, currentResponseId, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, undefined, sheetData);
+      sendMessageRef.current(messageText, null, currentResponseId, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, undefined, sheetData);
     } else {
       // Start fresh chain (possibly with summary context)
-      sendMessage(messageText, null, accessTokenRef.current, undefined, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, currentSummary, sheetData);
+      sendMessage(messageText, null, undefined, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, currentSummary, sheetData);
     }
-  }, [query, selectedRange, sendMessage, activeConversationId, lastResponseId, addMessage, chatMessages, summary, setSummary, clearLastResponseId]);
+  }, [query, selectedRange, sendMessage, activeConversationId, lastResponseId, addMessage, chatMessages, summary, setSummary, clearLastResponseId, fetchWithAuth]);
 
   return (
     <div className={styles.dashboard}>

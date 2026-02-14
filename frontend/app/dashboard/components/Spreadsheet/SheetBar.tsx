@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { useAccessToken } from '@workos-inc/authkit-nextjs/components';
 import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
 import styles from './SheetBar.module.css';
 
 type SheetMetadata = {
@@ -11,7 +11,7 @@ type SheetMetadata = {
 };
 
 export default function SheetBar() {
-  const { accessToken } = useAccessToken();
+  const { fetchWithAuth } = useAuthFetch();
   const activeSheetId = useSpreadsheetStore(state => state.activeSheetId);
   const setActiveSheetId = useSpreadsheetStore(state => state.setActiveSheetId);
   const sheets = useSpreadsheetStore(state => state.sheets);
@@ -123,13 +123,10 @@ export default function SheetBar() {
 
     // Save to backend if sheet exists there
     const sheet = updated.find(s => s.sheetId === editingSheetId);
-    if (sheet?.fetchId && accessToken) {
-      fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/sheets/${sheet.fetchId}/name`, {
+    if (sheet?.fetchId) {
+      fetchWithAuth(`/api/sheets/${sheet.fetchId}/name`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: trimmed }),
       }).catch(err => {
         console.error('Failed to rename sheet on backend:', err);
@@ -154,13 +151,10 @@ export default function SheetBar() {
   // Handle delete sheet
   const handleDeleteSheet = async (sheetToDelete: SheetMetadata) => {
     // Delete from backend if fetchId exists
-    if (sheetToDelete.fetchId && accessToken) {
+    if (sheetToDelete.fetchId) {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/sheets/${sheetToDelete.fetchId}`, {
+        const response = await fetchWithAuth(`/api/sheets/${sheetToDelete.fetchId}`, {
           method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-          },
         });
 
         if (!response.ok) {

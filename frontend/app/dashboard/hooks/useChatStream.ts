@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { ChatMessage, UseChatStreamReturn } from '../types/chat';
+import { useAuthFetch } from './useAuthFetch';
 
 export interface ToolCall {
   name: string;
@@ -11,6 +12,7 @@ export function useChatStream(
   onMessageComplete: (message: string, toolCalls?: ToolCall[], responseId?: string) => void,
   onToolCall?: (name: string, args: any) => void
 ): UseChatStreamReturn {
+  const { fetchWithAuth } = useAuthFetch();
   const [streamingText, setStreamingText] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [isToolCalling, setIsToolCalling] = useState<boolean>(false);
@@ -19,7 +21,6 @@ export function useChatStream(
   const sendMessage = useCallback(async (
     message: string | null,
     conversationHistory: ChatMessage[] | null,
-    accessToken: string | null,
     previousResponseId?: string,
     functionCallOutputs?: Array<{type: string, call_id: string, output: string}>,
     selectedRange?: string | null,
@@ -34,14 +35,6 @@ export function useChatStream(
     setError(null);
 
     try {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-
-      if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-      }
-
       const body: any = {};
       if (previousResponseId) {
         body.previous_response_id = previousResponseId;
@@ -77,9 +70,9 @@ export function useChatStream(
         body.sheet_data = sheetData;
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {
+      const response = await fetchWithAuth('/api/chat', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
@@ -176,7 +169,7 @@ export function useChatStream(
       setIsStreaming(false);
       setIsToolCalling(false);
     }
-  }, [onMessageComplete, onToolCall]);
+  }, [fetchWithAuth, onMessageComplete, onToolCall]);
 
   return {
     streamingText,
