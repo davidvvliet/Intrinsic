@@ -26,7 +26,7 @@ import {
   FORMULA_REFERENCE_COLORS,
   LLM_ANIMATION_COLOR,
 } from './config';
-import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange, CellType, ComputedData, NumberFormatType } from './types';
+import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange, CellType, ComputedData } from './types';
 import { applyFormat, shouldRightAlign } from './formatUtils';
 
 export function getCellKey(row: number, col: number): string {
@@ -50,14 +50,13 @@ export function determineCellType(value: string): CellType {
 export type ParsedInputValue = {
   value: string;
   type: CellType;
-  inferredFormat?: NumberFormatType;
 };
 
 /**
- * Parse user input to extract canonical value, type, and inferred format.
+ * Parse user input to extract canonical value and type.
  * Converts formatted numbers to their actual values:
- * - "10%" → { value: "0.1", type: "number", inferredFormat: "percent" }
- * - "$100" → { value: "100", type: "number", inferredFormat: "currency" }
+ * - "10%" → { value: "0.1", type: "number" }
+ * - "$100" → { value: "100", type: "number" }
  * - "1,000" → { value: "1000", type: "number" }
  */
 export function parseInputValue(input: string): ParsedInputValue {
@@ -74,8 +73,7 @@ export function parseInputValue(input: string): ParsedInputValue {
     if (!isNaN(num)) {
       return {
         value: String(num / 100),
-        type: 'number',
-        inferredFormat: 'percent'
+        type: 'number'
       };
     }
   }
@@ -88,8 +86,7 @@ export function parseInputValue(input: string): ParsedInputValue {
     if (!isNaN(num)) {
       return {
         value: String(num),
-        type: 'number',
-        inferredFormat: 'currency'
+        type: 'number'
       };
     }
   }

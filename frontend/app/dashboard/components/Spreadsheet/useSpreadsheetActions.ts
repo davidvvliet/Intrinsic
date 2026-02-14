@@ -96,13 +96,15 @@ export function useSpreadsheetActions() {
           raw: parsed.value,
           type: parsed.type,
         }, true);
-        // Apply inferred format if detected
-        if (parsed.inferredFormat) {
-          const existingFormat = cellFormat.get(key) || {};
-          updateCellFormat(key, {
-            ...existingFormat,
-            numberFormat: { type: parsed.inferredFormat }
-          });
+        // Apply or clear format based on input
+        const trimmed = inputValue.trim();
+        const existingFormat = cellFormat.get(key) || {};
+        if (trimmed.endsWith('%')) {
+          updateCellFormat(key, { ...existingFormat, numberFormat: { type: 'percent' } });
+        } else if (/^[\$£€¥]/.test(trimmed)) {
+          updateCellFormat(key, { ...existingFormat, numberFormat: { type: 'currency' } });
+        } else if (parsed.type === 'number') {
+          updateCellFormat(key, { ...existingFormat, numberFormat: undefined });
         }
       } else {
         updateCell(key, null, true);
@@ -123,7 +125,17 @@ export function useSpreadsheetActions() {
     setSelection({ start: { row: newRow, col: newCol }, end: { row: newRow, col: newCol } });
     const key = getCellKey(newRow, newCol);
     const cell = useSpreadsheetStore.getState().cellData.get(key);
-    setInputValue(cell?.raw || '');
+    const format = cellFormat.get(key);
+
+    // Show formatted value for percent cells
+    let displayValue = cell?.raw || '';
+    if (format?.numberFormat?.type === 'percent' && cell?.raw) {
+      const num = parseFloat(cell.raw);
+      if (!isNaN(num)) {
+        displayValue = (num * 100) + '%';
+      }
+    }
+    setInputValue(displayValue);
     setIsEditing(startEditing);
 
     if (startEditing) {
@@ -131,7 +143,7 @@ export function useSpreadsheetActions() {
     } else {
       setTimeout(() => containerRef.current?.focus(), 0);
     }
-  }, [isEditing, saveCurrentCell, setSelection, setInputValue, setIsEditing, inputRef, containerRef]);
+  }, [isEditing, saveCurrentCell, setSelection, setInputValue, setIsEditing, inputRef, containerRef, cellFormat]);
 
   return {
     inputRef,

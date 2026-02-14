@@ -598,6 +598,12 @@ export default function Grid() {
             onChange={handleInputChange}
             onBlur={handleInputBlur}
             onKeyDown={handleKeyDown}
+            onFocus={(e) => {
+              if (inputValue.endsWith('%')) {
+                const pos = inputValue.length - 1;
+                e.target.setSelectionRange(pos, pos);
+              }
+            }}
           />
           {cellIsFormula && (
             <div

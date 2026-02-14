@@ -62,14 +62,16 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
 
         updateCell(cellKey, { raw: parsed.value, type: parsed.type });
 
-        // Apply inferred format if detected
-        if (parsed.inferredFormat) {
-          const currentCellFormat = useSpreadsheetStore.getState().cellFormat;
-          const existingFormat = currentCellFormat.get(cellKey) || {};
-          updateCellFormat(cellKey, {
-            ...existingFormat,
-            numberFormat: { type: parsed.inferredFormat }
-          });
+        // Apply or clear format based on input
+        const trimmed = value.trim();
+        const currentCellFormat = useSpreadsheetStore.getState().cellFormat;
+        const existingFormat = currentCellFormat.get(cellKey) || {};
+        if (trimmed.endsWith('%')) {
+          updateCellFormat(cellKey, { ...existingFormat, numberFormat: { type: 'percent' } });
+        } else if (/^[\$£€¥]/.test(trimmed)) {
+          updateCellFormat(cellKey, { ...existingFormat, numberFormat: { type: 'currency' } });
+        } else if (parsed.type === 'number') {
+          updateCellFormat(cellKey, { ...existingFormat, numberFormat: undefined });
         }
 
         // Remove animation after delay
@@ -111,13 +113,15 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
             const parsed = parseInputValue(value);
             mergedCellData.set(cellKey, { raw: parsed.value, type: parsed.type });
 
-            // Collect format updates for cells with inferred formats
-            if (parsed.inferredFormat) {
-              const existingFormat = currentCellFormat.get(cellKey) || {};
-              formatUpdates.push({
-                cellKey,
-                format: { ...existingFormat, numberFormat: { type: parsed.inferredFormat } }
-              });
+            // Collect format updates based on input
+            const trimmed = value.trim();
+            const existingFormat = currentCellFormat.get(cellKey) || {};
+            if (trimmed.endsWith('%')) {
+              formatUpdates.push({ cellKey, format: { ...existingFormat, numberFormat: { type: 'percent' } } });
+            } else if (/^[\$£€¥]/.test(trimmed)) {
+              formatUpdates.push({ cellKey, format: { ...existingFormat, numberFormat: { type: 'currency' } } });
+            } else if (parsed.type === 'number') {
+              formatUpdates.push({ cellKey, format: { ...existingFormat, numberFormat: undefined } });
             }
           }
         }
