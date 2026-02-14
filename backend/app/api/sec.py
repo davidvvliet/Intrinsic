@@ -231,15 +231,15 @@ def extract_metric(facts: dict, metric: str, periods: str = "annual") -> list[di
         # Filter by period type
         # FY = Full Year (annual), Q1/Q2/Q3/Q4 = Quarterly
         results = []
-        seen = set()  # Dedupe by (fy, fp)
+        seen = {}  # Dedupe by actual year (from end date), keep most recently filed
 
         for entry in values:
-            fy = entry.get("fy")  # Fiscal year
             fp = entry.get("fp")  # Fiscal period (FY, Q1, Q2, Q3, Q4)
             val = entry.get("val")
             filed = entry.get("filed")
+            end_date = entry.get("end")  # Actual period end date
 
-            if fy is None or fp is None or val is None:
+            if fp is None or val is None or end_date is None:
                 continue
 
             # Filter by annual vs quarterly
@@ -248,21 +248,29 @@ def extract_metric(facts: dict, metric: str, periods: str = "annual") -> list[di
             if periods == "quarterly" and fp == "FY":
                 continue
 
-            # Dedupe - keep most recently filed
-            key = (fy, fp)
-            if key in seen:
+            # Extract actual year from end date (e.g., "2024-12-31" -> 2024)
+            try:
+                actual_year = int(end_date[:4])
+            except (ValueError, TypeError):
                 continue
-            seen.add(key)
 
-            result = {
-                "year": fy,
-                "value": val,
-                "filed": filed,
-            }
+            # For quarterly, include quarter in key
             if periods == "quarterly":
-                result["quarter"] = fp
+                key = (actual_year, fp)
+            else:
+                key = actual_year
 
-            results.append(result)
+            # Keep most recently filed value for each year/quarter
+            if key not in seen or filed > seen[key]["filed"]:
+                seen[key] = {
+                    "year": actual_year,
+                    "value": val,
+                    "filed": filed,
+                }
+                if periods == "quarterly":
+                    seen[key]["quarter"] = fp
+
+        results = list(seen.values())
 
         if results:
             # Sort by year (and quarter if applicable) descending

@@ -25,7 +25,8 @@ export function useChatStream(
     selectedRange?: string | null,
     sheetId?: string | null,
     sheetName?: string | null,
-    summaryContext?: string | null
+    summaryContext?: string | null,
+    sheetData?: string | null
   ) => {
     setIsStreaming(true);
     setIsToolCalling(false);
@@ -71,6 +72,9 @@ export function useChatStream(
       }
       if (sheetName) {
         body.sheet_name = sheetName;
+      }
+      if (sheetData) {
+        body.sheet_data = sheetData;
       }
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {

@@ -20,6 +20,9 @@ Today's date is {current_date}.
 
 {sheet_context}
 
+## Current Sheet Data:
+{sheet_data}
+
 Rules:
  - Always use English.
  - Keep your answers short and concise — 200 words maximum. Do not exceed this limit unless the user explicitly asks for a detailed explanation. This word limit applies only to your text responses, not to tool call parameters.
@@ -233,7 +236,10 @@ async def generate_chat_stream(request: ChatRequest, user):
         else:
             sheet_context = "The user is viewing an unnamed/unsaved sheet."
 
-        instructions = SYSTEM_PROMPT_TEMPLATE.format(current_date=current_date, sheet_context=sheet_context)
+        # Use provided sheet data or indicate none available
+        sheet_data = request.sheet_data or "(No sheet data provided - use get_cell_range if needed)"
+
+        instructions = SYSTEM_PROMPT_TEMPLATE.format(current_date=current_date, sheet_context=sheet_context, sheet_data=sheet_data)
 
         # Add optional selected range context
         if request.selected_range:

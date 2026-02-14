@@ -131,7 +131,7 @@
 }
 
 .minimizeButtonLeft {
-  left: calc(250px - 16px);
+  left: calc(200px - 16px);
   border-bottom: 1px solid rgba(0, 0, 0, 0.2);
   border-left: 1px solid rgba(0, 0, 0, 0.2);
 }

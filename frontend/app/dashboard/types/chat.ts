@@ -16,7 +16,8 @@ export interface UseChatStreamReturn {
     selectedRange?: string | null,
     sheetId?: string | null,
     sheetName?: string | null,
-    summaryContext?: string | null
+    summaryContext?: string | null,
+    sheetData?: string | null
   ) => Promise<void>;
   error: string | null;
 }

@@ -8,6 +8,7 @@ class ChatRequest(BaseModel):
     selected_range: Optional[str] = None
     sheet_id: Optional[str] = None
     sheet_name: Optional[str] = None
+    sheet_data: Optional[str] = None
 
 class CompactRequest(BaseModel):
     previous_response_id: str

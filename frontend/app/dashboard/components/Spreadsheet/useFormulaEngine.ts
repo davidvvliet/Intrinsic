@@ -185,6 +185,45 @@ export function useFormulaEngine(cellData: CellData) {
         }
       }
 
+      // Update dependencies for changed formulas FIRST (before BFS and topo sort)
+      for (const key of changedKeys) {
+        const cell = cellData.get(key);
+        if (cell?.type === 'formula') {
+          updateDependencies(key, cell.raw);
+        } else {
+          // Clear dependencies if not a formula
+          const graph = depsGraph.current;
+          const oldDeps = graph.dependsOn.get(key);
+          if (oldDeps) {
+            for (const dep of oldDeps) {
+              graph.dependents.get(dep)?.delete(key);
+            }
+            graph.dependsOn.delete(key);
+          }
+        }
+      }
+
+      // Recursively add all transitive dependents (BFS)
+      let frontier = new Set(cellsToRecalc);
+      while (frontier.size > 0) {
+        const nextFrontier = new Set<string>();
+        for (const key of frontier) {
+          const dependents = depsGraph.current.dependents.get(key);
+          if (dependents) {
+            for (const dep of dependents) {
+              if (!cellsToRecalc.has(dep)) {
+                const depCell = cellData.get(dep);
+                if (depCell?.type === 'formula') {
+                  cellsToRecalc.add(dep);
+                  nextFrontier.add(dep);
+                }
+              }
+            }
+          }
+        }
+        frontier = nextFrontier;
+      }
+
       // Recalculate in topological order
       if (cellsToRecalc.size > 0) {
         const visited = new Set<string>();
@@ -207,24 +246,6 @@ export function useFormulaEngine(cellData: CellData) {
 
         for (const key of cellsToRecalc) {
           visit(key);
-        }
-
-        // Update dependencies for changed formulas
-        for (const key of changedKeys) {
-          const cell = cellData.get(key);
-          if (cell?.type === 'formula') {
-            updateDependencies(key, cell.raw);
-          } else {
-            // Clear dependencies if not a formula
-            const graph = depsGraph.current;
-            const oldDeps = graph.dependsOn.get(key);
-            if (oldDeps) {
-              for (const dep of oldDeps) {
-                graph.dependents.get(dep)?.delete(key);
-              }
-              graph.dependsOn.delete(key);
-            }
-          }
         }
 
         // Recalculate in order

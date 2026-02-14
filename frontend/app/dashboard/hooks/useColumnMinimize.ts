@@ -11,7 +11,7 @@ interface UseColumnMinimizeReturn {
 }
 
 export function useColumnMinimize(): UseColumnMinimizeReturn {
-  const [leftMinimized, setLeftMinimized] = useState(false);
+  const [leftMinimized, setLeftMinimized] = useState(true);
   const [rightMinimized, setRightMinimized] = useState(false);
 
   // Load state from localStorage on mount
@@ -50,9 +50,9 @@ export function useColumnMinimize(): UseColumnMinimizeReturn {
     } else if (leftMinimized) {
       return '0px 1fr 300px';
     } else if (rightMinimized) {
-      return '250px 1fr 0px';
+      return '200px 1fr 0px';
     } else {
-      return '250px 1fr 300px';
+      return '200px 1fr 300px';
     }
   }, [leftMinimized, rightMinimized]);
 

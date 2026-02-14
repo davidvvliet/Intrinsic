@@ -13,6 +13,7 @@ import { useChatStream, ToolCall } from './hooks/useChatStream';
 import { ChatMessage } from './types/chat';
 import { useSpreadsheetStore } from './stores/spreadsheetStore';
 import { useConversationsStore } from './stores/conversationsStore';
+import { getSheetContextForLLM } from './components/Spreadsheet/serializeUtils';
 import styles from './page.module.css';
 
 const Spreadsheet = dynamic(
@@ -81,7 +82,8 @@ export default function Dashboard() {
     selectedRange?: string | null,
     sheetId?: string | null,
     sheetName?: string | null,
-    summaryContext?: string | null
+    summaryContext?: string | null,
+    sheetData?: string | null
   ) => Promise<void>) | null>(null);
 
   const handleMessageComplete = useCallback(async (message: string, toolCalls?: ToolCall[], responseId?: string) => {
@@ -210,13 +212,19 @@ export default function Dashboard() {
       }
     }
 
+    // Compute sheet data for LLM context
+    const sheetData = getSheetContextForLLM(
+      useSpreadsheetStore.getState().cellData,
+      useSpreadsheetStore.getState().getDisplayValue
+    );
+
     // Send message with appropriate context
     if (currentResponseId && sendMessageRef.current) {
       // Continue existing chain
-      sendMessageRef.current(messageText, null, accessTokenRef.current, currentResponseId, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current);
+      sendMessageRef.current(messageText, null, accessTokenRef.current, currentResponseId, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, undefined, sheetData);
     } else {
       // Start fresh chain (possibly with summary context)
-      sendMessage(messageText, null, accessTokenRef.current, undefined, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, currentSummary);
+      sendMessage(messageText, null, accessTokenRef.current, undefined, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, currentSummary, sheetData);
     }
   }, [query, selectedRange, sendMessage, activeConversationId, lastResponseId, addMessage, chatMessages, summary, setSummary, clearLastResponseId]);
 

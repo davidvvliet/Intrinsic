@@ -44,23 +44,33 @@ export function useSpreadsheet({
     const resizeCanvas = () => {
       const dpr = window.devicePixelRatio || 1;
       const rect = container.getBoundingClientRect();
-      
+
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
       canvas.style.width = rect.width + 'px';
       canvas.style.height = rect.height + 'px';
-      
+
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.scale(dpr, dpr);
       }
-      
+
       drawGrid();
     };
 
     resizeCanvas();
+
+    // Use ResizeObserver to detect container size changes (not just window resize)
+    const resizeObserver = new ResizeObserver(() => {
+      resizeCanvas();
+    });
+    resizeObserver.observe(container);
+
     window.addEventListener('resize', resizeCanvas);
-    return () => window.removeEventListener('resize', resizeCanvas);
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', resizeCanvas);
+    };
   }, [canvasRef, containerRef, drawGrid]);
 
   // Redraw on state changes
