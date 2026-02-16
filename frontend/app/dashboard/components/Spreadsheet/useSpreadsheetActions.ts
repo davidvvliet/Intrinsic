@@ -22,7 +22,7 @@ export function useSpreadsheetActions() {
   const setInputValue = useSpreadsheetStore(state => state.setInputValue);
   const setIsEditing = useSpreadsheetStore(state => state.setIsEditing);
   const setHighlightedCells = useSpreadsheetStore(state => state.setHighlightedCells);
-  const setColumnWidthsBySheet = useSpreadsheetStore(state => state.setColumnWidthsBySheet);
+  const updateColumnWidths = useSpreadsheetStore(state => state.updateColumnWidths);
   const updateCell = useSpreadsheetStore(state => state.updateCell);
   const updateCellFormat = useSpreadsheetStore(state => state.updateCellFormat);
   const getDisplayValue = useSpreadsheetStore(state => state.getDisplayValue);
@@ -77,14 +77,8 @@ export function useSpreadsheetActions() {
       maxWidth = Math.max(maxWidth, headerWidth);
     }
 
-    setColumnWidthsBySheet(prev => {
-      const next = new Map(prev);
-      const sheetWidths = new Map(next.get(activeSheetId) || new Map());
-      sheetWidths.set(col, maxWidth);
-      next.set(activeSheetId, sheetWidths);
-      return next;
-    });
-  }, [activeSheetId, cellFormat, getDisplayValue, setColumnWidthsBySheet]);
+    updateColumnWidths(activeSheetId, col, maxWidth);
+  }, [activeSheetId, cellFormat, getDisplayValue, updateColumnWidths]);
 
   // Save current cell
   const saveCurrentCell = useCallback(() => {

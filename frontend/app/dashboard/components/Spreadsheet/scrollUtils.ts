@@ -1,48 +1,86 @@
 import { CELL_WIDTH, CELL_HEIGHT, HEADER_WIDTH, HEADER_HEIGHT } from './config';
+import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
 
 export function scrollToCell(
   row: number,
   col: number,
   containerRef: React.RefObject<HTMLDivElement | null>,
-  zoom: number
+  zoom: number,
+  columnWidths: Map<number, number>
 ): void {
   const container = containerRef.current;
   if (!container) return;
 
-  const cellWidth = CELL_WIDTH * zoom;
+  // Get frozen state from store
+  const frozenRows = useSpreadsheetStore.getState().frozenRows;
+  const frozenColumns = useSpreadsheetStore.getState().frozenColumns;
+
   const cellHeight = CELL_HEIGHT * zoom;
   const headerWidth = HEADER_WIDTH * zoom;
   const headerHeight = HEADER_HEIGHT * zoom;
 
-  // Cell position (relative to scroll area, not including headers in viewport calc)
-  const cellLeft = col * cellWidth;
-  const cellTop = row * cellHeight;
-  const cellRight = cellLeft + cellWidth;
-  const cellBottom = cellTop + cellHeight;
+  // Helper to get column width
+  const getColumnWidth = (c: number): number => {
+    return (columnWidths.get(c) || CELL_WIDTH) * zoom;
+  };
 
-  // Visible viewport (excluding headers)
-  const viewportWidth = container.clientWidth - headerWidth;
-  const viewportHeight = container.clientHeight - headerHeight;
-  const viewportLeft = container.scrollLeft;
-  const viewportTop = container.scrollTop;
-  const viewportRight = viewportLeft + viewportWidth;
-  const viewportBottom = viewportTop + viewportHeight;
+  // Helper to get column X position
+  const getColumnX = (c: number): number => {
+    let x = 0;
+    for (let i = 0; i < c; i++) {
+      x += columnWidths.get(i) || CELL_WIDTH;
+    }
+    return x;
+  };
+
+  // Calculate frozen dimensions
+  let frozenWidth = 0;
+  for (let i = 0; i < frozenColumns; i++) {
+    frozenWidth += getColumnWidth(i);
+  }
+  const frozenHeight = frozenRows * cellHeight;
+
+  // If cell is in frozen area, no need to scroll
+  if (row < frozenRows && col < frozenColumns) {
+    return; // Cell is always visible (frozen corner)
+  }
 
   let newScrollLeft = container.scrollLeft;
   let newScrollTop = container.scrollTop;
 
-  // Horizontal scroll
-  if (cellLeft < viewportLeft) {
-    newScrollLeft = cellLeft;
-  } else if (cellRight > viewportRight) {
-    newScrollLeft = cellRight - viewportWidth;
+  // Handle horizontal scrolling (if not in frozen columns)
+  if (col >= frozenColumns) {
+    const cellLeft = getColumnX(col) * zoom;
+    const cellWidth = getColumnWidth(col);
+    const cellRight = cellLeft + cellWidth;
+
+    // Visible viewport for scrollable columns (excluding headers and frozen columns)
+    const viewportWidth = container.clientWidth - headerWidth - frozenWidth;
+    const viewportLeft = container.scrollLeft + frozenWidth;
+    const viewportRight = viewportLeft + viewportWidth;
+
+    if (cellLeft < viewportLeft) {
+      newScrollLeft = cellLeft - frozenWidth;
+    } else if (cellRight > viewportRight) {
+      newScrollLeft = cellRight - frozenWidth - viewportWidth;
+    }
   }
 
-  // Vertical scroll
-  if (cellTop < viewportTop) {
-    newScrollTop = cellTop;
-  } else if (cellBottom > viewportBottom) {
-    newScrollTop = cellBottom - viewportHeight;
+  // Handle vertical scrolling (if not in frozen rows)
+  if (row >= frozenRows) {
+    const cellTop = row * cellHeight;
+    const cellBottom = cellTop + cellHeight;
+
+    // Visible viewport for scrollable rows (excluding headers and frozen rows)
+    const viewportHeight = container.clientHeight - headerHeight - frozenHeight;
+    const viewportTop = container.scrollTop + frozenHeight;
+    const viewportBottom = viewportTop + viewportHeight;
+
+    if (cellTop < viewportTop) {
+      newScrollTop = cellTop - frozenHeight;
+    } else if (cellBottom > viewportBottom) {
+      newScrollTop = cellBottom - frozenHeight - viewportHeight;
+    }
   }
 
   if (newScrollLeft !== container.scrollLeft || newScrollTop !== container.scrollTop) {

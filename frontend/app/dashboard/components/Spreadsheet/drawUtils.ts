@@ -25,6 +25,8 @@ import {
   POINTING_SELECTION_HIGHLIGHT,
   FORMULA_REFERENCE_COLORS,
   LLM_ANIMATION_COLOR,
+  FREEZE_PANE_DIVIDER_COLOR,
+  FREEZE_PANE_DIVIDER_WIDTH,
 } from './config';
 import type { CellData, CellFormat, CellFormatData, Selection, CopiedRange, CellType, ComputedData } from './types';
 import { applyFormat, shouldRightAlign } from './formatUtils';
@@ -230,6 +232,8 @@ export function drawGrid({
   isEditing,
   columnWidths,
   getColumnX,
+  frozenRows = 0,
+  frozenColumns = 0,
 }: {
   ctx: CanvasRenderingContext2D;
   canvas: HTMLCanvasElement;
@@ -246,6 +250,8 @@ export function drawGrid({
   isEditing: boolean;
   columnWidths: Map<number, number>;
   getColumnX: (col: number) => number;
+  frozenRows?: number;
+  frozenColumns?: number;
 }) {
   // Apply DPR scaling for crisp rendering on all displays
   const dpr = window.devicePixelRatio || 1;
@@ -267,6 +273,13 @@ export function drawGrid({
   const cellHeight = CELL_HEIGHT * zoom;
   const headerWidth = HEADER_WIDTH * zoom;
   const headerHeight = HEADER_HEIGHT * zoom;
+
+  // Calculate frozen dimensions
+  let frozenWidth = 0;
+  for (let col = 0; col < frozenColumns; col++) {
+    frozenWidth += getColumnWidth(col);
+  }
+  const frozenHeight = frozenRows * cellHeight;
 
   // Clear canvas
   ctx.fillStyle = CANVAS_BG;
@@ -322,40 +335,74 @@ export function drawGrid({
     return -1;
   };
 
-  // PASS 1: Draw all fills first (so borders can be drawn on top)
-  for (let row = startRow; row < endRow; row++) {
-    for (let col = startCol; col < endCol; col++) {
+  // Helper to draw a cell's fill
+  const drawCellFill = (row: number, col: number, x: number, y: number, cellWidth: number) => {
+    const key = getCellKey(row, col);
+    const format = cellFormat.get(key) || {};
+
+    // Always draw opaque background first to ensure frozen cells occlude scrollable cells
+    ctx.fillStyle = format.fillColor || CANVAS_BG;
+    ctx.fillRect(x, y, cellWidth, cellHeight);
+
+    // Draw selection highlight
+    const inSelection = row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
+    if (inSelection && isMultiCellSelection) {
+      ctx.fillStyle = SELECTION_HIGHLIGHT;
+      ctx.fillRect(x, y, cellWidth, cellHeight);
+    }
+
+    // Draw highlighted cells
+    const highlightedIndex = getHighlightedCellIndex(row, col);
+    if (highlightedIndex >= 0) {
+      const colorIndex = highlightedIndex % FORMULA_REFERENCE_COLORS.length;
+      ctx.fillStyle = FORMULA_REFERENCE_COLORS[colorIndex].fill;
+      ctx.fillRect(x, y, cellWidth, cellHeight);
+    }
+  };
+
+  // PASS 1: Draw all fills first (so borders can be drawn on top) - 4 regions
+  // Draw in z-order: scrollable fills first, then frozen fills on top
+
+  // Region 4: Scrollable area
+  for (let row = Math.max(startRow, frozenRows); row < endRow; row++) {
+    for (let col = Math.max(startCol, frozenColumns); col < endCol; col++) {
       const cellWidth = getColumnWidth(col);
       const x = headerWidth + getColumnX(col) * zoom - scrollLeft;
       const y = headerHeight + row * cellHeight - scrollTop;
+      if (x + cellWidth <= headerWidth + frozenWidth && y + cellHeight <= headerHeight + frozenHeight) continue;
+      drawCellFill(row, col, x, y, cellWidth);
+    }
+  }
 
-      // Skip if cell is outside visible area (behind headers)
-      if (x + cellWidth < headerWidth || y + cellHeight < headerHeight) continue;
+  // Region 3: Frozen columns (scrollable rows) - draw on top
+  for (let row = Math.max(startRow, frozenRows); row < endRow; row++) {
+    for (let col = 0; col < frozenColumns; col++) {
+      const cellWidth = getColumnWidth(col);
+      const x = headerWidth + getColumnX(col) * zoom;
+      const y = headerHeight + row * cellHeight - scrollTop;
+      if (y + cellHeight < headerHeight + frozenHeight) continue;
+      drawCellFill(row, col, x, y, cellWidth);
+    }
+  }
 
-      // Get cell format
-      const key = getCellKey(row, col);
-      const format = cellFormat.get(key) || {};
+  // Region 2: Frozen rows (scrollable columns) - draw on top
+  for (let row = 0; row < frozenRows; row++) {
+    for (let col = Math.max(startCol, frozenColumns); col < endCol; col++) {
+      const cellWidth = getColumnWidth(col);
+      const x = headerWidth + getColumnX(col) * zoom - scrollLeft;
+      const y = headerHeight + row * cellHeight;
+      if (x + cellWidth < headerWidth + frozenWidth) continue;
+      drawCellFill(row, col, x, y, cellWidth);
+    }
+  }
 
-      // Draw fill color (full size to cover whole cell)
-      if (format.fillColor) {
-        ctx.fillStyle = format.fillColor;
-        ctx.fillRect(x, y, cellWidth, cellHeight);
-      }
-
-      // Draw selection highlight (only for multi-cell selections)
-      const inSelection = row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
-      if (inSelection && isMultiCellSelection) {
-        ctx.fillStyle = SELECTION_HIGHLIGHT;
-        ctx.fillRect(x, y, cellWidth, cellHeight);
-      }
-
-      // Draw highlighted cells (formula reference mode) with different colors per reference
-      const highlightedIndex = getHighlightedCellIndex(row, col);
-      if (highlightedIndex >= 0) {
-        const colorIndex = highlightedIndex % FORMULA_REFERENCE_COLORS.length;
-        ctx.fillStyle = FORMULA_REFERENCE_COLORS[colorIndex].fill;
-        ctx.fillRect(x, y, cellWidth, cellHeight);
-      }
+  // Region 1: Frozen corner (frozen rows + frozen columns) - draw on top
+  for (let row = 0; row < frozenRows; row++) {
+    for (let col = 0; col < frozenColumns; col++) {
+      const cellWidth = getColumnWidth(col);
+      const x = headerWidth + getColumnX(col) * zoom;
+      const y = headerHeight + row * cellHeight;
+      drawCellFill(row, col, x, y, cellWidth);
     }
   }
 
@@ -367,136 +414,201 @@ export function drawGrid({
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
 
-  for (let row = startRow; row < endRow; row++) {
-    for (let col = startCol; col < endCol; col++) {
-      const cellWidth = getColumnWidth(col);
-      const x = headerWidth + getColumnX(col) * zoom - scrollLeft;
-      const y = headerHeight + row * cellHeight - scrollTop;
+  // Helper to draw a single cell
+  const drawCell = (row: number, col: number, scrollX: number, scrollY: number) => {
+    const cellWidth = getColumnWidth(col);
+    const x = headerWidth + getColumnX(col) * zoom - scrollX;
+    const y = headerHeight + row * cellHeight - scrollY;
 
-      // Skip if cell is outside visible area (behind headers)
-      if (x + cellWidth < headerWidth || y + cellHeight < headerHeight) continue;
+    // Skip if cell is outside visible area
+    if (x + cellWidth < headerWidth || y + cellHeight < headerHeight) return;
 
-      const key = getCellKey(row, col);
-      const format = cellFormat.get(key) || {};
-      const isAnchor = selection && row === selection.start.row && col === selection.start.col;
+    const key = getCellKey(row, col);
+    const format = cellFormat.get(key) || {};
+    const isAnchor = selection && row === selection.start.row && col === selection.start.col;
 
-      // Draw cell border
+    // Draw cell border
+    ctx.strokeRect(x, y, cellWidth, cellHeight);
+
+    // Draw anchor cell border (the "active" cell)
+    if (isAnchor) {
+      // Draw wider lighter outline when editing
+      if (isEditing) {
+        ctx.strokeStyle = EDITING_OUTLINE;
+        ctx.lineWidth = EDITING_OUTLINE_WIDTH;
+        ctx.strokeRect(x - 1, y - 1, cellWidth + 2, cellHeight + 2);
+      }
+      // Draw the main border
+      ctx.strokeStyle = ACTIVE_CELL_BORDER;
+      ctx.lineWidth = ACTIVE_BORDER_WIDTH;
       ctx.strokeRect(x, y, cellWidth, cellHeight);
+      ctx.strokeStyle = CELL_BORDER;
+      ctx.lineWidth = DEFAULT_BORDER_WIDTH;
+    }
 
-      // Draw anchor cell border (the "active" cell)
-      if (isAnchor) {
-        // Draw wider lighter outline when editing
-        if (isEditing) {
-          ctx.strokeStyle = EDITING_OUTLINE;
-          ctx.lineWidth = EDITING_OUTLINE_WIDTH;
-          ctx.strokeRect(x - 1, y - 1, cellWidth + 2, cellHeight + 2);
+    // Draw cell content (but not for anchor cell when editing)
+    const cellValue = cellData.get(key);
+    if (cellValue && !(isAnchor && isEditing)) {
+      // Use clipping to prevent overflow, but don't compress text
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
+      ctx.clip();
+
+      // Apply font formatting
+      const fontParts: string[] = [];
+      if (format.italic) fontParts.push('italic');
+      if (format.bold) fontParts.push('bold');
+      fontParts.push(`${CELL_FONT_SIZE * zoom}px`);
+      fontParts.push('Arial');
+      ctx.font = fontParts.join(' ');
+
+      // Apply text color (red for errors)
+      const computed = computedData.get(key);
+      const hasError = computed?.error;
+      ctx.fillStyle = hasError ? '#dc2626' : (format.textColor || TEXT_COLOR);
+
+      // Get display value: use computed value for formulas, raw for others
+      let displayValue: string;
+      if (cellValue.type === 'formula') {
+        if (computed?.error) {
+          displayValue = computed.error;
+        } else if (computed?.value !== null && computed?.value !== undefined) {
+          displayValue = String(computed.value);
+        } else {
+          displayValue = '';
         }
-        // Draw the main border
-        ctx.strokeStyle = ACTIVE_CELL_BORDER;
-        ctx.lineWidth = ACTIVE_BORDER_WIDTH;
-        ctx.strokeRect(x, y, cellWidth, cellHeight);
-        ctx.strokeStyle = CELL_BORDER;
-        ctx.lineWidth = DEFAULT_BORDER_WIDTH;
+      } else {
+        displayValue = cellValue.raw;
       }
 
-      // Draw cell content (but not for anchor cell when editing)
-      const cellValue = cellData.get(key);
-      if (cellValue && !(isAnchor && isEditing)) {
-        // Use clipping to prevent overflow, but don't compress text
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
-        ctx.clip();
-        
-        // Apply font formatting
-        const fontParts: string[] = [];
-        if (format.italic) fontParts.push('italic');
-        if (format.bold) fontParts.push('bold');
-        fontParts.push(`${CELL_FONT_SIZE * zoom}px`);
-        fontParts.push('Arial');
-        ctx.font = fontParts.join(' ');
-        
-        // Apply text color (red for errors)
-        const computed = computedData.get(key);
-        const hasError = computed?.error;
-        ctx.fillStyle = hasError ? '#dc2626' : (format.textColor || TEXT_COLOR);
-        
-        // Get display value: use computed value for formulas, raw for others
-        let displayValue: string;
-        if (cellValue.type === 'formula') {
-          if (computed?.error) {
-            displayValue = computed.error;
-          } else if (computed?.value !== null && computed?.value !== undefined) {
-            displayValue = String(computed.value);
-          } else {
-            displayValue = '';
-          }
-        } else {
-          displayValue = cellValue.raw;
-        }
-        
-        // Limit decimal places based on integer digit count (only for numeric values, not errors)
-        if (!hasError && isNumeric(displayValue)) {
-          displayValue = limitDecimalsByIntegerDigits(displayValue);
-        }
-        
-        // Apply number format to get display text
-        const displayText = hasError ? displayValue : applyFormat(displayValue, format.numberFormat);
-        
-        // Right-align numbers/formatted values, left-align text
-        let textX: number;
-        if (shouldRightAlign(displayValue, format.numberFormat)) {
-          ctx.textAlign = 'right';
-          textX = x + cellWidth - CELL_TEXT_PADDING * zoom;
-        } else {
-          ctx.textAlign = 'left';
-          textX = x + CELL_TEXT_PADDING * zoom;
-        }
-        const textY = y + cellHeight / 2;
-        
-        ctx.fillText(displayText, textX, textY);
-        
-        // Draw strikethrough if needed
-        if (format.strikethrough) {
-          const textWidth = ctx.measureText(displayText).width;
-          const lineY = textY;
-          let lineStartX: number;
-          if (shouldRightAlign(displayValue, format.numberFormat)) {
-            lineStartX = textX - textWidth;
-          } else {
-            lineStartX = textX;
-          }
-          ctx.beginPath();
-          ctx.moveTo(lineStartX, lineY);
-          ctx.lineTo(lineStartX + textWidth, lineY);
-          ctx.strokeStyle = hasError ? '#dc2626' : (format.textColor || TEXT_COLOR);
-          ctx.lineWidth = 1;
-          ctx.stroke();
-        }
+      // Limit decimal places based on integer digit count (only for numeric values, not errors)
+      if (!hasError && isNumeric(displayValue)) {
+        displayValue = limitDecimalsByIntegerDigits(displayValue);
+      }
 
-        // Draw underline if needed
-        if (format.underline) {
-          const textWidth = ctx.measureText(displayText).width;
-          const lineY = textY + CELL_FONT_SIZE * 0.35 * zoom; // Position below descenders
-          let lineStartX: number;
-          if (shouldRightAlign(displayValue, format.numberFormat)) {
-            lineStartX = textX - textWidth;
-          } else {
-            lineStartX = textX;
-          }
-          ctx.beginPath();
-          ctx.moveTo(lineStartX, lineY);
-          ctx.lineTo(lineStartX + textWidth, lineY);
-          ctx.strokeStyle = hasError ? '#dc2626' : (format.textColor || TEXT_COLOR);
-          ctx.lineWidth = 1;
-          ctx.stroke();
-        }
+      // Apply number format to get display text
+      const displayText = hasError ? displayValue : applyFormat(displayValue, format.numberFormat);
 
-        // Reset text align and fill style
+      // Right-align numbers/formatted values, left-align text
+      let textX: number;
+      if (shouldRightAlign(displayValue, format.numberFormat)) {
+        ctx.textAlign = 'right';
+        textX = x + cellWidth - CELL_TEXT_PADDING * zoom;
+      } else {
         ctx.textAlign = 'left';
-        ctx.fillStyle = TEXT_COLOR;
-        ctx.restore();
+        textX = x + CELL_TEXT_PADDING * zoom;
       }
+      const textY = y + cellHeight / 2;
+
+      ctx.fillText(displayText, textX, textY);
+
+      // Draw strikethrough if needed
+      if (format.strikethrough) {
+        const textWidth = ctx.measureText(displayText).width;
+        const lineY = textY;
+        let lineStartX: number;
+        if (shouldRightAlign(displayValue, format.numberFormat)) {
+          lineStartX = textX - textWidth;
+        } else {
+          lineStartX = textX;
+        }
+        ctx.beginPath();
+        ctx.moveTo(lineStartX, lineY);
+        ctx.lineTo(lineStartX + textWidth, lineY);
+        ctx.strokeStyle = hasError ? '#dc2626' : (format.textColor || TEXT_COLOR);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // Draw underline if needed
+      if (format.underline) {
+        const textWidth = ctx.measureText(displayText).width;
+        const lineY = textY + CELL_FONT_SIZE * 0.35 * zoom; // Position below descenders
+        let lineStartX: number;
+        if (shouldRightAlign(displayValue, format.numberFormat)) {
+          lineStartX = textX - textWidth;
+        } else {
+          lineStartX = textX;
+        }
+        ctx.beginPath();
+        ctx.moveTo(lineStartX, lineY);
+        ctx.lineTo(lineStartX + textWidth, lineY);
+        ctx.strokeStyle = hasError ? '#dc2626' : (format.textColor || TEXT_COLOR);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // Reset text align and fill style
+      ctx.textAlign = 'left';
+      ctx.fillStyle = TEXT_COLOR;
+      ctx.restore();
+    }
+  };
+
+  // Draw in z-order: scrollable cells first, then frozen cells on top
+
+  // Region 4: Scrollable area - clip to exclude frozen region
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(
+    headerWidth + frozenWidth,
+    headerHeight + frozenHeight,
+    cssWidth - headerWidth - frozenWidth,
+    cssHeight - headerHeight - frozenHeight
+  );
+  ctx.clip();
+
+  for (let row = Math.max(startRow, frozenRows); row < endRow; row++) {
+    for (let col = Math.max(startCol, frozenColumns); col < endCol; col++) {
+      drawCell(row, col, scrollLeft, scrollTop);
+    }
+  }
+
+  ctx.restore();
+
+  // Region 3: Frozen columns (scrollable rows) - draw on top, clip to exclude frozen row area
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(
+    headerWidth,
+    headerHeight + frozenHeight,
+    frozenWidth,
+    cssHeight - headerHeight - frozenHeight
+  );
+  ctx.clip();
+
+  for (let row = Math.max(startRow, frozenRows); row < endRow; row++) {
+    for (let col = 0; col < frozenColumns; col++) {
+      drawCell(row, col, 0, scrollTop);
+    }
+  }
+
+  ctx.restore();
+
+  // Region 2: Frozen rows (scrollable columns) - draw on top, clip to exclude frozen column area
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(
+    headerWidth + frozenWidth,
+    headerHeight,
+    cssWidth - headerWidth - frozenWidth,
+    frozenHeight
+  );
+  ctx.clip();
+
+  for (let row = 0; row < frozenRows; row++) {
+    for (let col = Math.max(startCol, frozenColumns); col < endCol; col++) {
+      drawCell(row, col, scrollLeft, 0);
+    }
+  }
+
+  ctx.restore();
+
+  // Region 1: Frozen corner - draw on top
+  for (let row = 0; row < frozenRows; row++) {
+    for (let col = 0; col < frozenColumns; col++) {
+      drawCell(row, col, 0, 0);
     }
   }
 
@@ -575,26 +687,17 @@ export function drawGrid({
     ctx.setLineDash([]);
   }
 
-  // Draw column headers (A, B, C...)
-  ctx.fillStyle = HEADER_BG;
-  ctx.fillRect(headerWidth, 0, cssWidth - headerWidth, headerHeight);
-  ctx.strokeStyle = HEADER_BORDER;
-  ctx.lineWidth = DEFAULT_BORDER_WIDTH;
-  ctx.fillStyle = TEXT_COLOR;
-  ctx.textAlign = 'center';
-  ctx.font = `bold ${HEADER_FONT_SIZE * zoom}px Arial`;
-
-  for (let col = startCol; col < endCol; col++) {
+  // Helper to draw a column header
+  const drawColumnHeader = (col: number, scrollX: number) => {
     const cellWidth = getColumnWidth(col);
-    const x = headerWidth + getColumnX(col) * zoom - scrollLeft;
-    if (x + cellWidth < headerWidth) continue;
-    
+    const x = headerWidth + getColumnX(col) * zoom - scrollX;
+
     // Highlight column header if in selection
     if (selection && col >= minCol && col <= maxCol) {
       ctx.fillStyle = HEADER_SELECTION_HIGHLIGHT;
       ctx.fillRect(x, 0, cellWidth, headerHeight);
     }
-    
+
     // Draw only left, right, and bottom borders (no top border)
     ctx.beginPath();
     ctx.moveTo(x, 0); // Start at top-left
@@ -604,6 +707,47 @@ export function drawGrid({
     ctx.stroke();
     ctx.fillStyle = TEXT_COLOR;
     ctx.fillText(getColumnLabel(col), x + cellWidth / 2, headerHeight / 2);
+  };
+
+  // Helper to draw a row header
+  const drawRowHeader = (row: number, scrollY: number) => {
+    const y = headerHeight + row * cellHeight - scrollY;
+
+    // Highlight row header if in selection
+    if (selection && row >= minRow && row <= maxRow) {
+      ctx.fillStyle = HEADER_SELECTION_HIGHLIGHT;
+      ctx.fillRect(0, y, headerWidth, cellHeight);
+    }
+
+    ctx.strokeRect(0, y, headerWidth, cellHeight);
+    ctx.fillStyle = TEXT_COLOR;
+    ctx.fillText(String(row + 1), headerWidth / 2, y + cellHeight / 2);
+  };
+
+  // Draw column headers (A, B, C...)
+  ctx.fillStyle = HEADER_BG;
+  ctx.fillRect(headerWidth, 0, cssWidth - headerWidth, headerHeight);
+  ctx.strokeStyle = HEADER_BORDER;
+  ctx.lineWidth = DEFAULT_BORDER_WIDTH;
+  ctx.fillStyle = TEXT_COLOR;
+  ctx.textAlign = 'center';
+  ctx.font = `bold ${HEADER_FONT_SIZE * zoom}px Arial`;
+
+  // Scrollable column headers - clip to exclude frozen columns
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(headerWidth + frozenWidth, 0, cssWidth - headerWidth - frozenWidth, headerHeight);
+  ctx.clip();
+
+  for (let col = Math.max(startCol, frozenColumns); col < endCol; col++) {
+    drawColumnHeader(col, scrollLeft);
+  }
+
+  ctx.restore();
+
+  // Frozen column headers - no scroll, no clip needed
+  for (let col = 0; col < frozenColumns; col++) {
+    drawColumnHeader(col, 0);
   }
 
   // Draw row headers (1, 2, 3...)
@@ -614,19 +758,21 @@ export function drawGrid({
   ctx.textAlign = 'center';
   ctx.font = `bold ${HEADER_FONT_SIZE * zoom}px Arial`;
 
-  for (let row = startRow; row < endRow; row++) {
-    const y = headerHeight + row * cellHeight - scrollTop;
-    if (y + cellHeight < headerHeight) continue;
-    
-    // Highlight row header if in selection
-    if (selection && row >= minRow && row <= maxRow) {
-      ctx.fillStyle = HEADER_SELECTION_HIGHLIGHT;
-      ctx.fillRect(0, y, headerWidth, cellHeight);
-    }
-    
-    ctx.strokeRect(0, y, headerWidth, cellHeight);
-    ctx.fillStyle = TEXT_COLOR;
-    ctx.fillText(String(row + 1), headerWidth / 2, y + cellHeight / 2);
+  // Scrollable row headers - clip to exclude frozen rows
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, headerHeight + frozenHeight, headerWidth, cssHeight - headerHeight - frozenHeight);
+  ctx.clip();
+
+  for (let row = Math.max(startRow, frozenRows); row < endRow; row++) {
+    drawRowHeader(row, scrollTop);
+  }
+
+  ctx.restore();
+
+  // Frozen row headers - no scroll, no clip needed
+  for (let row = 0; row < frozenRows; row++) {
+    drawRowHeader(row, 0);
   }
 
   // Draw corner cell (top-left)
@@ -640,4 +786,27 @@ export function drawGrid({
   ctx.lineTo(headerWidth, headerHeight); // Bottom border
   ctx.lineTo(headerWidth, 0); // Right border
   ctx.stroke();
+
+  // Draw frozen pane dividers
+  if (frozenColumns > 0) {
+    const dividerX = headerWidth + frozenWidth;
+    ctx.strokeStyle = FREEZE_PANE_DIVIDER_COLOR;
+    ctx.lineWidth = FREEZE_PANE_DIVIDER_WIDTH;
+    ctx.beginPath();
+    ctx.moveTo(dividerX, 0);
+    ctx.lineTo(dividerX, cssHeight);
+    ctx.stroke();
+    ctx.lineWidth = DEFAULT_BORDER_WIDTH;
+  }
+
+  if (frozenRows > 0) {
+    const dividerY = headerHeight + frozenHeight;
+    ctx.strokeStyle = FREEZE_PANE_DIVIDER_COLOR;
+    ctx.lineWidth = FREEZE_PANE_DIVIDER_WIDTH;
+    ctx.beginPath();
+    ctx.moveTo(0, dividerY);
+    ctx.lineTo(cssWidth, dividerY);
+    ctx.stroke();
+    ctx.lineWidth = DEFAULT_BORDER_WIDTH;
+  }
 }

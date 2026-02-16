@@ -42,6 +42,8 @@ export default function Grid() {
   const columnWidths = useSpreadsheetStore(state => state.columnWidths);
   const canUndo = useSpreadsheetStore(state => state.canUndo);
   const canRedo = useSpreadsheetStore(state => state.canRedo);
+  const frozenRows = useSpreadsheetStore(state => state.frozenRows);
+  const frozenColumns = useSpreadsheetStore(state => state.frozenColumns);
 
   // Get actions from store
   const updateCells = useSpreadsheetStore(state => state.updateCells);
@@ -96,8 +98,10 @@ export default function Grid() {
       isEditing,
       columnWidths,
       getColumnX,
+      frozenRows,
+      frozenColumns,
     });
-  }, [cellData, cellFormat, computedData, selection, highlightedCells, zoom, copiedRange, animatingRanges, dashOffset, isEditing, containerRef, columnWidths, getColumnX]);
+  }, [cellData, cellFormat, computedData, selection, highlightedCells, zoom, copiedRange, animatingRanges, dashOffset, isEditing, containerRef, columnWidths, getColumnX, frozenRows, frozenColumns]);
 
   const handleScroll = useCallback(() => {
     drawGrid();
@@ -132,19 +136,30 @@ export default function Grid() {
     const rect = canvas.getBoundingClientRect();
     const headerWidth = HEADER_WIDTH * zoom;
     const headerHeight = HEADER_HEIGHT * zoom;
-    
+
     // Get position relative to canvas
     const canvasX = e.clientX - rect.left;
     const canvasY = e.clientY - rect.top;
-    
+
     // Ignore clicks on headers
     if (canvasX < headerWidth || canvasY < headerHeight) {
       return null;
     }
 
-    // Calculate cell position (subtract header offset, add scroll)
-    const x = canvasX - headerWidth + container.scrollLeft;
-    const y = canvasY - headerHeight + container.scrollTop;
+    // Calculate frozen dimensions
+    let frozenWidth = 0;
+    for (let col = 0; col < frozenColumns; col++) {
+      frozenWidth += getColumnWidth(col);
+    }
+    const frozenHeight = frozenRows * CELL_HEIGHT * zoom;
+
+    // Determine if click is in frozen region
+    const isInFrozenColumns = (canvasX - headerWidth) < frozenWidth;
+    const isInFrozenRows = (canvasY - headerHeight) < frozenHeight;
+
+    // Calculate cell position with conditional scroll (frozen cells don't scroll)
+    const x = canvasX - headerWidth + (isInFrozenColumns ? 0 : container.scrollLeft);
+    const y = canvasY - headerHeight + (isInFrozenRows ? 0 : container.scrollTop);
 
     // Use getColumnX to find column with variable widths
     let cumulativeX = 0;
@@ -163,7 +178,7 @@ export default function Grid() {
       return { row, col };
     }
     return null;
-  }, [zoom, containerRef, getColumnWidth]);
+  }, [zoom, containerRef, getColumnWidth, frozenRows, frozenColumns]);
 
   // Detect hover over column border
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -527,6 +542,7 @@ export default function Grid() {
     redo,
     canUndo,
     canRedo,
+    columnWidths,
   });
 
   // Use spreadsheet effects hook
@@ -541,6 +557,7 @@ export default function Grid() {
     setDashOffset,
     selection,
     highlightedCells,
+    columnWidths,
   });
 
   const cellIsFormula = inputValue.startsWith('=');

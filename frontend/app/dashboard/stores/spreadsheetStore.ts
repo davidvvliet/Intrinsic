@@ -25,6 +25,7 @@ interface SpreadsheetState {
   baselineData: CellData;
   baselineFormat: CellFormatData;
   dirtyCells: Set<string>;
+  dirtySettings: boolean;
 
   // UI state
   selection: Selection | null;
@@ -41,6 +42,12 @@ interface SpreadsheetState {
   // Column widths
   columnWidths: Map<number, number>;
   columnWidthsBySheet: Map<string, Map<number, number>>;
+
+  // Freeze panes (per-sheet)
+  frozenRows: number;
+  frozenColumns: number;
+  frozenRowsBySheet: Map<string, number>;
+  frozenColumnsBySheet: Map<string, number>;
 
   // Undo/Redo
   undoStack: Action[];
@@ -60,6 +67,7 @@ interface SpreadsheetActions {
   setBaselineData: (data: CellData) => void;
   setBaselineFormat: (format: CellFormatData) => void;
   setDirtyCells: (cells: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
+  setDirtySettings: (dirty: boolean) => void;
   setSelection: (selection: Selection | null | ((prev: Selection | null) => Selection | null)) => void;
   setHighlightedCells: (cells: Selection[] | null | ((prev: Selection[] | null) => Selection[] | null)) => void;
   setInputValue: (value: string | ((prev: string) => string)) => void;
@@ -69,12 +77,19 @@ interface SpreadsheetActions {
   setActiveSheetId: (id: string | null | ((prev: string | null) => string | null)) => void;
   setSheets: (sheets: SheetMetadata[] | ((prev: SheetMetadata[]) => SheetMetadata[])) => void;
   setColumnWidthsBySheet: (widths: Map<string, Map<number, number>> | ((prev: Map<string, Map<number, number>>) => Map<string, Map<number, number>>)) => void;
+  setFrozenRows: (rows: number) => void;
+  setFrozenColumns: (cols: number) => void;
+  setFrozenRowsBySheet: (rows: Map<string, number> | ((prev: Map<string, number>) => Map<string, number>)) => void;
+  setFrozenColumnsBySheet: (cols: Map<string, number> | ((prev: Map<string, number>) => Map<string, number>)) => void;
 
   // Actions
   updateCell: (key: string, value: { raw: string; type: CellType } | null, batchWithPrevious?: boolean) => void;
   updateCellFormat: (key: string, format: CellFormat | null, batchWithPrevious?: boolean) => void;
   updateCells: (newCellData: Map<string, { raw: string; type: CellType }>, batchWithPrevious?: boolean) => void;
   updateCellFormats: (newCellFormat: Map<string, CellFormat>, batchWithPrevious?: boolean) => void;
+  updateColumnWidths: (sheetId: string, col: number, width: number) => void;
+  updateFrozenRows: (sheetId: string, rows: number) => void;
+  updateFrozenColumns: (sheetId: string, cols: number) => void;
   markSaved: () => void;
   undo: () => void;
   redo: () => void;
@@ -134,6 +149,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     baselineData: new Map(),
     baselineFormat: new Map(),
     dirtyCells: new Set(),
+    dirtySettings: false,
     selection: null,
     highlightedCells: null,
     inputValue: '',
@@ -144,6 +160,10 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     sheets: [],
     columnWidths: new Map(),
     columnWidthsBySheet: new Map(),
+    frozenRows: 0,
+    frozenColumns: 0,
+    frozenRowsBySheet: new Map(),
+    frozenColumnsBySheet: new Map(),
     undoStack: [],
     redoStack: [],
     canUndo: false,
@@ -169,8 +189,13 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
 
     setDirtyCells: (cells) => set(state => {
       const newCells = typeof cells === 'function' ? cells(state.dirtyCells) : cells;
-      return { dirtyCells: newCells, hasUnsavedChanges: newCells.size > 0 };
+      return { dirtyCells: newCells, hasUnsavedChanges: newCells.size > 0 || state.dirtySettings };
     }),
+
+    setDirtySettings: (dirty) => set(state => ({
+      dirtySettings: dirty,
+      hasUnsavedChanges: state.dirtyCells.size > 0 || dirty,
+    })),
 
     setSelection: (selection) => set(state => {
       const newSelection = typeof selection === 'function' ? selection(state.selection) : selection;
@@ -204,9 +229,11 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
 
     setActiveSheetId: (id) => set(state => {
       const newId = typeof id === 'function' ? id(state.activeSheetId) : id;
-      // Update columnWidths when activeSheetId changes
+      // Update columnWidths and frozen panes when activeSheetId changes
       const columnWidths = state.columnWidthsBySheet.get(newId || '') || new Map();
-      return { activeSheetId: newId, columnWidths };
+      const frozenRows = state.frozenRowsBySheet.get(newId || '') || 0;
+      const frozenColumns = state.frozenColumnsBySheet.get(newId || '') || 0;
+      return { activeSheetId: newId, columnWidths, frozenRows, frozenColumns };
     }),
 
     setSheets: (sheets) => set(state => {
@@ -218,6 +245,34 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       const newWidths = typeof widths === 'function' ? widths(state.columnWidthsBySheet) : widths;
       const columnWidths = newWidths.get(state.activeSheetId || '') || new Map();
       return { columnWidthsBySheet: newWidths, columnWidths };
+    }),
+
+    setFrozenRows: (rows) => set(state => {
+      const newMap = new Map(state.frozenRowsBySheet);
+      if (state.activeSheetId) {
+        newMap.set(state.activeSheetId, rows);
+      }
+      return { frozenRows: rows, frozenRowsBySheet: newMap };
+    }),
+
+    setFrozenColumns: (cols) => set(state => {
+      const newMap = new Map(state.frozenColumnsBySheet);
+      if (state.activeSheetId) {
+        newMap.set(state.activeSheetId, cols);
+      }
+      return { frozenColumns: cols, frozenColumnsBySheet: newMap };
+    }),
+
+    setFrozenRowsBySheet: (rows) => set(state => {
+      const newRows = typeof rows === 'function' ? rows(state.frozenRowsBySheet) : rows;
+      const frozenRows = newRows.get(state.activeSheetId || '') || 0;
+      return { frozenRowsBySheet: newRows, frozenRows };
+    }),
+
+    setFrozenColumnsBySheet: (cols) => set(state => {
+      const newCols = typeof cols === 'function' ? cols(state.frozenColumnsBySheet) : cols;
+      const frozenColumns = newCols.get(state.activeSheetId || '') || 0;
+      return { frozenColumnsBySheet: newCols, frozenColumns };
     }),
 
     // Actions
@@ -255,7 +310,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
         return {
           cellData: next,
           dirtyCells: newDirtyCells,
-          hasUnsavedChanges: newDirtyCells.size > 0,
+          hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
         };
       });
     },
@@ -294,7 +349,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
         return {
           cellFormat: next,
           dirtyCells: newDirtyCells,
-          hasUnsavedChanges: newDirtyCells.size > 0,
+          hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
         };
       });
     },
@@ -343,7 +398,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
         return {
           cellData: newCellData,
           dirtyCells: newDirtyCells,
-          hasUnsavedChanges: newDirtyCells.size > 0,
+          hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
         };
       });
     },
@@ -392,7 +447,51 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
         return {
           cellFormat: newCellFormat,
           dirtyCells: newDirtyCells,
-          hasUnsavedChanges: newDirtyCells.size > 0,
+          hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
+        };
+      });
+    },
+
+    updateColumnWidths: (sheetId, col, width) => {
+      set(state => {
+        const newWidths = new Map(state.columnWidthsBySheet);
+        const sheetWidths = new Map(newWidths.get(sheetId) || new Map());
+        sheetWidths.set(col, width);
+        newWidths.set(sheetId, sheetWidths);
+        const columnWidths = newWidths.get(state.activeSheetId || '') || new Map();
+        return {
+          columnWidthsBySheet: newWidths,
+          columnWidths,
+          dirtySettings: true,
+          hasUnsavedChanges: true,
+        };
+      });
+    },
+
+    updateFrozenRows: (sheetId, rows) => {
+      set(state => {
+        const newMap = new Map(state.frozenRowsBySheet);
+        newMap.set(sheetId, rows);
+        const frozenRows = newMap.get(state.activeSheetId || '') || 0;
+        return {
+          frozenRowsBySheet: newMap,
+          frozenRows,
+          dirtySettings: true,
+          hasUnsavedChanges: true,
+        };
+      });
+    },
+
+    updateFrozenColumns: (sheetId, cols) => {
+      set(state => {
+        const newMap = new Map(state.frozenColumnsBySheet);
+        newMap.set(sheetId, cols);
+        const frozenColumns = newMap.get(state.activeSheetId || '') || 0;
+        return {
+          frozenColumnsBySheet: newMap,
+          frozenColumns,
+          dirtySettings: true,
+          hasUnsavedChanges: true,
         };
       });
     },
@@ -401,6 +500,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       baselineData: new Map(state.cellData),
       baselineFormat: new Map(state.cellFormat),
       dirtyCells: new Set(),
+      dirtySettings: false,
       hasUnsavedChanges: false,
     })),
 
@@ -475,7 +575,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           cellData: newCellData,
           cellFormat: newCellFormat,
           dirtyCells: newDirtyCells,
-          hasUnsavedChanges: newDirtyCells.size > 0,
+          hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
           inputValue: newInputValue,
           undoStack: newUndoStack,
           redoStack: newRedoStack,
@@ -556,7 +656,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           cellData: newCellData,
           cellFormat: newCellFormat,
           dirtyCells: newDirtyCells,
-          hasUnsavedChanges: newDirtyCells.size > 0,
+          hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
           inputValue: newInputValue,
           undoStack: newUndoStack,
           redoStack: newRedoStack,

@@ -15,11 +15,16 @@ export default function Landing() {
       {/* Row 2: Hero section */}
       <div className={pageStyles.heroSection}>
         <div className={pageStyles.heroText}>Unlock real value</div>
-        <div className={pageStyles.heroSubheader}>Automated fundamental analysis</div>
+        <div className={pageStyles.heroSubheader}>Automated fundamental analysis with verified SEC data</div>
         <div className={pageStyles.heroButtons}>
           <button className={pageStyles.heroButtonFilled}>Get started</button>
           <button className={pageStyles.heroButtonTransparent}>Book a demo</button>
         </div>
+        <img
+          src="/intrinsic-dashboard-hero.png"
+          alt="Intrinsic Dashboard"
+          className={pageStyles.heroImage}
+        />
       </div>
 
       {/* Row 3: Single full-width cell */}

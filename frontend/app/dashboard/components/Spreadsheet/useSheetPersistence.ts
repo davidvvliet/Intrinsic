@@ -15,8 +15,12 @@ export function useSheetPersistence() {
   const cellData = useSpreadsheetStore(state => state.cellData);
   const cellFormat = useSpreadsheetStore(state => state.cellFormat);
   const dirtyCells = useSpreadsheetStore(state => state.dirtyCells);
+  const dirtySettings = useSpreadsheetStore(state => state.dirtySettings);
   const activeSheetId = useSpreadsheetStore(state => state.activeSheetId);
   const sheets = useSpreadsheetStore(state => state.sheets);
+  const columnWidthsBySheet = useSpreadsheetStore(state => state.columnWidthsBySheet);
+  const frozenRowsBySheet = useSpreadsheetStore(state => state.frozenRowsBySheet);
+  const frozenColumnsBySheet = useSpreadsheetStore(state => state.frozenColumnsBySheet);
 
   // Get actions from store
   const markSaved = useSpreadsheetStore(state => state.markSaved);
@@ -31,6 +35,9 @@ export function useSheetPersistence() {
   const setIsEditing = useSpreadsheetStore(state => state.setIsEditing);
   const setCopiedRange = useSpreadsheetStore(state => state.setCopiedRange);
   const setSheets = useSpreadsheetStore(state => state.setSheets);
+  const setColumnWidthsBySheet = useSpreadsheetStore(state => state.setColumnWidthsBySheet);
+  const setFrozenRowsBySheet = useSpreadsheetStore(state => state.setFrozenRowsBySheet);
+  const setFrozenColumnsBySheet = useSpreadsheetStore(state => state.setFrozenColumnsBySheet);
 
   // Get sheet ID from URL (don't generate until first save)
   const sheetIdFromUrl = searchParams.get('sheet');
@@ -54,18 +61,30 @@ export function useSheetPersistence() {
     const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
     const name = activeSheet?.name || 'Untitled';
 
+    // Get per-sheet settings
+    const columnWidthsForSheet = columnWidthsBySheet.get(activeSheetId || '') || new Map();
+    const frozenRows = frozenRowsBySheet.get(activeSheetId || '') || 0;
+    const frozenColumns = frozenColumnsBySheet.get(activeSheetId || '') || 0;
+
+    // Convert columnWidths Map to array format for JSON
+    const columnWidthsArray: [number, number][] = Array.from(columnWidthsForSheet.entries());
+
     return {
       cells,
       dimensions: { rows: NUM_ROWS, cols: NUM_COLS },
-      settings: {},
+      settings: {
+        columnWidths: columnWidthsArray,
+        frozenRows,
+        frozenColumns,
+      },
       formatting,
       name,
     };
-  }, [cellData, cellFormat, sheets, activeSheetId]);
+  }, [cellData, cellFormat, sheets, activeSheetId, columnWidthsBySheet, frozenRowsBySheet, frozenColumnsBySheet]);
 
   // Save batch of dirty cells to server
   const saveBatch = useCallback(async () => {
-    if (dirtyCells.size === 0) return;
+    if (dirtyCells.size === 0 && !dirtySettings) return;
 
     const sheetData = serializeSheetData();
 
@@ -147,7 +166,20 @@ export function useSheetPersistence() {
       if (response.status === 404) {
         return;
       }
-      throw new Error(`Failed to load sheet: ${response.statusText}`);
+      // Log full error details for debugging
+      console.error('Failed to load sheet:', {
+        sheetId: sheetIdToLoad,
+        status: response.status,
+        statusText: response.statusText,
+      });
+      // Try to get error body
+      try {
+        const errorBody = await response.text();
+        console.error('Error response body:', errorBody);
+      } catch (e) {
+        // Ignore if can't read body
+      }
+      throw new Error(`Failed to load sheet: ${response.status} ${response.statusText}`);
     }
 
     const sheet = await response.json();
@@ -171,6 +203,36 @@ export function useSheetPersistence() {
       Object.entries(data.formatting).forEach(([key, format]: [string, any]) => {
         newCellFormat.set(key, format as CellFormat);
       });
+    }
+
+    // Deserialize settings (columnWidths, freeze panes)
+    if (data.settings && activeSheetId) {
+      // Restore columnWidths for this sheet
+      if (data.settings.columnWidths) {
+        const widthsMap = new Map<number, number>(data.settings.columnWidths);
+        setColumnWidthsBySheet(prev => {
+          const next = new Map(prev);
+          next.set(activeSheetId, widthsMap);
+          return next;
+        });
+      }
+
+      // Restore freeze panes for this sheet
+      if (typeof data.settings.frozenRows === 'number') {
+        setFrozenRowsBySheet(prev => {
+          const next = new Map(prev);
+          next.set(activeSheetId, data.settings.frozenRows);
+          return next;
+        });
+      }
+
+      if (typeof data.settings.frozenColumns === 'number') {
+        setFrozenColumnsBySheet(prev => {
+          const next = new Map(prev);
+          next.set(activeSheetId, data.settings.frozenColumns);
+          return next;
+        });
+      }
     }
 
     // Set current state
@@ -208,11 +270,11 @@ export function useSheetPersistence() {
         return updated;
       });
     }
-  }, [setCellData, setCellFormat, setBaselineData, setBaselineFormat, setDirtyCells, setSelection, setHighlightedCells, setInputValue, setIsEditing, setCopiedRange, router, setSheets, fetchWithAuth]);
+  }, [activeSheetId, setCellData, setCellFormat, setBaselineData, setBaselineFormat, setDirtyCells, setSelection, setHighlightedCells, setInputValue, setIsEditing, setCopiedRange, router, setSheets, setColumnWidthsBySheet, setFrozenRowsBySheet, setFrozenColumnsBySheet, fetchWithAuth]);
 
   // Auto-save: debounced save after delay of inactivity
   useEffect(() => {
-    if (dirtyCells.size === 0) return;
+    if (dirtyCells.size === 0 && !dirtySettings) return;
 
     const timer = setTimeout(() => {
       saveBatch().catch(err => {
@@ -221,7 +283,7 @@ export function useSheetPersistence() {
     }, AUTO_SAVE_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [dirtyCells, saveBatch]);
+  }, [dirtyCells, dirtySettings, saveBatch]);
 
   // Watch activeSheetId and load data when it changes
   useEffect(() => {
@@ -255,10 +317,12 @@ export function useSheetPersistence() {
 
     if (activeSheet.fetchId) {
       // Sheet has backend ID - load it
+      console.log('Loading sheet with fetchId:', activeSheet.fetchId, 'for sheetId:', activeSheetId);
       loadSheet(activeSheet.fetchId).catch(err => {
         console.error('Load sheet failed:', err);
       });
     } else {
+      console.log('No fetchId for sheet:', activeSheetId, '- redirecting to /dashboard');
       router.replace('/dashboard');
     }
 

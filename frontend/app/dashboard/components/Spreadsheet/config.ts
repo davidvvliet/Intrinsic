@@ -49,6 +49,10 @@ export const DEFAULT_BORDER_WIDTH = 1;
 export const ACTIVE_BORDER_WIDTH = 2;
 export const EDITING_OUTLINE_WIDTH = 4;
 
+// Freeze panes
+export const FREEZE_PANE_DIVIDER_COLOR = '#000000';
+export const FREEZE_PANE_DIVIDER_WIDTH = 2;
+
 // Zoom
 export const MIN_ZOOM = 0.25;
 export const MAX_ZOOM = 4;

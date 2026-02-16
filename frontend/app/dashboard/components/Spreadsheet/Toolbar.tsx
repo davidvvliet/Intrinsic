@@ -4,6 +4,7 @@ import { getCellKey } from './drawUtils';
 import type { CellFormat, NumberFormatSettings } from './types';
 import ColorButton from './ColorButton';
 import FormatDropdown from './FormatDropdown';
+import FreezeDropdown from './FreezeDropdown';
 import styles from './Toolbar.module.css';
 
 const UndoIcon = () => (
@@ -252,6 +253,8 @@ export default function Toolbar() {
       >
         $
       </button>
+      <div className={styles.separator} />
+      <FreezeDropdown disabled={!selection} />
     </div>
   );
 }

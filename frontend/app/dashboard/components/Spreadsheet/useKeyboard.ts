@@ -170,6 +170,7 @@ export function useKeyboard({
   redo,
   canUndo,
   canRedo,
+  columnWidths,
 }: {
   selection: Selection | null;
   isEditing: boolean;
@@ -201,6 +202,7 @@ export function useKeyboard({
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  columnWidths: Map<number, number>;
 }) {
   // Check if we're in formula mode (editing a formula)
   const isFormulaMode = isEditing && inputValue.startsWith('=');
@@ -678,7 +680,7 @@ export function useKeyboard({
       setHighlightedCells(allSelections);
       
       // Scroll to the navigated cell
-      scrollToCell(newSel.start.row, newSel.start.col, containerRef, zoom);
+      scrollToCell(newSel.start.row, newSel.start.col, containerRef, zoom, columnWidths);
       
       return;
     }

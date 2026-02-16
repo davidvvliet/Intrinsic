@@ -23,6 +23,7 @@ export function useSpreadsheet({
   setDashOffset,
   selection,
   highlightedCells,
+  columnWidths,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -34,6 +35,7 @@ export function useSpreadsheet({
   setDashOffset: React.Dispatch<React.SetStateAction<number>>;
   selection: Selection | null;
   highlightedCells: Selection[] | null;
+  columnWidths: Map<number, number>;
 }) {
   // Initialize canvas size
   useEffect(() => {
@@ -111,6 +113,6 @@ export function useSpreadsheet({
   // Auto-scroll to keep selected cell in view
   useEffect(() => {
     if (!selection) return;
-    scrollToCell(selection.start.row, selection.start.col, containerRef, zoom);
-  }, [selection, zoom, containerRef]);
+    scrollToCell(selection.start.row, selection.start.col, containerRef, zoom, columnWidths);
+  }, [selection, zoom, containerRef, columnWidths]);
 }
