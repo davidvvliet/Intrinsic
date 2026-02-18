@@ -19,7 +19,7 @@ const inconsolata = Inconsolata({
 });
 
 export const metadata: Metadata = {
-  title: "Intrinsic | Unlock real value",
+  title: "Intrinsic | Unlock true value",
   description: "AI-powered fundamental analysis platform that automates DCF modeling and company research using real SEC data.",
   applicationName: 'Intrinsic',
   authors: [{ name: 'MarketRadar Intelligence, Corp.' }],
@@ -62,7 +62,7 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: "Intrinsic | Unlock real value",
+    title: "Intrinsic | Unlock true value",
     description: "AI-powered fundamental analysis platform that automates DCF modeling and company research using real SEC data.",
     url: 'https://www.runintrinsic.com',
     siteName: 'Intrinsic',
@@ -77,7 +77,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: "Intrinsic | Unlock real value",
+    title: "Intrinsic | Unlock true value",
     description: "AI-powered fundamental analysis platform that automates DCF modeling and company research using real SEC data.",
     images: ['/icon.svg'],
   },
