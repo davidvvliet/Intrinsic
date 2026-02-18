@@ -3,13 +3,19 @@
 import React from 'react';
 import pageStyles from './page.module.css';
 import Navbar from './components/Navbar';
+import MobileNavbar from './components/MobileNavbar';
 
 export default function Landing() {
   return (
     <div id="main-grid-container" className={pageStyles.gridContainer}>
       {/* Row 1: Navbar */}
       <div className={pageStyles.navbarCell}>
-        <Navbar />
+        <div className={pageStyles.desktopOnly}>
+          <Navbar />
+        </div>
+        <div className={pageStyles.mobileOnly}>
+          <MobileNavbar />
+        </div>
       </div>
       
       {/* Row 2: Hero section */}
