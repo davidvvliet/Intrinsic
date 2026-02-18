@@ -153,7 +153,7 @@ export function useSheetPersistence() {
         console.error('Failed to update fetchId in localStorage:', err);
       }
     }
-  }, [dirtyCells, serializeSheetData, markSaved, sheetIdFromUrl, router, activeSheetId, sheets, setSheets, fetchWithAuth]);
+  }, [dirtyCells, dirtySettings, serializeSheetData, markSaved, sheetIdFromUrl, router, activeSheetId, setSheets, fetchWithAuth]);
 
   // Load sheet from server
   const loadSheet = useCallback(async (sheetIdToLoad: string) => {

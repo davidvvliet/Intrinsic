@@ -1,0 +1,161 @@
+.table {
+  width: 100%;
+  max-width: 1200px;
+  border-collapse: collapse;
+  background-color: transparent;
+}
+
+.headerRow {
+  background-color: transparent;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.headerCell {
+  padding: 12px 16px;
+  color: #000000;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.deleteHeader {
+  width: 60px;
+}
+
+.tableRow {
+  background-color: transparent;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+}
+
+.tableRow:hover {
+  background-color: #f2f2e3;
+  transition: none;
+}
+
+.tableRow:last-child {
+  border-bottom: none;
+}
+
+.tableRow td {
+  padding: 12px 16px;
+  vertical-align: middle;
+}
+
+.cell {
+  color: #000000;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+}
+
+/* Sheet cell */
+.sheetCell {
+  width: 50%;
+}
+
+.sheetCellContent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sheetIcon {
+  width: 40px;
+  height: 40px;
+  background-color: #f2f2e3;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sheetIconGrid {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 1px;
+}
+
+.sheetIconCell {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.thumbnail {
+  width: 60px;
+  height: 40px;
+  object-fit: cover;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.sheetName {
+  font-weight: 600;
+  font-size: 15px;
+  color: #000000;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* List badges */
+.listBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.listBadge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid;
+}
+
+.noList {
+  color: #888888;
+  font-size: 13px;
+}
+
+/* Modified cell */
+.modifiedCell {
+  color: #666666;
+  font-size: 13px;
+}
+
+/* Delete cell */
+.deleteCell {
+  text-align: center;
+  width: 60px;
+}
+
+.deleteButton {
+  background: transparent;
+  border: none;
+  color: #000000;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.deleteButton:hover {
+  opacity: 1;
+}
+
+.emptyState {
+  text-align: center;
+  color: #666666;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 15px;
+  padding: 60px 0;
+}

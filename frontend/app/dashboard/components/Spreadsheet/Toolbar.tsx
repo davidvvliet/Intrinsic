@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
 import { getCellKey } from './drawUtils';
 import type { CellFormat, NumberFormatSettings } from './types';
 import ColorButton from './ColorButton';
 import FormatDropdown from './FormatDropdown';
 import FreezeDropdown from './FreezeDropdown';
+import AddToListModal from './AddToListModal';
 import styles from './Toolbar.module.css';
 
 const UndoIcon = () => (
@@ -29,6 +30,13 @@ export default function Toolbar() {
   const redo = useSpreadsheetStore(state => state.redo);
   const canUndo = useSpreadsheetStore(state => state.canUndo);
   const canRedo = useSpreadsheetStore(state => state.canRedo);
+  const activeSheetId = useSpreadsheetStore(state => state.activeSheetId);
+  const sheets = useSpreadsheetStore(state => state.sheets);
+
+  const [showAddToListModal, setShowAddToListModal] = useState(false);
+
+  // Get active sheet info
+  const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
 
   // Get current cell's format
   const getCurrentFormat = useCallback((): CellFormat => {
@@ -255,6 +263,22 @@ export default function Toolbar() {
       </button>
       <div className={styles.separator} />
       <FreezeDropdown disabled={!selection} />
+      <div className={styles.spacer} />
+      <button
+        className={styles.addToListButton}
+        onClick={() => setShowAddToListModal(true)}
+        disabled={!activeSheet?.fetchId}
+        title={activeSheet?.fetchId ? "Add to list" : "Save sheet first to add to a list"}
+      >
+        Add to list
+      </button>
+      <AddToListModal
+        isOpen={showAddToListModal}
+        onClose={() => setShowAddToListModal(false)}
+        sheetId={activeSheet?.fetchId || null}
+        sheetName={activeSheet?.name || 'Untitled'}
+        onSave={() => {}}
+      />
     </div>
   );
 }

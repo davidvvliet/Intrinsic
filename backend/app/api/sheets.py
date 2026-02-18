@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.deps import get_workos_user
-from app.storage.async_db import execute_query_one, execute_command
+from app.storage.async_db import execute_query, execute_query_one, execute_command
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import json
 import secrets
 
@@ -15,6 +15,7 @@ class SheetData(BaseModel):
     settings: Optional[Dict[str, Any]] = None
     formatting: Optional[Dict[str, Any]] = None
     name: Optional[str] = None
+    thumbnail: Optional[str] = None
 
 
 class SheetResponse(BaseModel):
@@ -24,6 +25,32 @@ class SheetResponse(BaseModel):
     created_at: str
     updated_at: str
     data: Dict[str, Any]
+    list_ids: List[int] = []
+
+
+@router.get("/sheets")
+async def list_sheets(user = Depends(get_workos_user)):
+    """List all sheets for the user."""
+    user_id = user["id"]
+
+    rows = await execute_query(
+        """SELECT id, name, created_at, updated_at, list_ids, thumbnail
+           FROM sheets WHERE user_id = $1
+           ORDER BY updated_at DESC""",
+        user_id
+    )
+
+    return [
+        {
+            "id": str(row["id"]),
+            "name": row["name"],
+            "created_at": row["created_at"].isoformat(),
+            "updated_at": row["updated_at"].isoformat(),
+            "list_ids": row["list_ids"] or [],
+            "thumbnail": row["thumbnail"]
+        }
+        for row in rows
+    ]
 
 
 @router.get("/sheets/{sheet_id}", response_model=SheetResponse)
@@ -35,27 +62,28 @@ async def get_sheet(
     user_id = user["id"]
     
     row = await execute_query_one(
-        "SELECT id, user_id, name, created_at, updated_at, data FROM sheets WHERE id = $1 AND user_id = $2",
+        "SELECT id, user_id, name, created_at, updated_at, data, list_ids FROM sheets WHERE id = $1 AND user_id = $2",
         sheet_id, user_id
     )
-    
+
     if not row:
         raise HTTPException(status_code=404, detail="Sheet not found")
-    
+
     # Handle data field - codec should decode it, but handle string case
     data = row["data"]
     if isinstance(data, str):
         data = json.loads(data)
     elif data is None:
         data = {}
-    
+
     return {
         "id": str(row["id"]),
         "user_id": row["user_id"],
         "name": row["name"],
         "created_at": row["created_at"].isoformat(),
         "updated_at": row["updated_at"].isoformat(),
-        "data": data
+        "data": data,
+        "list_ids": row["list_ids"] or []
     }
 
 
@@ -81,10 +109,10 @@ async def create_sheet(
     # Create new sheet
     await execute_command(
         """
-        INSERT INTO sheets (id, user_id, name, data, updated_at)
-        VALUES ($1, $2, $3, $4::jsonb, NOW())
+        INSERT INTO sheets (id, user_id, name, data, thumbnail, updated_at)
+        VALUES ($1, $2, $3, $4::jsonb, $5, NOW())
         """,
-        sheet_id, user_id, sheet_data.name or "Untitled", data_jsonb
+        sheet_id, user_id, sheet_data.name or "Untitled", data_jsonb, sheet_data.thumbnail
     )
     
     return {"status": "created", "id": sheet_id}
@@ -116,24 +144,24 @@ async def save_sheet(
     if not existing:
         raise HTTPException(status_code=404, detail="Sheet not found")
     
-    # Update existing sheet (include name if provided)
+    # Update existing sheet (include name and thumbnail if provided)
     if sheet_data.name is not None:
         await execute_command(
             """
             UPDATE sheets
-            SET data = $1::jsonb, name = $2, updated_at = NOW()
-            WHERE id = $3 AND user_id = $4
+            SET data = $1::jsonb, name = $2, thumbnail = $3, updated_at = NOW()
+            WHERE id = $4 AND user_id = $5
             """,
-            data_jsonb, sheet_data.name, sheet_id, user_id
+            data_jsonb, sheet_data.name, sheet_data.thumbnail, sheet_id, user_id
         )
     else:
         await execute_command(
             """
             UPDATE sheets
-            SET data = $1::jsonb, updated_at = NOW()
-            WHERE id = $2 AND user_id = $3
+            SET data = $1::jsonb, thumbnail = $2, updated_at = NOW()
+            WHERE id = $3 AND user_id = $4
             """,
-            data_jsonb, sheet_id, user_id
+            data_jsonb, sheet_data.thumbnail, sheet_id, user_id
         )
     
     return {"status": "saved", "id": sheet_id}
@@ -192,3 +220,47 @@ async def delete_sheet(
     )
     
     return {"status": "deleted", "id": sheet_id}
+
+
+class AssignListRequest(BaseModel):
+    list_id: int
+
+
+@router.patch("/sheets/{sheet_id}/list")
+async def assign_sheet_to_list(
+    sheet_id: str,
+    body: AssignListRequest,
+    user = Depends(get_workos_user)
+):
+    """Add a sheet to a list."""
+    user_id = user["id"]
+
+    existing = await execute_query_one(
+        "SELECT id, list_ids FROM sheets WHERE id = $1 AND user_id = $2",
+        sheet_id, user_id
+    )
+
+    if not existing:
+        raise HTTPException(status_code=404, detail="Sheet not found")
+
+    current_list_ids = existing["list_ids"] or []
+
+    # Check if already in this list
+    if body.list_id in current_list_ids:
+        raise HTTPException(status_code=409, detail="Sheet is already in this list")
+
+    # Verify user owns the list
+    list_exists = await execute_query_one(
+        "SELECT id FROM lists WHERE id = $1 AND user_id = $2",
+        body.list_id, user_id
+    )
+    if not list_exists:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    # Add list_id to array
+    await execute_command(
+        "UPDATE sheets SET list_ids = array_append(list_ids, $1), updated_at = NOW() WHERE id = $2 AND user_id = $3",
+        body.list_id, sheet_id, user_id
+    )
+
+    return {"status": "updated", "id": sheet_id, "list_ids": current_list_ids + [body.list_id]}

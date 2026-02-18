@@ -1,0 +1,262 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal {
+  background-color: #ffffef;
+  padding: 28px;
+  border-radius: 0;
+  max-width: 420px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: auto;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  position: relative;
+}
+
+.closeButton {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #000000;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.closeButton:hover {
+  opacity: 1;
+}
+
+.title {
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #000000;
+  margin: 0 0 4px 0;
+}
+
+.subtitle {
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  color: #666666;
+  margin: 0 0 20px 0;
+}
+
+.loading {
+  text-align: center;
+  color: #666666;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  padding: 20px 0;
+}
+
+.listContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.emptyText {
+  color: #666666;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  text-align: center;
+  padding: 16px 0;
+}
+
+.listOption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.listOption:hover {
+  background-color: #f2f2e3;
+}
+
+.listOptionSelected {
+  border-width: 2px;
+}
+
+.radioInput {
+  display: none;
+}
+
+.listName {
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  flex: 1;
+}
+
+.listCount {
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 12px;
+  color: #888888;
+}
+
+.listOptionDisabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.alreadyInList {
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 11px;
+  color: #666666;
+  font-style: italic;
+}
+
+.createSection {
+  margin-bottom: 20px;
+}
+
+.createListButton {
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  border: 1px dashed rgba(0, 0, 0, 0.3);
+  color: #000000;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.createListButton:hover {
+  background-color: #f2f2e3;
+}
+
+.createForm {
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  padding: 16px;
+}
+
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 0;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  background: #ffffff;
+  color: #000000;
+  outline: none;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  border-color: #000000;
+}
+
+.colorPicker {
+  margin-bottom: 16px;
+}
+
+.colorLabel {
+  display: block;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #000000;
+  margin-bottom: 8px;
+}
+
+.colorOptions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.colorButton {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.colorButton:hover {
+  transform: scale(1.1);
+}
+
+.colorButtonSelected {
+  border-color: #000000;
+}
+
+.createFormButtons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.cancelButton {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  color: #000000;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.createButton {
+  padding: 8px 16px;
+  background: #000000;
+  border: none;
+  color: #ffffff;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.createButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.saveButton {
+  padding: 12px 24px;
+  background-color: #000000;
+  color: #ffffff;
+  border: none;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.saveButton:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+.saveButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -27,8 +27,6 @@ import { getCellKey, parseInputValue } from './drawUtils';
 const FUNCTION_NAMES = Object.keys(EXCEL_FUNCTION_SIGNATURES).sort();
 
 export default function Grid() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
   // Get state from store
   const cellData = useSpreadsheetStore(state => state.cellData);
   const cellFormat = useSpreadsheetStore(state => state.cellFormat);
@@ -57,6 +55,7 @@ export default function Grid() {
   const redo = useSpreadsheetStore(state => state.redo);
 
   // Get refs and actions that need refs
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const { inputRef, containerRef } = useRefContext();
   const { saveCurrentCell, moveToCell, getColumnX, autoResizeColumn } = useSpreadsheetActions();
 

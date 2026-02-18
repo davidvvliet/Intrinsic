@@ -612,6 +612,66 @@ export function drawGrid({
     }
   }
 
+  // Draw border around entire selection range (when multi-cell selection)
+  if (selection && isMultiCellSelection) {
+    ctx.strokeStyle = ACTIVE_CELL_BORDER;
+    ctx.lineWidth = DEFAULT_BORDER_WIDTH;
+
+    // Helper to draw selection border with given scroll offsets
+    const drawSelectionBorder = (scrollX: number, scrollY: number) => {
+      const selX = headerWidth + getColumnX(minCol) * zoom - scrollX;
+      const selY = headerHeight + minRow * cellHeight - scrollY;
+      let selWidth = 0;
+      for (let col = minCol; col <= maxCol; col++) {
+        selWidth += getColumnWidth(col);
+      }
+      const selHeight = (maxRow - minRow + 1) * cellHeight;
+      ctx.strokeRect(selX, selY, selWidth, selHeight);
+    };
+
+    // Region 4: Scrollable area
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(headerWidth + frozenWidth, headerHeight + frozenHeight,
+             cssWidth - headerWidth - frozenWidth, cssHeight - headerHeight - frozenHeight);
+    ctx.clip();
+    drawSelectionBorder(scrollLeft, scrollTop);
+    ctx.restore();
+
+    // Region 3: Frozen columns (scrollable rows)
+    if (frozenColumns > 0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(headerWidth, headerHeight + frozenHeight, frozenWidth, cssHeight - headerHeight - frozenHeight);
+      ctx.clip();
+      drawSelectionBorder(0, scrollTop);
+      ctx.restore();
+    }
+
+    // Region 2: Frozen rows (scrollable columns)
+    if (frozenRows > 0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(headerWidth + frozenWidth, headerHeight, cssWidth - headerWidth - frozenWidth, frozenHeight);
+      ctx.clip();
+      drawSelectionBorder(scrollLeft, 0);
+      ctx.restore();
+    }
+
+    // Region 1: Frozen corner
+    if (frozenRows > 0 && frozenColumns > 0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(headerWidth, headerHeight, frozenWidth, frozenHeight);
+      ctx.clip();
+      drawSelectionBorder(0, 0);
+      ctx.restore();
+    }
+
+    ctx.strokeStyle = CELL_BORDER;
+    ctx.lineWidth = DEFAULT_BORDER_WIDTH;
+  }
+
   // Draw highlighted cells borders (formula reference mode) with marching ants and different colors per reference
   if (highlightedCells && highlightedCells.length > 0) {
     ctx.setLineDash(DASH_PATTERN);

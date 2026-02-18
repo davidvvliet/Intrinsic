@@ -1,0 +1,138 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal {
+  background-color: #ffffef;
+  padding: 28px;
+  border-radius: 0;
+  max-width: 400px;
+  width: 90%;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  position: relative;
+}
+
+.closeButton {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #000000;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.closeButton:hover {
+  opacity: 1;
+}
+
+.title {
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #000000;
+  margin: 0 0 24px 0;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #000000;
+}
+
+.input {
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 0;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  background: #ffffff;
+  color: #000000;
+  outline: none;
+}
+
+.input:focus {
+  border-color: #000000;
+}
+
+.colorPicker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.colorButton {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.colorButton:hover {
+  transform: scale(1.1);
+}
+
+.colorButtonSelected {
+  border-color: #000000;
+}
+
+.error {
+  color: #cc0000;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+}
+
+.buttonGroup {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.createButton {
+  padding: 10px 20px;
+  background-color: #000000;
+  color: #ffffff;
+  border: none;
+  border-radius: 0;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.createButton:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+.createButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
