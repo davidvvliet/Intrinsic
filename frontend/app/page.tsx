@@ -21,7 +21,7 @@ export default function Landing() {
       {/* Row 2: Hero section */}
       <div className={pageStyles.heroSection}>
         <div className={pageStyles.heroText}>Unlock intrinsic value</div>
-        <div className={pageStyles.heroSubheader}>Automated fundamental analysis with verified SEC data</div>
+        <div className={pageStyles.heroSubheader}>Automated financial modeling with verified SEC data</div>
         <div className={pageStyles.heroButtons}>
           <button className={pageStyles.heroButtonFilled}>Get started</button>
           <button className={pageStyles.heroButtonTransparent}>Book a demo</button>
