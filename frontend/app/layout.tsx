@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   applicationName: 'Intrinsic',
   authors: [{ name: 'MarketRadar Intelligence, Corp.' }],
   category: 'Financial Technology',
-  themeColor: '#FFFFE3',
+  themeColor: '#FFFFEF',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

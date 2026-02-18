@@ -74,7 +74,7 @@
   align-items: center;
   padding-right: 4px;
   padding-left: 16px;
-  background: linear-gradient(to right, transparent, #ffffe3 40%);
+  background: linear-gradient(to right, transparent, #ffffef 40%);
   opacity: 0;
   transition: opacity 0.1s ease-in-out;
 }

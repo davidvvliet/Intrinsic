@@ -10,7 +10,7 @@
   gap: 2rem;
   padding: 0 2rem;
   border-bottom: 1px solid rgba(0, 0, 0, 0.2);
-  background-color: #ffffe3;
+  background-color: #ffffef;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   z-index: 1000;

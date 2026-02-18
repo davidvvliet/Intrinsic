@@ -698,12 +698,12 @@ export function drawGrid({
       ctx.fillRect(x, 0, cellWidth, headerHeight);
     }
 
-    // Draw only left, right, and bottom borders (no top border)
+    // Draw only left and right borders (internal dividers)
     ctx.beginPath();
-    ctx.moveTo(x, 0); // Start at top-left
+    ctx.moveTo(x, 0);
     ctx.lineTo(x, headerHeight); // Left border
-    ctx.lineTo(x + cellWidth, headerHeight); // Bottom border
-    ctx.lineTo(x + cellWidth, 0); // Right border
+    ctx.moveTo(x + cellWidth, 0);
+    ctx.lineTo(x + cellWidth, headerHeight); // Right border
     ctx.stroke();
     ctx.fillStyle = TEXT_COLOR;
     ctx.fillText(getColumnLabel(col), x + cellWidth / 2, headerHeight / 2);
@@ -719,7 +719,15 @@ export function drawGrid({
       ctx.fillRect(0, y, headerWidth, cellHeight);
     }
 
-    ctx.strokeRect(0, y, headerWidth, cellHeight);
+    // Draw only top, bottom, and left borders (internal dividers)
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(headerWidth, y); // Top border
+    ctx.moveTo(0, y);
+    ctx.lineTo(0, y + cellHeight); // Left border
+    ctx.moveTo(0, y + cellHeight);
+    ctx.lineTo(headerWidth, y + cellHeight); // Bottom border
+    ctx.stroke();
     ctx.fillStyle = TEXT_COLOR;
     ctx.fillText(String(row + 1), headerWidth / 2, y + cellHeight / 2);
   };
@@ -785,6 +793,16 @@ export function drawGrid({
   ctx.lineTo(0, headerHeight); // Left border
   ctx.lineTo(headerWidth, headerHeight); // Bottom border
   ctx.lineTo(headerWidth, 0); // Right border
+  ctx.stroke();
+
+  // Draw header/cell boundary borders (unclipped, on top)
+  ctx.strokeStyle = HEADER_BORDER;
+  ctx.lineWidth = DEFAULT_BORDER_WIDTH;
+  ctx.beginPath();
+  ctx.moveTo(headerWidth, headerHeight);
+  ctx.lineTo(cssWidth, headerHeight); // Bottom of column headers
+  ctx.moveTo(headerWidth, headerHeight);
+  ctx.lineTo(headerWidth, cssHeight); // Right of row headers
   ctx.stroke();
 
   // Draw frozen pane dividers

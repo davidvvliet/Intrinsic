@@ -7,17 +7,17 @@ export const NUM_COLS = 50;
 // Headers
 export const HEADER_WIDTH = 50;
 export const HEADER_HEIGHT = CELL_HEIGHT;
-export const HEADER_BG = '#e8e8c8';
+export const HEADER_BG = '#f2f2e3';
 
 // Colors
-export const CANVAS_BG = '#ffffe3';
+export const CANVAS_BG = '#ffffef';
 export const TEXT_COLOR = '#000000';
 export const SELECTION_HIGHLIGHT = 'rgba(0, 100, 200, 0.1)';
 export const HEADER_SELECTION_HIGHLIGHT = 'rgba(0, 100, 200, 0.2)';
 export const EDITING_OUTLINE = 'rgba(0, 100, 200, 0.3)';
 export const ACTIVE_CELL_BORDER = '#0064c8';
 export const CELL_BORDER = 'rgba(0, 0, 0, 0.2)';
-export const HEADER_BORDER = 'rgba(0, 0, 0, 0.3)';
+export const HEADER_BORDER = 'rgba(0, 0, 0, 0.4)';
 export const POINTING_SELECTION_BORDER = '#8b5cf6';
 export const POINTING_SELECTION_HIGHLIGHT = 'rgba(200, 180, 240, 0.3)';
 
