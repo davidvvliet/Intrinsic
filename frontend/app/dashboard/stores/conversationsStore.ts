@@ -40,11 +40,13 @@ const createDefaultConversation = (): Conversation => ({
   createdAt: Date.now(),
 });
 
+const initialConversation = createDefaultConversation();
+
 export const useConversationsStore = create<ConversationsStore>()(
   persist(
     (set, get) => ({
-      conversations: [createDefaultConversation()],
-      activeConversationId: null,
+      conversations: [initialConversation],
+      activeConversationId: initialConversation.id,
 
       createConversation: () => {
         const state = get();

@@ -59,23 +59,23 @@
 
 .buttonCircle {
   border: 2px solid #000000;
-  background-color: #f0f0d0;
+  background-color: #f2f2e3;
   opacity: 1;
 }
 
 .buttonCircle:hover:not(.buttonCircleEmpty):not(.buttonCircleDisabled):not(.buttonCircleLoading) {
-  background-color: #e0e0c0;
+  background-color: #eaeadc;
 }
 
 .buttonCircleEmpty {
   border: none;
-  background-color: #d0d0b0;
+  background-color: #e0e0d0;
   cursor: not-allowed;
 }
 
 .buttonCircleLoading {
   border: 2px solid #000000;
-  background-color: #f0f0d0;
+  background-color: #f2f2e3;
   opacity: 0.5;
 }
 

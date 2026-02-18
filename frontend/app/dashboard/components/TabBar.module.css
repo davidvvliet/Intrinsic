@@ -80,12 +80,12 @@
 }
 
 .tab:hover .closeButtonWrapper {
-  background: linear-gradient(to right, transparent, #f2f2d0 40%);
+  background: linear-gradient(to right, transparent, #f2f2e3 40%);
   opacity: 1;
 }
 
 .tabActive .closeButtonWrapper {
-  background: linear-gradient(to right, transparent, #eaeac5 40%);
+  background: linear-gradient(to right, transparent, #eaeadc 40%);
 }
 
 .closeButton {
