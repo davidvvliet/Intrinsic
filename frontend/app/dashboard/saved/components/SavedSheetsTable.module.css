@@ -20,7 +20,7 @@
 }
 
 .deleteHeader {
-  width: 60px;
+  text-align: center;
 }
 
 .tableRow {
@@ -129,10 +129,36 @@
   font-size: 13px;
 }
 
+/* Export cell */
+.exportHeader {
+  text-align: center;
+}
+
+.exportCell {
+  text-align: center;
+}
+
+.exportButton {
+  background: transparent;
+  border: none;
+  color: #000000;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+  margin: 0 auto;
+}
+
+.exportButton:hover {
+  opacity: 1;
+}
+
 /* Delete cell */
 .deleteCell {
   text-align: center;
-  width: 60px;
 }
 
 .deleteButton {

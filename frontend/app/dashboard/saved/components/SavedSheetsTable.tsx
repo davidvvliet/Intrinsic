@@ -9,6 +9,7 @@ interface SavedSheetsTableProps {
   lists: SavedList[];
   onSheetClick: (sheet: SavedSheet) => void;
   onDelete: (sheetId: string) => void;
+  onExport: (sheetId: string) => void;
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -27,7 +28,7 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-export default function SavedSheetsTable({ sheets, lists, onSheetClick, onDelete }: SavedSheetsTableProps) {
+export default function SavedSheetsTable({ sheets, lists, onSheetClick, onDelete, onExport }: SavedSheetsTableProps) {
   if (sheets.length === 0) {
     return <div className={styles.emptyState}>No sheets found</div>;
   }
@@ -43,6 +44,7 @@ export default function SavedSheetsTable({ sheets, lists, onSheetClick, onDelete
           <th className={styles.headerCell}>Name</th>
           <th className={styles.headerCell}>List</th>
           <th className={styles.headerCell}>Modified</th>
+          <th className={`${styles.headerCell} ${styles.exportHeader}`}>Export</th>
           <th className={`${styles.headerCell} ${styles.deleteHeader}`}></th>
         </tr>
       </thead>
@@ -82,6 +84,18 @@ export default function SavedSheetsTable({ sheets, lists, onSheetClick, onDelete
               </td>
               <td className={`${styles.cell} ${styles.modifiedCell}`}>
                 {formatRelativeTime(sheet.updated_at)}
+              </td>
+              <td className={`${styles.cell} ${styles.exportCell}`} onClick={(e) => e.stopPropagation()}>
+                <button
+                  className={styles.exportButton}
+                  title="Export sheet"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onExport(sheet.id);
+                  }}
+                >
+                  <img src="/export.svg" alt="Export" width="18" height="18" />
+                </button>
               </td>
               <td className={`${styles.cell} ${styles.deleteCell}`} onClick={(e) => e.stopPropagation()}>
                 <button
