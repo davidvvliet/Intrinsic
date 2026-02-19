@@ -1,0 +1,90 @@
+.card {
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 0;
+  overflow: hidden;
+  background: #fff;
+  aspect-ratio: 5 / 3;
+}
+
+.thumbnail {
+  width: 100%;
+  height: 100%;
+  background: #f5f5e8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #f5f5e8 0%, #e8e8d8 100%);
+}
+
+.bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: rgba(255, 255, 240, 0.9);
+}
+
+.name {
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #000;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.useButton {
+  padding: 6px 12px;
+  border: 1px solid #000;
+  border-radius: 0;
+  background: #000;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+}
+
+.useButton:hover {
+  background: #333;
+}
+
+.deleteButton {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: #666;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deleteButton:hover {
+  color: #cc0000;
+}

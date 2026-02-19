@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.chat import router as chat_router
 from app.api.sheets import router as sheets_router
 from app.api.lists import router as lists_router
+from app.api.templates import router as templates_router
 from app.api.sec import load_company_tickers
 from app.storage.async_db import get_pool, close_pool as close_async_pool
 from app.storage.search_db import close_pool as close_search_pool
@@ -20,6 +21,7 @@ app.add_middleware(
 app.include_router(chat_router, prefix="/api")
 app.include_router(sheets_router, prefix="/api")
 app.include_router(lists_router, prefix="/api")
+app.include_router(templates_router, prefix="/api")
 
 
 @app.on_event("startup")

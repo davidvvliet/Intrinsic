@@ -18,3 +18,17 @@
   text-align: center;
   padding-top: 65px;
 }
+
+.loading {
+  text-align: center;
+  color: #000000;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  padding: 40px 0;
+}
+
+.error {
+  text-align: center;
+  color: #cc0000;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  padding: 40px 0;
+}

@@ -209,6 +209,9 @@ def extract_metric(facts: dict, metric: str, periods: str = "annual") -> list[di
     # Try each possible tag name for this metric
     tag_names = METRIC_MAPPINGS.get(metric, [metric])
 
+    # Collect from ALL matching tags, dedupe by year keeping most recently filed
+    seen = {}
+
     for tag_name in tag_names:
         if tag_name not in us_gaap:
             continue
@@ -227,11 +230,6 @@ def extract_metric(facts: dict, metric: str, periods: str = "annual") -> list[di
 
         if not values:
             continue
-
-        # Filter by period type
-        # FY = Full Year (annual), Q1/Q2/Q3/Q4 = Quarterly
-        results = []
-        seen = {}  # Dedupe by actual year (from end date), keep most recently filed
 
         for entry in values:
             fp = entry.get("fp")  # Fiscal period (FY, Q1, Q2, Q3, Q4)
@@ -270,14 +268,13 @@ def extract_metric(facts: dict, metric: str, periods: str = "annual") -> list[di
                 if periods == "quarterly":
                     seen[key]["quarter"] = fp
 
-        results = list(seen.values())
+    results = list(seen.values())
 
-        if results:
-            # Sort by year (and quarter if applicable) descending
-            results.sort(key=lambda x: (x["year"], x.get("quarter", "FY")), reverse=True)
-            return results
+    if results:
+        # Sort by year (and quarter if applicable) descending
+        results.sort(key=lambda x: (x["year"], x.get("quarter", "FY")), reverse=True)
 
-    return []
+    return results
 
 
 async def get_financial_data(

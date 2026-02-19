@@ -1,15 +1,14 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
 import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
 import { useAuthFetch } from '../../hooks/useAuthFetch';
+import { useSheetRouter } from '../../hooks/useSheetRouter';
 import { NUM_ROWS, NUM_COLS, AUTO_SAVE_DELAY_MS } from './config';
 import type { CellFormat, CellType } from './types';
 
 export function useSheetPersistence() {
   const { fetchWithAuth } = useAuthFetch();
+  const { updateFetchId, updateSheetName } = useSheetRouter();
   const hasLoadedRef = useRef<string | null>(null);
-  const searchParams = useSearchParams();
-  const router = useRouter();
 
   // Subscribe to store state
   const cellData = useSpreadsheetStore(state => state.cellData);
@@ -34,13 +33,13 @@ export function useSheetPersistence() {
   const setInputValue = useSpreadsheetStore(state => state.setInputValue);
   const setIsEditing = useSpreadsheetStore(state => state.setIsEditing);
   const setCopiedRange = useSpreadsheetStore(state => state.setCopiedRange);
-  const setSheets = useSpreadsheetStore(state => state.setSheets);
   const setColumnWidthsBySheet = useSpreadsheetStore(state => state.setColumnWidthsBySheet);
   const setFrozenRowsBySheet = useSpreadsheetStore(state => state.setFrozenRowsBySheet);
   const setFrozenColumnsBySheet = useSpreadsheetStore(state => state.setFrozenColumnsBySheet);
 
-  // Get sheet ID from URL (don't generate until first save)
-  const sheetIdFromUrl = searchParams.get('sheet');
+  // Get current sheet's fetchId
+  const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
+  const currentFetchId = activeSheet?.fetchId || null;
 
   // Convert Maps to JSON format for API
   const serializeSheetData = useCallback(() => {
@@ -57,16 +56,12 @@ export function useSheetPersistence() {
       formatting[key] = format;
     });
 
-    // Get current sheet name
-    const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
-    const name = activeSheet?.name || 'Untitled';
+    const sheetForName = sheets.find(s => s.sheetId === activeSheetId);
+    const name = sheetForName?.name || 'Untitled';
 
-    // Get per-sheet settings
     const columnWidthsForSheet = columnWidthsBySheet.get(activeSheetId || '') || new Map();
     const frozenRows = frozenRowsBySheet.get(activeSheetId || '') || 0;
     const frozenColumns = frozenColumnsBySheet.get(activeSheetId || '') || 0;
-
-    // Convert columnWidths Map to array format for JSON
     const columnWidthsArray: [number, number][] = Array.from(columnWidthsForSheet.entries());
 
     return {
@@ -82,18 +77,17 @@ export function useSheetPersistence() {
     };
   }, [cellData, cellFormat, sheets, activeSheetId, columnWidthsBySheet, frozenRowsBySheet, frozenColumnsBySheet]);
 
-  // Save batch of dirty cells to server
+  // Save sheet to server
   const saveBatch = useCallback(async () => {
     if (dirtyCells.size === 0 && !dirtySettings) return;
+    if (!activeSheetId) return;
 
     const sheetData = serializeSheetData();
+    let returnedFetchId: string;
 
-    let response: Response;
-    let returnedSheetId: string;
-
-    if (!sheetIdFromUrl) {
-      // First save - create new sheet via POST
-      response = await fetchWithAuth('/api/sheets', {
+    if (!currentFetchId) {
+      // First save - create new sheet
+      const response = await fetchWithAuth('/api/sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sheetData),
@@ -104,10 +98,13 @@ export function useSheetPersistence() {
       }
 
       const result = await response.json();
-      returnedSheetId = result.id;
+      returnedFetchId = result.id;
+
+      // Update fetchId via router hook
+      updateFetchId(activeSheetId, returnedFetchId);
     } else {
-      // Update existing sheet via PUT
-      response = await fetchWithAuth(`/api/sheets/${sheetIdFromUrl}`, {
+      // Update existing sheet
+      const response = await fetchWithAuth(`/api/sheets/${currentFetchId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sheetData),
@@ -117,69 +114,22 @@ export function useSheetPersistence() {
         throw new Error(`Failed to save sheet: ${response.statusText}`);
       }
 
-      const result = await response.json();
-      returnedSheetId = result.id;
+      returnedFetchId = currentFetchId;
     }
 
-    // Mark as saved after successful save
     markSaved();
-
-    // Update URL with sheet ID (from response for new sheets, or existing for updates)
-    router.replace(`/dashboard?sheet=${returnedSheetId}`);
-
-    // Update fetchId in localStorage for the active sheet
-    if (activeSheetId) {
-      try {
-        const stored = localStorage.getItem('spreadsheet_sheets');
-        if (stored) {
-        const sheets = JSON.parse(stored);
-        const activeSheetIndex = sheets.findIndex((s: { sheetId: string }) => s.sheetId === activeSheetId);
-        if (activeSheetIndex !== -1) {
-          sheets[activeSheetIndex].fetchId = returnedSheetId;
-          localStorage.setItem('spreadsheet_sheets', JSON.stringify(sheets));
-          
-          // Also update React state
-          setSheets(prevSheets => {
-            const updated = [...prevSheets];
-            const index = updated.findIndex(s => s.sheetId === activeSheetId);
-            if (index !== -1) {
-              updated[index] = { ...updated[index], fetchId: returnedSheetId };
-            }
-            return updated;
-          });
-        }
-        }
-      } catch (err) {
-        console.error('Failed to update fetchId in localStorage:', err);
-      }
-    }
-  }, [dirtyCells, dirtySettings, serializeSheetData, markSaved, sheetIdFromUrl, router, activeSheetId, setSheets, fetchWithAuth]);
+  }, [dirtyCells, dirtySettings, activeSheetId, currentFetchId, serializeSheetData, markSaved, updateFetchId, fetchWithAuth]);
 
   // Load sheet from server
-  const loadSheet = useCallback(async (sheetIdToLoad: string) => {
-    const response = await fetchWithAuth(`/api/sheets/${sheetIdToLoad}`, {
+  const loadSheet = useCallback(async (fetchIdToLoad: string) => {
+    const response = await fetchWithAuth(`/api/sheets/${fetchIdToLoad}`, {
       method: 'GET',
     });
 
     if (!response.ok) {
-      // If sheet doesn't exist (404), that's fine - it's a new sheet
-      if (response.status === 404) {
-        return;
-      }
-      // Log full error details for debugging
-      console.error('Failed to load sheet:', {
-        sheetId: sheetIdToLoad,
-        status: response.status,
-        statusText: response.statusText,
-      });
-      // Try to get error body
-      try {
-        const errorBody = await response.text();
-        console.error('Error response body:', errorBody);
-      } catch (e) {
-        // Ignore if can't read body
-      }
-      throw new Error(`Failed to load sheet: ${response.status} ${response.statusText}`);
+      if (response.status === 404) return;
+      console.error('Failed to load sheet:', { fetchId: fetchIdToLoad, status: response.status });
+      throw new Error(`Failed to load sheet: ${response.status}`);
     }
 
     const sheet = await response.json();
@@ -190,10 +140,7 @@ export function useSheetPersistence() {
     const newCellData = new Map<string, { raw: string; type: CellType }>();
     if (data.cells) {
       Object.entries(data.cells).forEach(([key, value]: [string, any]) => {
-        newCellData.set(key, {
-          raw: value.raw,
-          type: value.type,
-        });
+        newCellData.set(key, { raw: value.raw, type: value.type });
       });
     }
 
@@ -205,9 +152,8 @@ export function useSheetPersistence() {
       });
     }
 
-    // Deserialize settings (columnWidths, freeze panes)
+    // Deserialize settings
     if (data.settings && activeSheetId) {
-      // Restore columnWidths for this sheet
       if (data.settings.columnWidths) {
         const widthsMap = new Map<number, number>(data.settings.columnWidths);
         setColumnWidthsBySheet(prev => {
@@ -217,7 +163,6 @@ export function useSheetPersistence() {
         });
       }
 
-      // Restore freeze panes for this sheet
       if (typeof data.settings.frozenRows === 'number') {
         setFrozenRowsBySheet(prev => {
           const next = new Map(prev);
@@ -235,15 +180,11 @@ export function useSheetPersistence() {
       }
     }
 
-    // Set current state
+    // Set state
     setCellData(newCellData);
     setCellFormat(newCellFormat);
-
-    // Set baseline (what was loaded = last saved state)
     setBaselineData(new Map(newCellData));
     setBaselineFormat(new Map(newCellFormat));
-
-    // Clear dirty cells
     setDirtyCells(new Set());
 
     // Clear UI state
@@ -253,26 +194,13 @@ export function useSheetPersistence() {
     setIsEditing(false);
     setCopiedRange(null);
 
-    // Update URL to match loaded sheet
-    router.replace(`/dashboard?sheet=${sheetIdToLoad}`);
-
-    // Update sheet name from backend if it differs
+    // Update sheet name from backend
     if (backendName) {
-      setSheets(prevSheets => {
-        const updated = prevSheets.map(s => {
-          if (s.fetchId === sheetIdToLoad && s.name !== backendName) {
-            return { ...s, name: backendName };
-          }
-          return s;
-        });
-        // Also update localStorage
-        localStorage.setItem('spreadsheet_sheets', JSON.stringify(updated));
-        return updated;
-      });
+      updateSheetName(fetchIdToLoad, backendName);
     }
-  }, [activeSheetId, setCellData, setCellFormat, setBaselineData, setBaselineFormat, setDirtyCells, setSelection, setHighlightedCells, setInputValue, setIsEditing, setCopiedRange, router, setSheets, setColumnWidthsBySheet, setFrozenRowsBySheet, setFrozenColumnsBySheet, fetchWithAuth]);
+  }, [activeSheetId, setCellData, setCellFormat, setBaselineData, setBaselineFormat, setDirtyCells, setSelection, setHighlightedCells, setInputValue, setIsEditing, setCopiedRange, setColumnWidthsBySheet, setFrozenRowsBySheet, setFrozenColumnsBySheet, updateSheetName, fetchWithAuth]);
 
-  // Auto-save: debounced save after delay of inactivity
+  // Auto-save
   useEffect(() => {
     if (dirtyCells.size === 0 && !dirtySettings) return;
 
@@ -285,49 +213,33 @@ export function useSheetPersistence() {
     return () => clearTimeout(timer);
   }, [dirtyCells, dirtySettings, saveBatch]);
 
-  // Watch activeSheetId and load data when it changes
+  // Load data when activeSheetId changes
   useEffect(() => {
     if (!activeSheetId) return;
-
-    // Skip if we already loaded this sheet (prevents reload on token refresh)
     if (hasLoadedRef.current === activeSheetId) return;
 
-    // Find active sheet from state
-    const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
+    const sheet = sheets.find(s => s.sheetId === activeSheetId);
+    if (!sheet) return;
 
-    if (!activeSheet) return;
-
-    // Mark as loaded for this sheet
     hasLoadedRef.current = activeSheetId;
 
-    // Clear cell data immediately when switching sheets (before async load)
-    // This prevents old content from showing briefly
+    // Clear cell data immediately
     setCellData(new Map());
     setCellFormat(new Map());
     setBaselineData(new Map());
     setBaselineFormat(new Map());
     setDirtyCells(new Set());
-    
-    // Clear UI state
     setSelection(null);
     setHighlightedCells(null);
     setInputValue('');
     setIsEditing(false);
     setCopiedRange(null);
 
-    if (activeSheet.fetchId) {
-      // Sheet has backend ID - load it
-      console.log('Loading sheet with fetchId:', activeSheet.fetchId, 'for sheetId:', activeSheetId);
-      loadSheet(activeSheet.fetchId).catch(err => {
+    if (sheet.fetchId) {
+      loadSheet(sheet.fetchId).catch(err => {
         console.error('Load sheet failed:', err);
       });
-    } else {
-      console.log('No fetchId for sheet:', activeSheetId, '- redirecting to /dashboard');
-      router.replace('/dashboard');
     }
-
-    // Save activeSheetId to localStorage
-    localStorage.setItem('spreadsheet_last_active_sheet_id', activeSheetId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSheetId]);
 }
