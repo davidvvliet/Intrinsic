@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import DashboardNavbar from '../components/DashboardNavbar';
 import CreateListModal from './components/CreateListModal';
-import SavedSheetsTable from './components/SavedSheetsTable';
+import SavedSheetsTable, { ExportFormat } from './components/SavedSheetsTable';
 import { useSavedLists } from './hooks/useSavedLists';
 import { useSavedSheets, SavedSheet } from './hooks/useSavedSheets';
 import { useAuthFetch } from '../hooks/useAuthFetch';
@@ -84,7 +84,7 @@ export default function SavedPage() {
     }
   };
 
-  const handleExportSheet = async (sheetId: string) => {
+  const handleExportSheet = async (sheetId: string, format: ExportFormat) => {
     const sheet = sheets.find(s => s.id === sheetId);
 
     try {
@@ -97,53 +97,77 @@ export default function SavedPage() {
       const sheetData = await response.json();
       const cells = sheetData.data?.cells || {};
 
-      // Convert "row,col" format to worksheet
-      const ws: XLSX.WorkSheet = {};
+      // Find dimensions
       let maxRow = 0;
       let maxCol = 0;
-
-      Object.entries(cells).forEach(([key, cellData]: [string, any]) => {
+      Object.keys(cells).forEach(key => {
         const [rowStr, colStr] = key.split(',');
         const row = parseInt(rowStr, 10);
         const col = parseInt(colStr, 10);
-
-        // Track dimensions
         if (row > maxRow) maxRow = row;
         if (col > maxCol) maxCol = col;
-
-        // Convert col number to letter (0=A, 1=B, etc.)
-        const colLetter = col < 26
-          ? String.fromCharCode(65 + col)
-          : String.fromCharCode(65 + Math.floor(col / 26) - 1) + String.fromCharCode(65 + (col % 26));
-
-        // Excel is 1-indexed
-        const cellRef = `${colLetter}${row + 1}`;
-
-        // Set cell value
-        const rawValue = cellData.raw;
-        if (cellData.type === 'formula') {
-          // Remove leading '=' for SheetJS (it adds it back)
-          const formula = rawValue.startsWith('=') ? rawValue.substring(1) : rawValue;
-          ws[cellRef] = { f: formula };
-        } else if (cellData.type === 'number' && !isNaN(parseFloat(rawValue))) {
-          ws[cellRef] = { v: parseFloat(rawValue), t: 'n' };
-        } else {
-          ws[cellRef] = { v: rawValue, t: 's' };
-        }
       });
 
-      // Set worksheet range
-      const endCol = maxCol < 26
-        ? String.fromCharCode(65 + maxCol)
-        : String.fromCharCode(65 + Math.floor(maxCol / 26) - 1) + String.fromCharCode(65 + (maxCol % 26));
-      ws['!ref'] = `A1:${endCol}${maxRow + 1}`;
+      if (format === 'csv') {
+        // CSV export
+        const lines: string[] = [];
+        for (let r = 0; r <= maxRow; r++) {
+          const row: string[] = [];
+          for (let c = 0; c <= maxCol; c++) {
+            const cellData = cells[`${r},${c}`];
+            let value = cellData?.raw || '';
+            // Escape quotes and wrap if contains comma/quote/newline
+            if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+              value = `"${value.replace(/"/g, '""')}"`;
+            }
+            row.push(value);
+          }
+          lines.push(row.join(','));
+        }
+        const csvContent = lines.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${sheet?.name || 'export'}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+      } else {
+        // XLSX export
+        const ws: XLSX.WorkSheet = {};
 
-      // Create workbook and download
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+        Object.entries(cells).forEach(([key, cellData]: [string, any]) => {
+          const [rowStr, colStr] = key.split(',');
+          const row = parseInt(rowStr, 10);
+          const col = parseInt(colStr, 10);
 
-      const fileName = `${sheet?.name || 'export'}.xlsx`;
-      XLSX.writeFile(wb, fileName);
+          const colLetter = col < 26
+            ? String.fromCharCode(65 + col)
+            : String.fromCharCode(65 + Math.floor(col / 26) - 1) + String.fromCharCode(65 + (col % 26));
+
+          const cellRef = `${colLetter}${row + 1}`;
+
+          const rawValue = cellData.raw;
+          if (cellData.type === 'formula') {
+            const formula = rawValue.startsWith('=') ? rawValue.substring(1) : rawValue;
+            ws[cellRef] = { f: formula };
+          } else if (cellData.type === 'number' && !isNaN(parseFloat(rawValue))) {
+            ws[cellRef] = { v: parseFloat(rawValue), t: 'n' };
+          } else {
+            ws[cellRef] = { v: rawValue, t: 's' };
+          }
+        });
+
+        const endCol = maxCol < 26
+          ? String.fromCharCode(65 + maxCol)
+          : String.fromCharCode(65 + Math.floor(maxCol / 26) - 1) + String.fromCharCode(65 + (maxCol % 26));
+        ws['!ref'] = `A1:${endCol}${maxRow + 1}`;
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+
+        XLSX.writeFile(wb, `${sheet?.name || 'export'}.xlsx`);
+      }
     } catch (err) {
       console.error('Failed to export sheet:', err);
       alert('Failed to export sheet. Please try again.');

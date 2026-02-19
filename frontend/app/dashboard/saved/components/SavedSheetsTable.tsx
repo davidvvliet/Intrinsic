@@ -1,15 +1,18 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import styles from "./SavedSheetsTable.module.css";
 import { SavedSheet } from "../hooks/useSavedSheets";
 import { SavedList } from "../hooks/useSavedLists";
+
+export type ExportFormat = 'xlsx' | 'csv';
 
 interface SavedSheetsTableProps {
   sheets: SavedSheet[];
   lists: SavedList[];
   onSheetClick: (sheet: SavedSheet) => void;
   onDelete: (sheetId: string) => void;
-  onExport: (sheetId: string) => void;
+  onExport: (sheetId: string, format: ExportFormat) => void;
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -29,12 +32,30 @@ function formatRelativeTime(dateString: string): string {
 }
 
 export default function SavedSheetsTable({ sheets, lists, onSheetClick, onDelete, onExport }: SavedSheetsTableProps) {
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   if (sheets.length === 0) {
     return <div className={styles.emptyState}>No sheets found</div>;
   }
 
   const getListsForSheet = (listIds: number[]): SavedList[] => {
     return listIds.map(id => lists.find(l => l.id === id)).filter((l): l is SavedList => l !== undefined);
+  };
+
+  const handleExport = (sheetId: string, format: ExportFormat) => {
+    setOpenDropdown(null);
+    onExport(sheetId, format);
   };
 
   return (
@@ -86,16 +107,24 @@ export default function SavedSheetsTable({ sheets, lists, onSheetClick, onDelete
                 {formatRelativeTime(sheet.updated_at)}
               </td>
               <td className={`${styles.cell} ${styles.exportCell}`} onClick={(e) => e.stopPropagation()}>
-                <button
-                  className={styles.exportButton}
-                  title="Export sheet"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onExport(sheet.id);
-                  }}
-                >
-                  <img src="/export.svg" alt="Export" width="18" height="18" />
-                </button>
+                <div className={styles.exportWrapper} ref={openDropdown === sheet.id ? dropdownRef : undefined}>
+                  <button
+                    className={styles.exportButton}
+                    title="Export sheet"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenDropdown(openDropdown === sheet.id ? null : sheet.id);
+                    }}
+                  >
+                    <img src="/export.svg" alt="Export" width="18" height="18" />
+                  </button>
+                  {openDropdown === sheet.id && (
+                    <div className={styles.exportDropdown}>
+                      <button onClick={() => handleExport(sheet.id, 'xlsx')}>Excel (.xlsx)</button>
+                      <button onClick={() => handleExport(sheet.id, 'csv')}>CSV (.csv)</button>
+                    </div>
+                  )}
+                </div>
               </td>
               <td className={`${styles.cell} ${styles.deleteCell}`} onClick={(e) => e.stopPropagation()}>
                 <button

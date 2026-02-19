@@ -1,6 +1,7 @@
 import json
 import secrets
 import io
+import csv
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from app.core.deps import get_workos_user
 from app.storage.async_db import execute_query, execute_query_one, execute_command
@@ -48,6 +49,45 @@ def parse_xlsx(file_content: bytes) -> Dict[str, Any]:
                     cells[key] = {"raw": str(cell.value), "type": "number"}
                 else:
                     cells[key] = {"raw": str(cell.value), "type": "text"}
+
+    return {
+        "cells": cells,
+        "dimensions": {
+            "rows": max(max_row + 1, 100),
+            "cols": max(max_col + 1, 26),
+        },
+    }
+
+
+def parse_csv(file_content: bytes) -> Dict[str, Any]:
+    """Parse CSV file and convert to our cell format."""
+    text = file_content.decode('utf-8')
+    reader = csv.reader(io.StringIO(text))
+
+    cells = {}
+    max_row = 0
+    max_col = 0
+
+    for row_idx, row in enumerate(reader):
+        for col_idx, value in enumerate(row):
+            max_row = max(max_row, row_idx)
+            max_col = max(max_col, col_idx)
+
+            if value is None or value == '':
+                continue
+
+            key = f"{row_idx},{col_idx}"
+
+            # Check for formula
+            if value.startswith('='):
+                cells[key] = {"raw": value, "type": "formula"}
+            else:
+                # Try to parse as number
+                try:
+                    float(value)
+                    cells[key] = {"raw": value, "type": "number"}
+                except ValueError:
+                    cells[key] = {"raw": value, "type": "text"}
 
     return {
         "cells": cells,
@@ -162,12 +202,16 @@ async def upload_template(
     file: UploadFile = File(...),
     user = Depends(get_workos_user)
 ):
-    """Upload and parse an xlsx file as a template."""
+    """Upload and parse an xlsx or csv file as a template."""
     user_id = user["id"]
 
     # Validate file type
-    if not file.filename or not file.filename.lower().endswith('.xlsx'):
-        raise HTTPException(status_code=400, detail="Only .xlsx files are supported")
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename required")
+
+    filename_lower = file.filename.lower()
+    if not (filename_lower.endswith('.xlsx') or filename_lower.endswith('.csv')):
+        raise HTTPException(status_code=400, detail="Only .xlsx and .csv files are supported")
 
     # Read file content
     content = await file.read()
@@ -179,11 +223,14 @@ async def upload_template(
             detail=f"File too large. Max size is 1MB, got {len(content) / 1024 / 1024:.2f}MB"
         )
 
-    # Parse xlsx
+    # Parse based on file type
     try:
-        data = parse_xlsx(content)
+        if filename_lower.endswith('.xlsx'):
+            data = parse_xlsx(content)
+        else:
+            data = parse_csv(content)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to parse xlsx: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
 
     # Validate parsed data size
     data_size = len(json.dumps(data).encode('utf-8'))
