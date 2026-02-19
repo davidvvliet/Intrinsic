@@ -18,10 +18,10 @@ export default function TemplatesPage() {
         method: 'POST',
       });
       if (!res.ok) {
-        throw new Error('Failed to create sheet from template');
+        throw new Error('Failed to create workspace from template');
       }
-      const { id } = await res.json();
-      window.open(`/dashboard?sheet=${id}`, '_blank');
+      const { workspace_id } = await res.json();
+      window.location.href = `/dashboard/workspace/${workspace_id}`;
     } catch (err) {
       console.error('Failed to use template:', err);
       alert('Failed to open template');

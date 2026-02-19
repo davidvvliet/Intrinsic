@@ -1,162 +1,175 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { ChatMessage } from '../types/chat';
 
 export interface Conversation {
   id: string;
+  workspaceId: string;
   title: string;
   messages: ChatMessage[];
   lastResponseId: string | null;
   summary: string | null;
   messageCountAtLastCompaction: number;
-  createdAt: number;
+  createdAt: string;
 }
 
 interface ConversationsState {
+  workspaceId: string | null;
   conversations: Conversation[];
   activeConversationId: string | null;
+  loading: boolean;
 }
 
 interface ConversationsActions {
-  createConversation: () => string;
-  deleteConversation: (id: string) => void;
+  setWorkspaceId: (workspaceId: string) => void;
+  setConversations: (conversations: Conversation[]) => void;
+  setLoading: (loading: boolean) => void;
+  addConversation: (conversation: Conversation) => void;
+  removeConversation: (id: string) => void;
   setActiveConversation: (id: string) => void;
   addMessage: (conversationId: string, message: ChatMessage) => void;
+  setMessages: (conversationId: string, messages: ChatMessage[]) => void;
   setLastResponseId: (conversationId: string, responseId: string) => void;
   clearLastResponseId: (conversationId: string) => void;
-  setSummary: (conversationId: string, summary: string) => void;
+  setSummary: (conversationId: string, summary: string, messageCount: number) => void;
   updateTitle: (conversationId: string, title: string) => void;
+  reset: () => void;
 }
 
 type ConversationsStore = ConversationsState & ConversationsActions;
 
-const createDefaultConversation = (): Conversation => ({
-  id: String(Date.now()),
-  title: 'New Chat',
-  messages: [],
-  lastResponseId: null,
-  summary: null,
-  messageCountAtLastCompaction: 0,
-  createdAt: Date.now(),
-});
+const initialState: ConversationsState = {
+  workspaceId: null,
+  conversations: [],
+  activeConversationId: null,
+  loading: true,
+};
 
-const initialConversation = createDefaultConversation();
+export const useConversationsStore = create<ConversationsStore>()((set, get) => ({
+  ...initialState,
 
-export const useConversationsStore = create<ConversationsStore>()(
-  persist(
-    (set, get) => ({
-      conversations: [initialConversation],
-      activeConversationId: initialConversation.id,
+  setWorkspaceId: (workspaceId: string) => {
+    const state = get();
+    if (state.workspaceId !== workspaceId) {
+      set({
+        workspaceId,
+        conversations: [],
+        activeConversationId: null,
+        loading: true,
+      });
+    }
+  },
 
-      createConversation: () => {
-        const state = get();
-        if (state.conversations.length >= 8) {
-          return state.activeConversationId || state.conversations[0]?.id || '';
-        }
-        const newConversation = createDefaultConversation();
-        set({
-          conversations: [...state.conversations, newConversation],
-          activeConversationId: newConversation.id,
-        });
-        return newConversation.id;
-      },
+  setConversations: (conversations: Conversation[]) => {
+    set({
+      conversations,
+      activeConversationId: conversations[0]?.id || null,
+      loading: false,
+    });
+  },
 
-      deleteConversation: (id: string) => {
-        const state = get();
-        const filtered = state.conversations.filter(c => c.id !== id);
+  setLoading: (loading: boolean) => {
+    set({ loading });
+  },
 
-        if (filtered.length === 0) {
-          const newConversation = createDefaultConversation();
-          set({
-            conversations: [newConversation],
-            activeConversationId: newConversation.id,
-          });
-          return;
-        }
+  addConversation: (conversation: Conversation) => {
+    const state = get();
+    if (state.conversations.length >= 8) return;
+    set({
+      conversations: [...state.conversations, conversation],
+      activeConversationId: conversation.id,
+    });
+  },
 
-        let newActiveId = state.activeConversationId;
-        if (state.activeConversationId === id) {
-          const deletedIndex = state.conversations.findIndex(c => c.id === id);
-          if (deletedIndex < filtered.length) {
-            newActiveId = filtered[deletedIndex].id;
-          } else {
-            newActiveId = filtered[filtered.length - 1].id;
-          }
-        }
+  removeConversation: (id: string) => {
+    const state = get();
+    const filtered = state.conversations.filter(c => c.id !== id);
 
-        set({
-          conversations: filtered,
-          activeConversationId: newActiveId,
-        });
-      },
+    let newActiveId = state.activeConversationId;
+    if (state.activeConversationId === id) {
+      const deletedIndex = state.conversations.findIndex(c => c.id === id);
+      if (filtered.length === 0) {
+        newActiveId = null;
+      } else if (deletedIndex < filtered.length) {
+        newActiveId = filtered[deletedIndex].id;
+      } else {
+        newActiveId = filtered[filtered.length - 1].id;
+      }
+    }
 
-      setActiveConversation: (id: string) => {
-        set({ activeConversationId: id });
-      },
+    set({
+      conversations: filtered,
+      activeConversationId: newActiveId,
+    });
+  },
 
-      addMessage: (conversationId: string, message: ChatMessage) => {
-        set(state => {
-          const conversations = state.conversations.map(conv => {
-            if (conv.id !== conversationId) return conv;
+  setActiveConversation: (id: string) => {
+    set({ activeConversationId: id });
+  },
 
-            const updatedConv = {
-              ...conv,
-              messages: [...conv.messages, message],
-            };
+  addMessage: (conversationId: string, message: ChatMessage) => {
+    set(state => {
+      const conversations = state.conversations.map(conv => {
+        if (conv.id !== conversationId) return conv;
+        return {
+          ...conv,
+          messages: [...conv.messages, message],
+        };
+      });
+      return { conversations };
+    });
+  },
 
-            // Auto-title on first user message
-            if (conv.messages.length === 0 && message.role === 'user') {
-              const title = message.content.slice(0, 25) + (message.content.length > 25 ? '...' : '');
-              updatedConv.title = title;
-            }
+  setMessages: (conversationId: string, messages: ChatMessage[]) => {
+    set(state => ({
+      conversations: state.conversations.map(conv =>
+        conv.id === conversationId
+          ? { ...conv, messages }
+          : conv
+      ),
+    }));
+  },
 
-            return updatedConv;
-          });
+  setLastResponseId: (conversationId: string, responseId: string) => {
+    set(state => ({
+      conversations: state.conversations.map(conv =>
+        conv.id === conversationId
+          ? { ...conv, lastResponseId: responseId }
+          : conv
+      ),
+    }));
+  },
 
-          return { conversations };
-        });
-      },
+  clearLastResponseId: (conversationId: string) => {
+    set(state => ({
+      conversations: state.conversations.map(conv =>
+        conv.id === conversationId
+          ? { ...conv, lastResponseId: null }
+          : conv
+      ),
+    }));
+  },
 
-      setLastResponseId: (conversationId: string, responseId: string) => {
-        set(state => ({
-          conversations: state.conversations.map(conv =>
-            conv.id === conversationId
-              ? { ...conv, lastResponseId: responseId }
-              : conv
-          ),
-        }));
-      },
+  setSummary: (conversationId: string, summary: string, messageCount: number) => {
+    set(state => ({
+      conversations: state.conversations.map(conv =>
+        conv.id === conversationId
+          ? { ...conv, summary, messageCountAtLastCompaction: messageCount }
+          : conv
+      ),
+    }));
+  },
 
-      clearLastResponseId: (conversationId: string) => {
-        set(state => ({
-          conversations: state.conversations.map(conv =>
-            conv.id === conversationId
-              ? { ...conv, lastResponseId: null }
-              : conv
-          ),
-        }));
-      },
+  updateTitle: (conversationId: string, title: string) => {
+    set(state => ({
+      conversations: state.conversations.map(conv =>
+        conv.id === conversationId
+          ? { ...conv, title }
+          : conv
+      ),
+    }));
+  },
 
-      setSummary: (conversationId: string, summary: string) => {
-        set(state => ({
-          conversations: state.conversations.map(conv =>
-            conv.id === conversationId
-              ? { ...conv, summary, messageCountAtLastCompaction: conv.messages.filter(m => m.role === 'user').length }
-              : conv
-          ),
-        }));
-      },
-
-      updateTitle: (conversationId: string, title: string) => {
-        set(state => ({
-          conversations: state.conversations.map(conv =>
-            conv.id === conversationId
-              ? { ...conv, title }
-              : conv
-          ),
-        }));
-      },
-    }),
-{ name: 'intrinsic_conversations' }
-  )
-);
+  reset: () => {
+    set(initialState);
+  },
+}));

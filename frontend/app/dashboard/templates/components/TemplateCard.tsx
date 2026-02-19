@@ -19,7 +19,12 @@ export default function TemplateCard({ template, onUse, onDelete }: TemplateCard
         )}
       </div>
       <div className={styles.bar}>
-        <span className={styles.name}>{template.name}</span>
+        <div className={styles.info}>
+          <span className={styles.name}>{template.name}</span>
+          {template.sheet_count > 1 && (
+            <span className={styles.sheetCount}>{template.sheet_count} sheets</span>
+          )}
+        </div>
         <div className={styles.buttons}>
           <button className={styles.useButton} onClick={() => onUse(template)}>
             Open

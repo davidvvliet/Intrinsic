@@ -36,6 +36,7 @@ interface SpreadsheetState {
   animatingRanges: CopiedRange[];
 
   // Sheet management
+  workspaceId: string | null;
   activeSheetId: string | null;
   sheets: SheetMetadata[];
 
@@ -74,6 +75,7 @@ interface SpreadsheetActions {
   setIsEditing: (editing: boolean | ((prev: boolean) => boolean)) => void;
   setCopiedRange: (range: CopiedRange | ((prev: CopiedRange) => CopiedRange)) => void;
   setAnimatingRanges: (ranges: CopiedRange[] | ((prev: CopiedRange[]) => CopiedRange[])) => void;
+  setWorkspaceId: (id: string | null) => void;
   setActiveSheetId: (id: string | null | ((prev: string | null) => string | null)) => void;
   setSheets: (sheets: SheetMetadata[] | ((prev: SheetMetadata[]) => SheetMetadata[])) => void;
   setColumnWidthsBySheet: (widths: Map<string, Map<number, number>> | ((prev: Map<string, Map<number, number>>) => Map<string, Map<number, number>>)) => void;
@@ -156,6 +158,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     isEditing: false,
     copiedRange: null,
     animatingRanges: [],
+    workspaceId: null,
     activeSheetId: null,
     sheets: [],
     columnWidths: new Map(),
@@ -226,6 +229,8 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       const newRanges = typeof ranges === 'function' ? ranges(state.animatingRanges) : ranges;
       return { animatingRanges: newRanges };
     }),
+
+    setWorkspaceId: (id) => set({ workspaceId: id }),
 
     setActiveSheetId: (id) => set(state => {
       const newId = typeof id === 'function' ? id(state.activeSheetId) : id;

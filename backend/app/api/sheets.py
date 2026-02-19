@@ -16,6 +16,7 @@ class SheetData(BaseModel):
     formatting: Optional[Dict[str, Any]] = None
     name: Optional[str] = None
     thumbnail: Optional[str] = None
+    workspace_id: Optional[str] = None
 
 
 class SheetResponse(BaseModel):
@@ -29,16 +30,27 @@ class SheetResponse(BaseModel):
 
 
 @router.get("/sheets")
-async def list_sheets(user = Depends(get_workos_user)):
-    """List all sheets for the user."""
+async def list_sheets(
+    workspace_id: Optional[str] = None,
+    user = Depends(get_workos_user)
+):
+    """List sheets for the user, optionally filtered by workspace."""
     user_id = user["id"]
 
-    rows = await execute_query(
-        """SELECT id, name, created_at, updated_at, list_ids, thumbnail
-           FROM sheets WHERE user_id = $1
-           ORDER BY updated_at DESC""",
-        user_id
-    )
+    if workspace_id:
+        rows = await execute_query(
+            """SELECT id, name, created_at, updated_at, list_ids, thumbnail, workspace_id
+               FROM sheets WHERE user_id = $1 AND workspace_id = $2
+               ORDER BY created_at ASC""",
+            user_id, workspace_id
+        )
+    else:
+        rows = await execute_query(
+            """SELECT id, name, created_at, updated_at, list_ids, thumbnail, workspace_id
+               FROM sheets WHERE user_id = $1
+               ORDER BY created_at ASC""",
+            user_id
+        )
 
     return [
         {
@@ -47,7 +59,8 @@ async def list_sheets(user = Depends(get_workos_user)):
             "created_at": row["created_at"].isoformat(),
             "updated_at": row["updated_at"].isoformat(),
             "list_ids": row["list_ids"] or [],
-            "thumbnail": row["thumbnail"]
+            "thumbnail": row["thumbnail"],
+            "workspace_id": row["workspace_id"]
         }
         for row in rows
     ]
@@ -109,12 +122,12 @@ async def create_sheet(
     # Create new sheet
     await execute_command(
         """
-        INSERT INTO sheets (id, user_id, name, data, thumbnail, updated_at)
-        VALUES ($1, $2, $3, $4::jsonb, $5, NOW())
+        INSERT INTO sheets (id, user_id, name, data, thumbnail, workspace_id, updated_at)
+        VALUES ($1, $2, $3, $4::jsonb, $5, $6, NOW())
         """,
-        sheet_id, user_id, sheet_data.name or "Untitled", data_jsonb, sheet_data.thumbnail
+        sheet_id, user_id, sheet_data.name or "Untitled", data_jsonb, sheet_data.thumbnail, sheet_data.workspace_id
     )
-    
+
     return {"status": "created", "id": sheet_id}
 
 

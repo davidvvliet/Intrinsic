@@ -14,8 +14,8 @@ export interface Template {
   name: string;
   thumbnail_url: string | null;
   is_default: boolean;
+  sheet_count: number;
   created_at: string | null;
-  data?: TemplateData;
 }
 
 export const MAX_TEMPLATE_SIZE_BYTES = 1 * 1024 * 1024; // 1MB

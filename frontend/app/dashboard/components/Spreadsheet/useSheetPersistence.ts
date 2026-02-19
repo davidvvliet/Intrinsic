@@ -17,6 +17,7 @@ export function useSheetPersistence() {
   const dirtySettings = useSpreadsheetStore(state => state.dirtySettings);
   const activeSheetId = useSpreadsheetStore(state => state.activeSheetId);
   const sheets = useSpreadsheetStore(state => state.sheets);
+  const workspaceId = useSpreadsheetStore(state => state.workspaceId);
   const columnWidthsBySheet = useSpreadsheetStore(state => state.columnWidthsBySheet);
   const frozenRowsBySheet = useSpreadsheetStore(state => state.frozenRowsBySheet);
   const frozenColumnsBySheet = useSpreadsheetStore(state => state.frozenColumnsBySheet);
@@ -90,7 +91,7 @@ export function useSheetPersistence() {
       const response = await fetchWithAuth('/api/sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sheetData),
+        body: JSON.stringify({ ...sheetData, workspace_id: workspaceId }),
       });
 
       if (!response.ok) {

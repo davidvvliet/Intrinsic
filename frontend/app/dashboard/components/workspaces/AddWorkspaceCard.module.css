@@ -1,0 +1,44 @@
+.card {
+  aspect-ratio: 5 / 3;
+  border: 1px dashed #000;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  background: transparent;
+  transition: background 0.2s;
+}
+
+.card:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.plus {
+  font-size: 48px;
+  font-weight: 300;
+  color: #000;
+}
+
+.label {
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 14px;
+  color: #000;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
