@@ -1,14 +1,19 @@
 import secrets
+import io
+import json
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from app.core.deps import get_workos_user
 from app.storage.async_db import execute_query, execute_query_one, execute_command
 from pydantic import BaseModel
 from typing import Optional
+from openpyxl import Workbook
 
 router = APIRouter()
 
 
 class CreateWorkspaceRequest(BaseModel):
+    id: Optional[str] = None
     name: Optional[str] = "Untitled"
 
 
@@ -22,7 +27,7 @@ async def list_workspaces(user=Depends(get_workos_user)):
     user_id = user["id"]
 
     rows = await execute_query(
-        """SELECT id, name, thumbnail_url, created_at, updated_at
+        """SELECT id, name, thumbnail_url, preview_data, created_at, updated_at
            FROM workspaces
            WHERE user_id = $1
            ORDER BY updated_at DESC""",
@@ -34,6 +39,7 @@ async def list_workspaces(user=Depends(get_workos_user)):
             "id": row["id"],
             "name": row["name"],
             "thumbnail_url": row["thumbnail_url"],
+            "preview_data": row["preview_data"],
             "created_at": row["created_at"].isoformat() if row["created_at"] else None,
             "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
         }
@@ -48,7 +54,7 @@ async def create_workspace(
 ):
     """Create a new workspace."""
     user_id = user["id"]
-    workspace_id = secrets.token_urlsafe(12)
+    workspace_id = body.id or secrets.token_urlsafe(12)
 
     row = await execute_query_one(
         """INSERT INTO workspaces (id, user_id, name)
@@ -147,3 +153,82 @@ async def delete_workspace(
     )
 
     return {"status": "deleted", "id": workspace_id}
+
+
+@router.get("/workspaces/{workspace_id}/export")
+async def export_workspace(
+    workspace_id: str,
+    user=Depends(get_workos_user)
+):
+    """Export workspace as XLSX file with all sheets."""
+    user_id = user["id"]
+
+    # Get workspace
+    workspace = await execute_query_one(
+        "SELECT id, name FROM workspaces WHERE id = $1 AND user_id = $2",
+        workspace_id, user_id
+    )
+
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    # Get all sheets with data
+    sheets = await execute_query(
+        """SELECT id, name, data
+           FROM sheets
+           WHERE workspace_id = $1 AND user_id = $2
+           ORDER BY created_at ASC""",
+        workspace_id, user_id
+    )
+
+    # Create workbook
+    wb = Workbook()
+    wb.remove(wb.active)  # Remove default sheet
+
+    for sheet in sheets:
+        ws = wb.create_sheet(title=sheet["name"][:31])  # Excel sheet names max 31 chars
+
+        data = sheet["data"]
+        if isinstance(data, str):
+            data = json.loads(data)
+
+        cells = data.get("cells", {})
+
+        for key, cell_data in cells.items():
+            row_str, col_str = key.split(",")
+            row = int(row_str) + 1  # Excel is 1-indexed
+            col = int(col_str) + 1
+
+            raw_value = cell_data.get("raw", "")
+            cell_type = cell_data.get("type", "text")
+
+            cell = ws.cell(row=row, column=col)
+
+            if cell_type == "formula" and raw_value.startswith("="):
+                cell.value = raw_value
+            elif cell_type == "number":
+                try:
+                    cell.value = float(raw_value)
+                except ValueError:
+                    cell.value = raw_value
+            else:
+                cell.value = raw_value
+
+    # If no sheets, create empty one
+    if len(wb.sheetnames) == 0:
+        wb.create_sheet(title="Sheet 1")
+
+    # Save to bytes
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f"{workspace['name']}.xlsx"
+    # Sanitize filename
+    filename = "".join(c for c in filename if c.isalnum() or c in " ._-").strip() or "export.xlsx"
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )

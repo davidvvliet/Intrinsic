@@ -65,6 +65,25 @@ export function useSheetPersistence() {
     const frozenColumns = frozenColumnsBySheet.get(activeSheetId || '') || 0;
     const columnWidthsArray: [number, number][] = Array.from(columnWidthsForSheet.entries());
 
+    // Extract preview_data if this is the first sheet (A1:F10)
+    let preview_data: Record<string, { raw: string; type: string; format?: CellFormat }> | undefined;
+    if (sheets.length > 0 && sheets[0].sheetId === activeSheetId) {
+      preview_data = {};
+      cellData.forEach((value, key) => {
+        const [rowStr, colStr] = key.split(',');
+        const row = parseInt(rowStr, 10);
+        const col = parseInt(colStr, 10);
+        if (row < 10 && col < 6) {
+          const format = cellFormat.get(key);
+          preview_data![key] = {
+            raw: value.raw,
+            type: value.type,
+            ...(format && { format }),
+          };
+        }
+      });
+    }
+
     return {
       cells,
       dimensions: { rows: NUM_ROWS, cols: NUM_COLS },
@@ -75,6 +94,7 @@ export function useSheetPersistence() {
       },
       formatting,
       name,
+      preview_data,
     };
   }, [cellData, cellFormat, sheets, activeSheetId, columnWidthsBySheet, frozenRowsBySheet, frozenColumnsBySheet]);
 

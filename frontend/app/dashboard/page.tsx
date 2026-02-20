@@ -1,47 +1,57 @@
 "use client";
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@workos-inc/authkit-nextjs/components';
 import DashboardNavbar from './components/DashboardNavbar';
 import WorkspaceGrid from './components/workspaces/WorkspaceGrid';
 import { useWorkspaces, Workspace } from './hooks/useWorkspaces';
+import { useAuthFetch } from './hooks/useAuthFetch';
 import styles from './page.module.css';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
   const firstName = user?.firstName;
-  const { workspaces, loading, error, createWorkspace, deleteWorkspace } = useWorkspaces();
-  const [creating, setCreating] = useState(false);
+  const { workspaces, loading, error, createWorkspace, deleteWorkspace, renameWorkspace } = useWorkspaces();
+  const { fetchWithAuth } = useAuthFetch();
 
   const handleOpen = (workspace: Workspace) => {
     router.push(`/dashboard/workspace/${workspace.id}`);
   };
 
-  const handleDelete = async (workspace: Workspace) => {
+  const handleDelete = (workspace: Workspace) => {
     if (!window.confirm(`Delete "${workspace.name}"? This will also delete all sheets in this workspace.`)) {
       return;
     }
+    deleteWorkspace(workspace.id);
+  };
+
+  const handleRename = (workspace: Workspace, name: string) => {
+    renameWorkspace(workspace.id, name);
+  };
+
+  const handleExport = async (workspace: Workspace) => {
     try {
-      await deleteWorkspace(workspace.id);
+      const response = await fetchWithAuth(`/api/workspaces/${workspace.id}/export`);
+      if (!response.ok) {
+        throw new Error('Failed to export workspace');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${workspace.name}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Failed to delete workspace:', err);
-      alert('Failed to delete workspace');
+      console.error('Failed to export workspace:', err);
+      alert('Failed to export workspace');
     }
   };
 
-  const handleAdd = async () => {
-    setCreating(true);
-    try {
-      const workspace = await createWorkspace();
-      router.push(`/dashboard/workspace/${workspace.id}`);
-    } catch (err) {
-      console.error('Failed to create workspace:', err);
-      alert('Failed to create workspace');
-    } finally {
-      setCreating(false);
-    }
+  const handleAdd = () => {
+    const workspace = createWorkspace();
+    router.push(`/dashboard/workspace/${workspace.id}`);
   };
 
   return (
@@ -60,8 +70,9 @@ export default function DashboardPage() {
           workspaces={workspaces}
           onOpen={handleOpen}
           onDelete={handleDelete}
+          onRename={handleRename}
+          onExport={handleExport}
           onAdd={handleAdd}
-          creating={creating}
         />
       )}
     </div>

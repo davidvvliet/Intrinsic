@@ -8,20 +8,23 @@ interface WorkspaceGridProps {
   workspaces: Workspace[];
   onOpen: (workspace: Workspace) => void;
   onDelete: (workspace: Workspace) => void;
+  onRename: (workspace: Workspace, name: string) => void;
+  onExport: (workspace: Workspace) => void;
   onAdd: () => void;
-  creating?: boolean;
 }
 
-export default function WorkspaceGrid({ workspaces, onOpen, onDelete, onAdd, creating }: WorkspaceGridProps) {
+export default function WorkspaceGrid({ workspaces, onOpen, onDelete, onRename, onExport, onAdd }: WorkspaceGridProps) {
   return (
     <div className={styles.grid}>
-      <AddWorkspaceCard onAdd={onAdd} creating={creating} />
+      <AddWorkspaceCard onAdd={onAdd} />
       {workspaces.map(workspace => (
         <WorkspaceCard
           key={workspace.id}
           workspace={workspace}
           onOpen={onOpen}
           onDelete={onDelete}
+          onRename={onRename}
+          onExport={onExport}
         />
       ))}
     </div>

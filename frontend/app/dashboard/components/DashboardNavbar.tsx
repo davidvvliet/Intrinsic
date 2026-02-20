@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import styles from './DashboardNavbar.module.css';
 
 const navLinks = [
-  { href: '/dashboard', label: 'Dashboard' },
+  { href: '/dashboard', label: 'Home' },
   { href: '/dashboard/saved', label: 'Saved' },
   { href: '/dashboard/templates', label: 'Templates' },
 ];

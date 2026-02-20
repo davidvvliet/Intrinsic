@@ -17,6 +17,7 @@ class SheetData(BaseModel):
     name: Optional[str] = None
     thumbnail: Optional[str] = None
     workspace_id: Optional[str] = None
+    preview_data: Optional[Dict[str, Any]] = None
 
 
 class SheetResponse(BaseModel):
@@ -128,6 +129,13 @@ async def create_sheet(
         sheet_id, user_id, sheet_data.name or "Untitled", data_jsonb, sheet_data.thumbnail, sheet_data.workspace_id
     )
 
+    # Update workspace preview_data if provided
+    if sheet_data.preview_data is not None and sheet_data.workspace_id:
+        await execute_command(
+            "UPDATE workspaces SET preview_data = $1::jsonb, updated_at = NOW() WHERE id = $2 AND user_id = $3",
+            sheet_data.preview_data, sheet_data.workspace_id, user_id
+        )
+
     return {"status": "created", "id": sheet_id}
 
 
@@ -147,16 +155,16 @@ async def save_sheet(
         "settings": sheet_data.settings or {},
         "formatting": sheet_data.formatting or {}
     }
-    
+
     # Check if sheet exists and user owns it
     existing = await execute_query_one(
-        "SELECT id FROM sheets WHERE id = $1 AND user_id = $2",
+        "SELECT id, workspace_id FROM sheets WHERE id = $1 AND user_id = $2",
         sheet_id, user_id
     )
-    
+
     if not existing:
         raise HTTPException(status_code=404, detail="Sheet not found")
-    
+
     # Update existing sheet (include name and thumbnail if provided)
     if sheet_data.name is not None:
         await execute_command(
@@ -176,7 +184,14 @@ async def save_sheet(
             """,
             data_jsonb, sheet_data.thumbnail, sheet_id, user_id
         )
-    
+
+    # Update workspace preview_data if provided
+    if sheet_data.preview_data is not None and existing["workspace_id"]:
+        await execute_command(
+            "UPDATE workspaces SET preview_data = $1::jsonb, updated_at = NOW() WHERE id = $2 AND user_id = $3",
+            sheet_data.preview_data, existing["workspace_id"], user_id
+        )
+
     return {"status": "saved", "id": sheet_id}
 
 
