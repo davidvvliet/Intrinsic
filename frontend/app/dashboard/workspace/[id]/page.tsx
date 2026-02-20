@@ -81,6 +81,11 @@ export default function WorkspacePage() {
     };
 
     loadWorkspaceSheets();
+
+    // Clear store data when leaving workspace to prevent flash of stale content
+    return () => {
+      setWorkspaceId(null);
+    };
   }, [workspaceId, fetchWithAuth, setWorkspaceId, setSheets, setActiveSheetId]);
 
   // Conversations hook

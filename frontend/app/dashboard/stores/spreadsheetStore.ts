@@ -230,7 +230,30 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       return { animatingRanges: newRanges };
     }),
 
-    setWorkspaceId: (id) => set({ workspaceId: id }),
+    setWorkspaceId: (id) => set(state => {
+      if (state.workspaceId !== id) {
+        return {
+          workspaceId: id,
+          cellData: new Map(),
+          cellFormat: new Map(),
+          computedData: new Map(),
+          baselineData: new Map(),
+          baselineFormat: new Map(),
+          dirtyCells: new Set(),
+          sheets: [],
+          activeSheetId: null,
+          selection: null,
+          highlightedCells: null,
+          inputValue: '',
+          isEditing: false,
+          undoStack: [],
+          redoStack: [],
+          canUndo: false,
+          canRedo: false,
+        };
+      }
+      return { workspaceId: id };
+    }),
 
     setActiveSheetId: (id) => set(state => {
       const newId = typeof id === 'function' ? id(state.activeSheetId) : id;
