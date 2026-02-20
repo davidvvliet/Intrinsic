@@ -1,30 +1,27 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@workos-inc/authkit-nextjs/components';
 import { useAuthFetch } from './useAuthFetch';
+import { setPending } from '../utils/pendingWorkspaces';
+import { useWorkspacesStore, Workspace } from '../stores/workspacesStore';
 
-export interface PreviewCellFormat {
-  bold?: boolean;
-  italic?: boolean;
-  textColor?: string;
-  fillColor?: string;
-}
-
-export interface Workspace {
-  id: string;
-  name: string;
-  thumbnail_url: string | null;
-  preview_data: Record<string, { raw: string; type: string; format?: PreviewCellFormat }> | null;
-  created_at: string | null;
-  updated_at: string | null;
-}
+// Re-export types from store
+export type { PreviewCellFormat, Workspace } from '../stores/workspacesStore';
 
 export function useWorkspaces() {
   const { user, loading: authLoading } = useAuth();
   const { fetchWithAuth, getAccessToken } = useAuthFetch();
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const hasLoadedRef = useRef(false);
+
+  // Get state from store
+  const workspaces = useWorkspacesStore(state => state.workspaces);
+  const loading = useWorkspacesStore(state => state.loading);
+  const error = useWorkspacesStore(state => state.error);
+  const setWorkspaces = useWorkspacesStore(state => state.setWorkspaces);
+  const setLoading = useWorkspacesStore(state => state.setLoading);
+  const setError = useWorkspacesStore(state => state.setError);
+  const addWorkspaceToStore = useWorkspacesStore(state => state.addWorkspace);
+  const removeWorkspaceFromStore = useWorkspacesStore(state => state.removeWorkspace);
+  const updateWorkspaceInStore = useWorkspacesStore(state => state.updateWorkspace);
 
   const loadWorkspaces = useCallback(async () => {
     try {
@@ -46,10 +43,8 @@ export function useWorkspaces() {
     } catch (err: any) {
       console.error('Error loading workspaces:', err);
       setError(err.message || 'Failed to load workspaces');
-    } finally {
-      setLoading(false);
     }
-  }, [fetchWithAuth, getAccessToken]);
+  }, [fetchWithAuth, getAccessToken, setWorkspaces, setLoading, setError]);
 
   const createWorkspace = useCallback((name?: string): Workspace => {
     // Generate ID client-side for immediate navigation
@@ -73,10 +68,10 @@ export function useWorkspaces() {
     };
 
     // Optimistic update
-    setWorkspaces(prev => [newWorkspace, ...prev]);
+    addWorkspaceToStore(newWorkspace);
 
-    // Sync to backend
-    fetchWithAuth('/api/workspaces', {
+    // Sync to backend and register the pending promise
+    const createPromise = fetchWithAuth('/api/workspaces', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, name: workspaceName }),
@@ -88,12 +83,14 @@ export function useWorkspaces() {
       console.error('Failed to create workspace:', err);
     });
 
+    setPending(id, createPromise);
+
     return newWorkspace;
-  }, [fetchWithAuth]);
+  }, [fetchWithAuth, addWorkspaceToStore]);
 
   const deleteWorkspace = useCallback(async (workspaceId: string) => {
     // Optimistic update
-    setWorkspaces(prev => prev.filter(w => w.id !== workspaceId));
+    removeWorkspaceFromStore(workspaceId);
 
     // Sync to backend
     try {
@@ -107,13 +104,11 @@ export function useWorkspaces() {
     } catch (err) {
       console.error('Failed to delete workspace:', err);
     }
-  }, [fetchWithAuth]);
+  }, [fetchWithAuth, removeWorkspaceFromStore]);
 
   const renameWorkspace = useCallback(async (workspaceId: string, name: string) => {
     // Optimistic update
-    setWorkspaces(prev => prev.map(w =>
-      w.id === workspaceId ? { ...w, name } : w
-    ));
+    updateWorkspaceInStore(workspaceId, { name });
 
     // Sync to backend
     try {
@@ -129,7 +124,7 @@ export function useWorkspaces() {
     } catch (err) {
       console.error('Failed to rename workspace:', err);
     }
-  }, [fetchWithAuth]);
+  }, [fetchWithAuth, updateWorkspaceInStore]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -137,7 +132,6 @@ export function useWorkspaces() {
     if (!user) {
       setWorkspaces([]);
       setError('');
-      setLoading(false);
       hasLoadedRef.current = false;
       return;
     }
@@ -145,7 +139,7 @@ export function useWorkspaces() {
     if (!hasLoadedRef.current) {
       loadWorkspaces();
     }
-  }, [user, authLoading, loadWorkspaces]);
+  }, [user, authLoading, loadWorkspaces, setWorkspaces, setError]);
 
   return {
     workspaces,

@@ -38,7 +38,7 @@ export default function DashboardNavbar() {
   return (
     <div className={styles.navbar}>
       <div className={styles.leftSection}>
-        <div className={styles.brand}>Intrinsic</div>
+        <Link href="/dashboard" className={styles.brand}>Intrinsic</Link>
       </div>
       <div className={styles.middleSection}>
           {navLinks.map((link) => (

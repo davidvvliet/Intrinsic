@@ -61,24 +61,11 @@
   flex: 1;
 }
 
-.addToListButton {
-  height: 28px;
-  padding: 0 12px;
-  border: 1px solid rgba(0, 0, 0, 0.3);
-  background: transparent;
+.workspaceName {
   font-family: 'Helvetica', 'Arial', sans-serif;
   font-size: 13px;
   font-weight: 500;
-  color: #000000;
-  cursor: pointer;
+  color: rgba(0, 0, 0, 0.6);
   white-space: nowrap;
-}
-
-.addToListButton:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-.addToListButton:disabled {
-  opacity: 0.4;
-  cursor: default;
+  padding-right: 8px;
 }
