@@ -1,5 +1,6 @@
 import React from 'react';
 import { Template } from '../hooks/useTemplates';
+import ThumbnailPreview from '../../components/workspaces/ThumbnailPreview';
 import styles from './TemplateCard.module.css';
 
 interface TemplateCardProps {
@@ -12,11 +13,7 @@ export default function TemplateCard({ template, onUse, onDelete }: TemplateCard
   return (
     <div className={styles.card}>
       <div className={styles.thumbnail}>
-        {template.thumbnail_url ? (
-          <img src={template.thumbnail_url} alt={template.name} />
-        ) : (
-          <div className={styles.placeholder} />
-        )}
+        <ThumbnailPreview previewData={template.preview_data} />
       </div>
       <div className={styles.bar}>
         <div className={styles.info}>

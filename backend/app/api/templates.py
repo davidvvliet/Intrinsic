@@ -14,6 +14,18 @@ router = APIRouter()
 MAX_TEMPLATE_SIZE_BYTES = 1 * 1024 * 1024  # 1MB
 
 
+def extract_preview_data(cells: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract A1:F10 (rows 0-9, cols 0-5) from cells for preview."""
+    preview = {}
+    for key, value in cells.items():
+        parts = key.split(',')
+        if len(parts) == 2:
+            row, col = int(parts[0]), int(parts[1])
+            if row < 10 and col < 6:
+                preview[key] = value
+    return preview if preview else None
+
+
 def parse_worksheet(worksheet) -> Dict[str, Any]:
     """Parse a single worksheet and convert to our cell format."""
     cells = {}
@@ -118,7 +130,7 @@ async def get_templates(user = Depends(get_workos_user)):
     user_id = user["id"]
 
     rows = await execute_query(
-        """SELECT t.id, t.name, t.thumbnail_url, t.user_id, t.created_at,
+        """SELECT t.id, t.name, t.thumbnail_url, t.preview_data, t.user_id, t.created_at,
                   COUNT(ts.id) as sheet_count
            FROM templates t
            LEFT JOIN template_sheets ts ON ts.template_id = t.id
@@ -133,6 +145,7 @@ async def get_templates(user = Depends(get_workos_user)):
             "id": row["id"],
             "name": row["name"],
             "thumbnail_url": row["thumbnail_url"],
+            "preview_data": row["preview_data"],
             "is_default": row["user_id"] is None,
             "sheet_count": row["sheet_count"],
             "created_at": row["created_at"].isoformat() if row["created_at"] else None,
@@ -291,12 +304,17 @@ async def upload_template(
 
     name = file.filename.rsplit('.', 1)[0] if file.filename else "Untitled"
 
+    # Extract preview_data from first sheet
+    preview_data = None
+    if sheets and sheets[0].get("data", {}).get("cells"):
+        preview_data = extract_preview_data(sheets[0]["data"]["cells"])
+
     # Create template
     template_row = await execute_query_one(
-        """INSERT INTO templates (name, user_id)
-           VALUES ($1, $2)
+        """INSERT INTO templates (name, user_id, preview_data)
+           VALUES ($1, $2, $3::jsonb)
            RETURNING id, created_at""",
-        name, user_id
+        name, user_id, json.dumps(preview_data) if preview_data else None
     )
 
     # Insert sheets
@@ -335,12 +353,17 @@ async def create_template(
             detail=f"Template data too large. Max size is 5MB, got {total_size / 1024 / 1024:.2f}MB"
         )
 
+    # Extract preview_data from first sheet
+    preview_data = None
+    if body.sheets and body.sheets[0].get("data", {}).get("cells"):
+        preview_data = extract_preview_data(body.sheets[0]["data"]["cells"])
+
     # Create template
     template_row = await execute_query_one(
-        """INSERT INTO templates (name, thumbnail_url, user_id)
-           VALUES ($1, $2, $3)
+        """INSERT INTO templates (name, thumbnail_url, user_id, preview_data)
+           VALUES ($1, $2, $3, $4::jsonb)
            RETURNING id, created_at""",
-        body.name, body.thumbnail_url, user_id
+        body.name, body.thumbnail_url, user_id, json.dumps(preview_data) if preview_data else None
     )
 
     # Insert sheets

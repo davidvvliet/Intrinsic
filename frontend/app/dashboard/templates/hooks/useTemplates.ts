@@ -9,10 +9,18 @@ export interface TemplateData {
   formatting?: Record<string, any>;
 }
 
+export interface PreviewCellFormat {
+  bold?: boolean;
+  italic?: boolean;
+  textColor?: string;
+  fillColor?: string;
+}
+
 export interface Template {
   id: number;
   name: string;
   thumbnail_url: string | null;
+  preview_data: Record<string, { raw: string; type: string; format?: PreviewCellFormat }> | null;
   is_default: boolean;
   sheet_count: number;
   created_at: string | null;
