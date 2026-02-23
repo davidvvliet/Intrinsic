@@ -1,6 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
 import { useWorkspacesStore } from '../../stores/workspacesStore';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
 import { getCellKey } from './drawUtils';
 import type { CellFormat, NumberFormatSettings } from './types';
 import ColorButton from './ColorButton';
@@ -38,6 +39,41 @@ export default function Toolbar() {
   const workspaceName = useWorkspacesStore(state =>
     workspaceId ? state.workspaces.find(w => w.id === workspaceId)?.name : null
   );
+  const updateWorkspace = useWorkspacesStore(state => state.updateWorkspace);
+  const { fetchWithAuth } = useAuthFetch();
+
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editingName, setEditingName] = useState('');
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  const handleStartRename = () => {
+    if (!workspaceName) return;
+    setIsEditingName(true);
+    setEditingName(workspaceName);
+    setTimeout(() => nameInputRef.current?.focus(), 0);
+  };
+
+  const handleSaveRename = () => {
+    if (!isEditingName) return;
+    const trimmed = editingName.trim() || 'Untitled';
+    setIsEditingName(false);
+    if (!workspaceId || trimmed === workspaceName) return;
+    updateWorkspace(workspaceId, { name: trimmed });
+    fetchWithAuth(`/api/workspaces/${workspaceId}/name`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: trimmed }),
+    }).catch(err => console.error('Failed to rename workspace:', err));
+  };
+
+  const handleCancelRename = () => {
+    setIsEditingName(false);
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSaveRename();
+    else if (e.key === 'Escape') handleCancelRename();
+  };
 
   // Get active sheet info
   const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
@@ -270,7 +306,19 @@ export default function Toolbar() {
       <div className={styles.spacer} />
       {workspaceName && (
         <span className={styles.workspaceName}>
-          Workspace: <strong>{workspaceName}</strong>
+          Workspace:{' '}
+          {isEditingName ? (
+            <input
+              ref={nameInputRef}
+              className={styles.renameInput}
+              value={editingName}
+              onChange={(e) => setEditingName(e.target.value)}
+              onKeyDown={handleRenameKeyDown}
+              onBlur={handleSaveRename}
+            />
+          ) : (
+            <strong onClick={handleStartRename}>{workspaceName}</strong>
+          )}
         </span>
       )}
     </div>

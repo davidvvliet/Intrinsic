@@ -69,3 +69,21 @@
   white-space: nowrap;
   padding-right: 8px;
 }
+
+.workspaceName strong {
+  cursor: pointer;
+}
+
+.renameInput {
+  height: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 13px;
+  font-weight: bold;
+  color: #000000;
+  outline: none;
+  field-sizing: content;
+}
