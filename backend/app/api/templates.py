@@ -118,6 +118,77 @@ def parse_csv(file_content: bytes) -> List[Dict[str, Any]]:
     }]
 
 
+async def apply_template_to_workspace(template_name: str, workspace_id: str, user_id: str) -> dict:
+    """Apply a template's sheets to an existing workspace (appending them)."""
+    if not workspace_id:
+        return {"error": "No workspace_id provided"}
+    if not template_name:
+        return {"error": "No template_name provided"}
+
+    # Find template by name
+    template = await execute_query_one(
+        """SELECT id, name FROM templates
+           WHERE name = $1 AND (user_id IS NULL OR user_id = $2)""",
+        template_name, user_id
+    )
+    if not template:
+        return {"error": f"Template '{template_name}' not found"}
+
+    # Verify user owns the workspace
+    workspace = await execute_query_one(
+        "SELECT id FROM workspaces WHERE id = $1 AND user_id = $2",
+        workspace_id, user_id
+    )
+    if not workspace:
+        return {"error": "Workspace not found"}
+
+    # Fetch template sheets
+    sheet_rows = await execute_query(
+        """SELECT name, data, sort_order FROM template_sheets
+           WHERE template_id = $1 ORDER BY sort_order ASC""",
+        template["id"]
+    )
+    if not sheet_rows:
+        return {"error": "Template has no sheets"}
+
+    # Get existing sheet names in workspace for deduplication
+    existing_sheets = await execute_query(
+        "SELECT name FROM sheets WHERE workspace_id = $1",
+        workspace_id
+    )
+    existing_names = {s["name"] for s in existing_sheets}
+
+    # Insert template sheets
+    created_sheets = []
+    for sr in sheet_rows:
+        data = sr["data"]
+        if isinstance(data, str):
+            data = json.loads(data)
+
+        # Auto-rename if name conflicts
+        name = sr["name"]
+        if name in existing_names:
+            counter = 2
+            while f"{name} ({counter})" in existing_names:
+                counter += 1
+            name = f"{name} ({counter})"
+        existing_names.add(name)
+
+        sheet_id = secrets.token_urlsafe(12)
+        await execute_command(
+            """INSERT INTO sheets (id, workspace_id, user_id, name, data, updated_at)
+               VALUES ($1, $2, $3, $4, $5::jsonb, NOW())""",
+            sheet_id, workspace_id, user_id, name, data
+        )
+        created_sheets.append({"id": sheet_id, "name": name})
+
+    return {
+        "status": "applied",
+        "template_name": template["name"],
+        "sheets_added": [s["name"] for s in created_sheets],
+    }
+
+
 class CreateTemplateRequest(BaseModel):
     name: str
     sheets: List[Dict[str, Any]]  # [{name: str, data: {cells, dimensions}}, ...]

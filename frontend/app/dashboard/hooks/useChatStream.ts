@@ -10,7 +10,8 @@ export interface ToolCall {
 
 export function useChatStream(
   onMessageComplete: (message: string, toolCalls?: ToolCall[], responseId?: string) => void,
-  onToolCall?: (name: string, args: any) => void
+  onToolCall?: (name: string, args: any) => void,
+  onSheetsChanged?: () => void
 ): UseChatStreamReturn {
   const { fetchWithAuth } = useAuthFetch();
   const [streamingText, setStreamingText] = useState<string>('');
@@ -27,7 +28,9 @@ export function useChatStream(
     sheetId?: string | null,
     sheetName?: string | null,
     summaryContext?: string | null,
-    sheetData?: string | null
+    sheetData?: string | null,
+    workspaceId?: string | null,
+    templateNames?: string[] | null
   ) => {
     setIsStreaming(true);
     setIsToolCalling(false);
@@ -68,6 +71,12 @@ export function useChatStream(
       }
       if (sheetData) {
         body.sheet_data = sheetData;
+      }
+      if (workspaceId) {
+        body.workspace_id = workspaceId;
+      }
+      if (templateNames && templateNames.length > 0) {
+        body.template_names = templateNames;
       }
 
       const response = await fetchWithAuth('/api/chat', {
@@ -131,6 +140,10 @@ export function useChatStream(
                 setIsToolCalling(true);
               }
 
+              if (parsed.sheets_changed) {
+                if (onSheetsChanged) onSheetsChanged();
+              }
+
               if (parsed.done) {
                 setStreamingText('');
                 setIsStreaming(false);
@@ -169,7 +182,7 @@ export function useChatStream(
       setIsStreaming(false);
       setIsToolCalling(false);
     }
-  }, [fetchWithAuth, onMessageComplete, onToolCall]);
+  }, [fetchWithAuth, onMessageComplete, onToolCall, onSheetsChanged]);
 
   return {
     streamingText,

@@ -112,6 +112,16 @@ export default function WorkspacePage() {
   // Map conversations to tabs format
   const tabs = conversations.map(c => ({ id: c.id, title: c.title }));
 
+  // Fetch template names on mount for LLM context
+  const templateNamesRef = useRef<string[]>([]);
+  useEffect(() => {
+    fetchWithAuth('/api/templates').then(res => {
+      if (res.ok) return res.json();
+    }).then(data => {
+      if (data) templateNamesRef.current = data.map((t: any) => t.name);
+    }).catch(() => {});
+  }, [fetchWithAuth]);
+
   const [query, setQuery] = useState<string>('');
   const [selectedRange, setSelectedRange] = useState<string | null>(null);
   const [isCompacting, setIsCompacting] = useState<boolean>(false);
@@ -134,7 +144,9 @@ export default function WorkspacePage() {
     sheetId?: string | null,
     sheetName?: string | null,
     summaryContext?: string | null,
-    sheetData?: string | null
+    sheetData?: string | null,
+    workspaceId?: string | null,
+    templateNames?: string[] | null
   ) => Promise<void>) | null>(null);
 
   const handleMessageComplete = useCallback(async (message: string, toolCalls?: ToolCall[], responseId?: string) => {
@@ -188,7 +200,7 @@ export default function WorkspacePage() {
 
       // Make another API call using previous_response_id approach
       if (sendMessageRef.current) {
-        sendMessageRef.current(null, null, responseId, functionCallOutputs, selectedRange, sheetIdRef.current, sheetNameRef.current);
+        sendMessageRef.current(null, null, responseId, functionCallOutputs, selectedRange, sheetIdRef.current, sheetNameRef.current, undefined, undefined, workspaceId, templateNamesRef.current);
       }
     } else if (toolCalls && toolCalls.length > 0 && iterationCountRef.current >= maxIterations) {
       // Hit iteration limit - add warning message
@@ -214,7 +226,25 @@ export default function WorkspacePage() {
     toolCallHandlerRef.current = handler;
   }, []);
 
-  const { streamingText, isStreaming, isToolCalling, sendMessage } = useChatStream(handleMessageComplete, handleToolCall);
+  const handleSheetsChanged = useCallback(async () => {
+    try {
+      const response = await fetchWithAuth(`/api/sheets?workspace_id=${workspaceId}`);
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data.length > 0) {
+        setSheets(data.map((sheet: any) => ({
+          sheetId: sheet.id,
+          fetchId: sheet.id,
+          name: sheet.name || 'Untitled',
+          createdAt: sheet.created_at || new Date().toISOString(),
+        })));
+      }
+    } catch (err) {
+      console.error('Error reloading sheets:', err);
+    }
+  }, [workspaceId, fetchWithAuth, setSheets]);
+
+  const { streamingText, isStreaming, isToolCalling, sendMessage } = useChatStream(handleMessageComplete, handleToolCall, handleSheetsChanged);
   sendMessageRef.current = sendMessage;
 
   const handleSearch = useCallback(async () => {
@@ -268,10 +298,10 @@ export default function WorkspacePage() {
     // Send message with appropriate context
     if (currentResponseId && sendMessageRef.current) {
       // Continue existing chain
-      sendMessageRef.current(messageText, null, currentResponseId, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, undefined, sheetData);
+      sendMessageRef.current(messageText, null, currentResponseId, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, undefined, sheetData, workspaceId, templateNamesRef.current);
     } else {
       // Start fresh chain (possibly with summary context)
-      sendMessage(messageText, null, undefined, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, currentSummary, sheetData);
+      sendMessage(messageText, null, undefined, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, currentSummary, sheetData, workspaceId, templateNamesRef.current);
     }
   }, [query, selectedRange, sendMessage, activeConversationId, lastResponseId, addMessage, chatMessages, summary, setSummary, fetchWithAuth]);
 

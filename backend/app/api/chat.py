@@ -4,6 +4,7 @@ from app.api.schemas import ChatRequest, CompactRequest, CompactResponse
 from app.core.deps import get_workos_user
 from app.api.sec import get_financial_data
 from app.api.market import get_stock_quote
+from app.api.templates import apply_template_to_workspace
 from openai import AsyncOpenAI
 import json
 import os
@@ -217,6 +218,21 @@ SPREADSHEET_TOOLS = [
             },
             "required": ["ticker"]
         }
+    },
+    {
+        "type": "function",
+        "name": "apply_template",
+        "description": "Load a spreadsheet template into the current workspace, appending its sheets as new tabs. Use this when the user asks to load, apply, or use a template. The available templates are listed in your instructions.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "template_name": {
+                    "type": "string",
+                    "description": "The exact name of the template to apply (must match one of the available templates)"
+                }
+            },
+            "required": ["template_name"]
+        }
     }
 ]
 
@@ -246,6 +262,12 @@ async def generate_chat_stream(request: ChatRequest, user):
         # Add optional selected range context
         if request.selected_range:
             instructions += f"\n\nNote: The user currently has range {request.selected_range} selected. Use this as context if relevant to their request, but ignore it if the request is unrelated."
+
+        # Add available templates from frontend
+        user_id = user["id"]
+        if request.template_names:
+            template_list = ", ".join(f'"{n}"' for n in request.template_names)
+            instructions += f"\n\nAvailable templates (use apply_template tool with the exact name): {template_list}"
 
         # Determine initial input based on request type
         prev_response_id = request.previous_response_id
@@ -295,7 +317,7 @@ async def generate_chat_stream(request: ChatRequest, user):
                 elif event_type == 'response.output_item.done':
                     item = event.item
                     if item.type == 'function_call':
-                        if item.name in ['get_financial_data', 'get_stock_quote']:
+                        if item.name in ['get_financial_data', 'get_stock_quote', 'apply_template']:
                             # Server-side tool - collect for later, don't yield
                             server_tools.append(item)
                         else:
@@ -343,6 +365,14 @@ async def generate_chat_stream(request: ChatRequest, user):
                         )
                     elif tool.name == 'get_stock_quote':
                         result = get_stock_quote(args.get('ticker', ''))
+                    elif tool.name == 'apply_template':
+                        result = await apply_template_to_workspace(
+                            template_name=args.get('template_name', ''),
+                            workspace_id=request.workspace_id,
+                            user_id=user_id,
+                        )
+                        if "error" not in result:
+                            yield f"data: {json.dumps({'sheets_changed': True})}\n\n"
                     else:
                         result = {"error": f"Unknown tool: {tool.name}"}
                     result_json = json.dumps(result)
