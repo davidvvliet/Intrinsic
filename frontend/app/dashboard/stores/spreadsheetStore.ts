@@ -7,9 +7,9 @@ const EMPTY_COMPUTED: ComputedData = new Map();
 
 type SheetMetadata = {
   sheetId: string;
-  fetchId: string | null;
   name: string;
   createdAt: string;
+  isSaved: boolean;
 };
 
 type DeltaEntry<T> = { old: T | null; new: T | null };
@@ -782,7 +782,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
 export const useActiveSheet = () => useSpreadsheetStore(state => {
   const sheet = state.sheets.find(s => s.sheetId === state.activeSheetId);
   return {
-    sheetId: sheet?.fetchId || null,
+    sheetId: sheet?.sheetId || null,
     sheetName: sheet?.name || null,
   };
 });

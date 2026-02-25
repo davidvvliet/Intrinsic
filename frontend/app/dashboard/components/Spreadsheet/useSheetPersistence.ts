@@ -8,7 +8,7 @@ import type { CellFormat, CellType } from './types';
 
 export function useSheetPersistence() {
   const { fetchWithAuth } = useAuthFetch();
-  const { updateFetchId, updateSheetName } = useSheetRouter();
+  const { updateSheetName, markSheetSaved } = useSheetRouter();
   const { containerRef } = useRefContext();
   const hasLoadedAllRef = useRef<string | null>(null); // tracks workspaceId that was bulk-loaded
   const prevActiveSheetIdRef = useRef<string | null>(null);
@@ -44,9 +44,9 @@ export function useSheetPersistence() {
   const setScrollPosition = useSpreadsheetStore(state => state.setScrollPosition);
   const recalculateFormulas = useSpreadsheetStore(state => state.recalculateFormulas);
 
-  // Get current sheet's fetchId
+  // Check if active sheet has been saved
   const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
-  const currentFetchId = activeSheet?.fetchId || null;
+  const isActiveSheetSaved = activeSheet?.isSaved ?? false;
 
   // Convert Maps to JSON format for API
   const serializeSheetData = useCallback(() => {
@@ -110,28 +110,23 @@ export function useSheetPersistence() {
     if (!activeSheetId) return;
 
     const sheetData = serializeSheetData();
-    let returnedFetchId: string;
 
-    if (!currentFetchId) {
-      // First save - create new sheet
+    if (!isActiveSheetSaved) {
+      // First save - create new sheet with client-generated ID
       const response = await fetchWithAuth('/api/sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...sheetData, workspace_id: workspaceId }),
+        body: JSON.stringify({ ...sheetData, id: activeSheetId, workspace_id: workspaceId }),
       });
 
       if (!response.ok) {
         throw new Error(`Failed to create sheet: ${response.statusText}`);
       }
 
-      const result = await response.json();
-      returnedFetchId = result.id;
-
-      // Update fetchId via router hook
-      updateFetchId(activeSheetId, returnedFetchId);
+      markSheetSaved(activeSheetId);
     } else {
       // Update existing sheet
-      const response = await fetchWithAuth(`/api/sheets/${currentFetchId}`, {
+      const response = await fetchWithAuth(`/api/sheets/${activeSheetId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sheetData),
@@ -140,12 +135,10 @@ export function useSheetPersistence() {
       if (!response.ok) {
         throw new Error(`Failed to save sheet: ${response.statusText}`);
       }
-
-      returnedFetchId = currentFetchId;
     }
 
     markSaved();
-  }, [dirtyCells, dirtySettings, activeSheetId, currentFetchId, serializeSheetData, markSaved, updateFetchId, fetchWithAuth]);
+  }, [dirtyCells, dirtySettings, activeSheetId, isActiveSheetSaved, serializeSheetData, markSaved, markSheetSaved, fetchWithAuth, workspaceId]);
 
   // Deserialize a single sheet's API response into CellData and settings
   const deserializeSheet = useCallback((data: any, sheetId: string) => {
@@ -204,18 +197,18 @@ export function useSheetPersistence() {
     hasLoadedAllRef.current = workspaceId;
 
     const loadAllSheets = async () => {
-      // Fetch each sheet that has a fetchId
-      const sheetsWithData = sheets.filter(s => s.fetchId);
+      // Fetch each sheet that has been saved to the backend
+      const savedSheets = sheets.filter(s => s.isSaved);
 
       const results = await Promise.all(
-        sheetsWithData.map(async (sheet) => {
+        savedSheets.map(async (sheet) => {
           try {
-            const response = await fetchWithAuth(`/api/sheets/${sheet.fetchId}`, { method: 'GET' });
-            if (!response.ok) return { sheetId: sheet.sheetId, fetchId: sheet.fetchId, data: null, name: null };
+            const response = await fetchWithAuth(`/api/sheets/${sheet.sheetId}`, { method: 'GET' });
+            if (!response.ok) return { sheetId: sheet.sheetId, data: null, name: null };
             const result = await response.json();
-            return { sheetId: sheet.sheetId, fetchId: sheet.fetchId, data: result.data, name: result.name };
+            return { sheetId: sheet.sheetId, data: result.data, name: result.name };
           } catch {
-            return { sheetId: sheet.sheetId, fetchId: sheet.fetchId, data: null, name: null };
+            return { sheetId: sheet.sheetId, data: null, name: null };
           }
         })
       );
@@ -243,14 +236,14 @@ export function useSheetPersistence() {
         setSheetCellData(result.sheetId, sheetCells);
 
         // Update sheet name from backend
-        if (result.name && result.fetchId) {
-          updateSheetName(result.fetchId, result.name);
+        if (result.name) {
+          updateSheetName(result.sheetId, result.name);
         }
       }
 
-      // For sheets without fetchId (new unsaved sheets), store empty data
+      // For unsaved sheets, store empty data
       for (const sheet of sheets) {
-        if (!sheet.fetchId) {
+        if (!sheet.isSaved) {
           setSheetCellData(sheet.sheetId, new Map());
         }
       }

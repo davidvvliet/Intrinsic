@@ -4,9 +4,9 @@ import { useAuthFetch } from './useAuthFetch';
 
 type SheetMetadata = {
   sheetId: string;
-  fetchId: string | null;
   name: string;
   createdAt: string;
+  isSaved: boolean;
 };
 
 export function useSheetRouter() {
@@ -25,12 +25,12 @@ export function useSheetRouter() {
 
   // Create new sheet
   const createSheet = useCallback((name?: string) => {
-    const sheetId = Date.now().toString();
+    const sheetId = crypto.randomUUID();
     const newSheet: SheetMetadata = {
       sheetId,
-      fetchId: null,
       name: name || `Sheet ${sheets.length + 1}`,
       createdAt: new Date().toISOString(),
+      isSaved: false,
     };
 
     const updated = [...sheets, newSheet];
@@ -45,9 +45,9 @@ export function useSheetRouter() {
     if (!sheet) return;
 
     // Delete from backend if saved
-    if (sheet.fetchId) {
+    if (sheet.isSaved) {
       try {
-        await fetchWithAuth(`/api/sheets/${sheet.fetchId}`, { method: 'DELETE' });
+        await fetchWithAuth(`/api/sheets/${sheetId}`, { method: 'DELETE' });
       } catch (err) {
         console.error('Failed to delete sheet from backend:', err);
       }
@@ -58,12 +58,12 @@ export function useSheetRouter() {
 
     // Create default if deleting last sheet
     if (updated.length === 0) {
-      const newSheetId = Date.now().toString();
+      const newSheetId = crypto.randomUUID();
       updated = [{
         sheetId: newSheetId,
-        fetchId: null,
         name: 'Sheet 1',
         createdAt: new Date().toISOString(),
+        isSaved: false,
       }];
       setSheets(updated);
       setActiveSheetId(newSheetId);
@@ -90,9 +90,9 @@ export function useSheetRouter() {
 
     // Sync to backend
     const sheet = sheets.find(s => s.sheetId === sheetId);
-    if (sheet?.fetchId) {
+    if (sheet?.isSaved) {
       try {
-        await fetchWithAuth(`/api/sheets/${sheet.fetchId}/name`, {
+        await fetchWithAuth(`/api/sheets/${sheetId}/name`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: trimmed }),
@@ -103,18 +103,18 @@ export function useSheetRouter() {
     }
   }, [sheets, setSheets, fetchWithAuth]);
 
-  // Update fetchId after first save
-  const updateFetchId = useCallback((sheetId: string, fetchId: string) => {
+  // Update sheet name (called when loading from backend)
+  const updateSheetName = useCallback((sheetId: string, name: string) => {
     const updated = sheets.map(s =>
-      s.sheetId === sheetId ? { ...s, fetchId } : s
+      s.sheetId === sheetId ? { ...s, name } : s
     );
     setSheets(updated);
   }, [sheets, setSheets]);
 
-  // Update sheet name (called when loading from backend)
-  const updateSheetName = useCallback((fetchId: string, name: string) => {
+  // Mark a sheet as saved
+  const markSheetSaved = useCallback((sheetId: string) => {
     const updated = sheets.map(s =>
-      s.fetchId === fetchId ? { ...s, name } : s
+      s.sheetId === sheetId ? { ...s, isSaved: true } : s
     );
     setSheets(updated);
   }, [sheets, setSheets]);
@@ -126,7 +126,7 @@ export function useSheetRouter() {
     createSheet,
     deleteSheet,
     renameSheet,
-    updateFetchId,
     updateSheetName,
+    markSheetSaved,
   };
 }

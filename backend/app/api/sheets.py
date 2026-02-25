@@ -10,6 +10,7 @@ router = APIRouter()
 
 
 class SheetData(BaseModel):
+    id: Optional[str] = None
     cells: Dict[str, Any]
     dimensions: Optional[Dict[str, int]] = None
     settings: Optional[Dict[str, Any]] = None
@@ -106,11 +107,11 @@ async def create_sheet(
     sheet_data: SheetData,
     user = Depends(get_workos_user)
 ):
-    """Create a new sheet. Returns the generated sheet ID."""
+    """Create a new sheet. Returns the sheet ID."""
     user_id = user["id"]
-    
-    # Generate URL-safe base64 16-character ID
-    sheet_id = secrets.token_urlsafe(12)  # 12 bytes = 16 base64 chars
+
+    # Use client-provided ID or generate one
+    sheet_id = sheet_data.id or secrets.token_urlsafe(12)
     
     # Convert SheetData to JSONB format
     data_jsonb = {

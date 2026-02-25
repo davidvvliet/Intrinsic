@@ -36,7 +36,7 @@ export default function WorkspacePage() {
   const setSheets = useSpreadsheetStore(state => state.setSheets);
   const setActiveSheetId = useSpreadsheetStore(state => state.setActiveSheetId);
   const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
-  const sheetId = activeSheet?.fetchId || null;
+  const sheetId = activeSheet?.sheetId || null;
   const sheetName = activeSheet?.name || null;
 
   // Fetch sheets for this workspace on mount
@@ -56,22 +56,26 @@ export default function WorkspacePage() {
         if (data.length > 0) {
           // Convert API response to SheetMetadata format
           const sheetMetadata = data.map((sheet: any) => ({
-            sheetId: sheet.id, // Use backend id as sheetId
-            fetchId: sheet.id,
+            sheetId: sheet.id,
             name: sheet.name || 'Untitled',
             createdAt: sheet.created_at || new Date().toISOString(),
+            isSaved: true,
           }));
 
           setSheets(sheetMetadata);
-          setActiveSheetId(sheetMetadata[0].sheetId);
+
+          // Restore active sheet from URL if present, otherwise default to first
+          const urlSheet = new URLSearchParams(window.location.search).get('sheet');
+          const match = urlSheet && sheetMetadata.find((s: any) => s.sheetId === urlSheet);
+          setActiveSheetId(match ? match.sheetId : sheetMetadata[0].sheetId);
         } else {
           // No sheets - create an empty one
-          const newSheetId = Date.now().toString();
+          const newSheetId = crypto.randomUUID();
           setSheets([{
             sheetId: newSheetId,
-            fetchId: null,
             name: 'Sheet 1',
             createdAt: new Date().toISOString(),
+            isSaved: false,
           }]);
           setActiveSheetId(newSheetId);
         }
@@ -87,6 +91,14 @@ export default function WorkspacePage() {
       setWorkspaceId(null);
     };
   }, [workspaceId, fetchWithAuth, setWorkspaceId, setSheets, setActiveSheetId]);
+
+  // Sync active sheet to URL
+  useEffect(() => {
+    if (!activeSheetId) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('sheet', activeSheetId);
+    window.history.replaceState({}, '', url.toString());
+  }, [activeSheetId]);
 
   // Conversations hook
   const {
@@ -234,9 +246,9 @@ export default function WorkspacePage() {
       if (data.length > 0) {
         setSheets(data.map((sheet: any) => ({
           sheetId: sheet.id,
-          fetchId: sheet.id,
           name: sheet.name || 'Untitled',
           createdAt: sheet.created_at || new Date().toISOString(),
+          isSaved: true,
         })));
       }
     } catch (err) {
