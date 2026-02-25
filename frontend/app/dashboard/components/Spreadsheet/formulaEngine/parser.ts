@@ -69,7 +69,7 @@ export class Parser {
    * Parse expression with operator precedence (Pratt parser style)
    */
   private parseExpression(minPrecedence: number): ASTNode {
-    let left = this.parsePrimary();
+    let left = this.parsePostfix();
 
     while (true) {
       const token = this.current();
@@ -166,6 +166,18 @@ export class Parser {
       `Unexpected token: ${token.type} "${token.value}"`,
       token.position
     );
+  }
+
+  /**
+   * Parse postfix operators (%)
+   */
+  private parsePostfix(): ASTNode {
+    let node = this.parsePrimary();
+    while (this.current().type === 'OPERATOR' && this.current().value === '%') {
+      this.advance();
+      node = { type: 'unaryOp', operator: '%', operand: node };
+    }
+    return node;
   }
 
   /**

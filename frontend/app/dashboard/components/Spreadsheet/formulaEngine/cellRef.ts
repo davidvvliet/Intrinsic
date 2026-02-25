@@ -26,10 +26,25 @@ export function letterToCol(letters: string): number {
 
 /**
  * Parse a cell reference string like "A1", "$A1", "A$1", "$A$1"
+ * Also handles sheet-qualified refs like "'Sheet Name'!A1"
  * Returns null if invalid
  */
 export function parseCellRef(ref: string): CellRef | null {
-  const match = ref.match(/^(\$?)([A-Za-z]+)(\$?)(\d+)$/);
+  let sheet: string | undefined;
+  let cellPart = ref;
+
+  // Check for sheet prefix: 'Sheet Name'!A1 or SheetName!A1
+  const sheetMatch = ref.match(/^'([^']+)'!(.+)$/);
+  if (sheetMatch) {
+    sheet = sheetMatch[1];
+    cellPart = sheetMatch[2];
+  } else if (ref.includes('!')) {
+    const bangIdx = ref.indexOf('!');
+    sheet = ref.slice(0, bangIdx);
+    cellPart = ref.slice(bangIdx + 1);
+  }
+
+  const match = cellPart.match(/^(\$?)([A-Za-z]+)(\$?)(\d+)$/);
   if (!match) return null;
 
   const [, absCols, colLetters, absRows, rowDigits] = match;
@@ -43,6 +58,7 @@ export function parseCellRef(ref: string): CellRef | null {
     row,
     absCol: absCols === '$',
     absRow: absRows === '$',
+    ...(sheet !== undefined && { sheet }),
   };
 }
 
@@ -75,15 +91,17 @@ export function keyToCellRef(key: string): CellRef | null {
 }
 
 /**
- * Convert CellRef to internal key format "row,col"
+ * Convert CellRef to internal key format "row,col" or "sheetName:row,col"
  */
 export function cellRefToKey(ref: CellRef): string {
-  return `${ref.row},${ref.col}`;
+  const key = `${ref.row},${ref.col}`;
+  return ref.sheet ? `${ref.sheet}:${key}` : key;
 }
 
 /**
  * Expand a range into array of cell keys
  * e.g., A1:B2 -> ["0,0", "0,1", "1,0", "1,1"]
+ * For cross-sheet ranges: ["SheetName:0,0", "SheetName:0,1", ...]
  */
 export function expandRange(start: CellRef, end: CellRef): string[] {
   const keys: string[] = [];
@@ -91,10 +109,12 @@ export function expandRange(start: CellRef, end: CellRef): string[] {
   const maxRow = Math.max(start.row, end.row);
   const minCol = Math.min(start.col, end.col);
   const maxCol = Math.max(start.col, end.col);
+  const sheet = start.sheet || end.sheet;
 
   for (let row = minRow; row <= maxRow; row++) {
     for (let col = minCol; col <= maxCol; col++) {
-      keys.push(`${row},${col}`);
+      const key = `${row},${col}`;
+      keys.push(sheet ? `${sheet}:${key}` : key);
     }
   }
   return keys;

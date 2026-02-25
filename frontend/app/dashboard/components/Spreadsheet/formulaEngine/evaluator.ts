@@ -1,6 +1,6 @@
 import type { ASTNode } from './types';
 import type { ComputedValue } from '../types';
-import { expandRange, cellRefToKey } from './cellRef';
+// cellRefToKey and expandRange handled inline for cross-sheet support
 import { callFunction, FormulaFunctionError } from './functions';
 import type { FunctionArgs, FunctionResult } from './functions';
 
@@ -16,8 +16,9 @@ export class EvaluatorError extends Error {
 /**
  * Cell value getter function type
  * Returns the computed value for a cell given its key (row,col format)
+ * Optional sheet parameter for cross-sheet references
  */
-export type CellValueGetter = (key: string) => ComputedValue | null;
+export type CellValueGetter = (key: string, sheet?: string) => ComputedValue | null;
 
 /**
  * Evaluate an AST node and return the result
@@ -34,8 +35,8 @@ export function evaluate(
       return node.value;
 
     case 'cellRef': {
-      const key = cellRefToKey(node.ref);
-      const computed = getCellValue(key);
+      const cellKey = `${node.ref.row},${node.ref.col}`;
+      const computed = getCellValue(cellKey, node.ref.sheet);
       if (!computed) {
         return null; // Empty cell
       }
@@ -46,18 +47,25 @@ export function evaluate(
     }
 
     case 'range': {
-      // Expand range to array of values
-      const keys = expandRange(node.start, node.end);
+      // Expand range to array of values (without sheet prefix in keys)
+      const sheet = node.start.sheet || node.end.sheet;
+      const minRow = Math.min(node.start.row, node.end.row);
+      const maxRow = Math.max(node.start.row, node.end.row);
+      const minCol = Math.min(node.start.col, node.end.col);
+      const maxCol = Math.max(node.start.col, node.end.col);
       const values: FunctionResult[] = [];
-      for (const key of keys) {
-        const computed = getCellValue(key);
-        if (computed) {
-          if (computed.error) {
-            throw new EvaluatorError(computed.error, `Range contains error`);
+      for (let row = minRow; row <= maxRow; row++) {
+        for (let col = minCol; col <= maxCol; col++) {
+          const cellKey = `${row},${col}`;
+          const computed = getCellValue(cellKey, sheet);
+          if (computed) {
+            if (computed.error) {
+              throw new EvaluatorError(computed.error, `Range contains error`);
+            }
+            values.push(computed.value);
+          } else {
+            values.push(null); // Empty cell
           }
-          values.push(computed.value);
-        } else {
-          values.push(null); // Empty cell
         }
       }
       // Return as array (functions will handle flattening)
@@ -154,6 +162,8 @@ function evaluateUnaryOp(operator: string, operand: FunctionResult): FunctionRes
       return -num;
     case '+':
       return num;
+    case '%':
+      return num / 100;
     default:
       throw new EvaluatorError('#ERROR!', `Unknown unary operator: ${operator}`);
   }

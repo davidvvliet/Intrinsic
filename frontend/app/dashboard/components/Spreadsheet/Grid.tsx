@@ -17,7 +17,9 @@ import {
   HEADER_HEIGHT,
   CELL_FONT_SIZE,
 } from './config';
-import type { Selection } from './types';
+import type { Selection, ComputedData } from './types';
+
+const EMPTY_COMPUTED: ComputedData = new Map();
 import { drawGrid as drawGridUtil, getFormulaSegments } from './drawUtils';
 import { FORMULA_REFERENCE_COLORS } from './config';
 import { parseCellRef, adjustCellRef, formatCellRef } from './formulaEngine/cellRef';
@@ -30,7 +32,7 @@ export default function Grid() {
   // Get state from store
   const cellData = useSpreadsheetStore(state => state.cellData);
   const cellFormat = useSpreadsheetStore(state => state.cellFormat);
-  const computedData = useSpreadsheetStore(state => state.computedData);
+  const computedData = useSpreadsheetStore(state => state.allSheetsComputed.get(state.activeSheetId || '') || EMPTY_COMPUTED);
   const selection = useSpreadsheetStore(state => state.selection);
   const highlightedCells = useSpreadsheetStore(state => state.highlightedCells);
   const inputValue = useSpreadsheetStore(state => state.inputValue);

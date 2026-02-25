@@ -4,7 +4,6 @@ import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
 import { RefProvider } from './RefContext';
 import { useSheetPersistence } from './useSheetPersistence';
 import { useSelectionChange } from './useSelectionChange';
-import { useFormulaSync } from './useFormulaSync';
 import Toolbar from './Toolbar';
 import FormulaBar from './FormulaBar';
 import Grid from './Grid';
@@ -25,9 +24,6 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
   const updateCell = useSpreadsheetStore(state => state.updateCell);
   const updateCells = useSpreadsheetStore(state => state.updateCells);
   const updateCellFormat = useSpreadsheetStore(state => state.updateCellFormat);
-
-  // Sync formula engine with store
-  useFormulaSync();
 
   // Hook handles auto-save and load on mount
   useSheetPersistence();

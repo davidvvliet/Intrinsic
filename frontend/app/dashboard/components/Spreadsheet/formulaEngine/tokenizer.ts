@@ -91,6 +91,56 @@ export function tokenize(formula: string): Token[] {
       continue;
     }
 
+    // Sheet reference with quoted name: 'Sheet Name'!A1 or 'Sheet Name'!A1:B2
+    if (ch === "'") {
+      const start = pos;
+      pos++; // skip opening quote
+      let sheetName = '';
+      while (pos < formula.length && formula[pos] !== "'") {
+        sheetName += formula[pos];
+        pos++;
+      }
+      if (pos >= formula.length) {
+        throw new TokenizerError('Unterminated sheet name quote', start);
+      }
+      pos++; // skip closing quote
+      if (pos >= formula.length || formula[pos] !== '!') {
+        throw new TokenizerError('Expected ! after sheet name', pos);
+      }
+      pos++; // skip !
+
+      // Parse cell ref after !
+      const refStart = pos;
+      while (pos < formula.length && (isAlphaNum(formula[pos]) || formula[pos] === '$')) {
+        pos++;
+      }
+      const firstRef = formula.slice(refStart, pos);
+      if (!isCellRefPattern(firstRef)) {
+        throw new TokenizerError('Expected cell reference after sheet name', refStart);
+      }
+
+      // Check for range
+      if (pos < formula.length && formula[pos] === ':') {
+        const colonPos = pos;
+        pos++;
+        const rangeStart = pos;
+        while (pos < formula.length && (isAlphaNum(formula[pos]) || formula[pos] === '$')) {
+          pos++;
+        }
+        if (pos > rangeStart) {
+          const endRef = formula.slice(rangeStart, pos);
+          if (isCellRefPattern(endRef)) {
+            tokens.push({ type: 'RANGE', value: `'${sheetName}'!${firstRef}:${endRef}`, position: start });
+            continue;
+          }
+        }
+        pos = colonPos;
+      }
+
+      tokens.push({ type: 'CELL_REF', value: `'${sheetName}'!${firstRef}`, position: start });
+      continue;
+    }
+
     // Identifiers (cell refs, function names, or ranges like A1:B2)
     if (isAlpha(ch) || ch === '$') {
       const start = pos;
@@ -99,6 +149,40 @@ export function tokenize(formula: string): Token[] {
         pos++;
       }
       const identifier = formula.slice(start, pos);
+
+      // Check for unquoted sheet reference: SheetName!A1
+      if (pos < formula.length && formula[pos] === '!' && !isCellRefPattern(identifier)) {
+        pos++; // skip !
+        const refStart = pos;
+        while (pos < formula.length && (isAlphaNum(formula[pos]) || formula[pos] === '$')) {
+          pos++;
+        }
+        const firstRef = formula.slice(refStart, pos);
+        if (!isCellRefPattern(firstRef)) {
+          throw new TokenizerError('Expected cell reference after sheet name', refStart);
+        }
+
+        // Check for range
+        if (pos < formula.length && formula[pos] === ':') {
+          const colonPos = pos;
+          pos++;
+          const rangeStart = pos;
+          while (pos < formula.length && (isAlphaNum(formula[pos]) || formula[pos] === '$')) {
+            pos++;
+          }
+          if (pos > rangeStart) {
+            const endRef = formula.slice(rangeStart, pos);
+            if (isCellRefPattern(endRef)) {
+              tokens.push({ type: 'RANGE', value: `'${identifier}'!${firstRef}:${endRef}`, position: start });
+              continue;
+            }
+          }
+          pos = colonPos;
+        }
+
+        tokens.push({ type: 'CELL_REF', value: `'${identifier}'!${firstRef}`, position: start });
+        continue;
+      }
 
       // Check if this is a range (A1:B2)
       if (pos < formula.length && formula[pos] === ':') {
@@ -130,7 +214,7 @@ export function tokenize(formula: string): Token[] {
     }
 
     // Operators
-    if ('+-*/^&'.includes(ch)) {
+    if ('+-*/^&%'.includes(ch)) {
       tokens.push({ type: 'OPERATOR', value: ch, position: pos });
       pos++;
       continue;

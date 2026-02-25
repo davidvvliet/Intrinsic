@@ -2,13 +2,16 @@ import { useEffect, useCallback, useRef } from 'react';
 import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
 import { useAuthFetch } from '../../hooks/useAuthFetch';
 import { useSheetRouter } from '../../hooks/useSheetRouter';
+import { useRefContext } from './RefContext';
 import { NUM_ROWS, NUM_COLS, AUTO_SAVE_DELAY_MS } from './config';
 import type { CellFormat, CellType } from './types';
 
 export function useSheetPersistence() {
   const { fetchWithAuth } = useAuthFetch();
   const { updateFetchId, updateSheetName } = useSheetRouter();
-  const hasLoadedRef = useRef<string | null>(null);
+  const { containerRef } = useRefContext();
+  const hasLoadedAllRef = useRef<string | null>(null); // tracks workspaceId that was bulk-loaded
+  const prevActiveSheetIdRef = useRef<string | null>(null);
 
   // Subscribe to store state
   const cellData = useSpreadsheetStore(state => state.cellData);
@@ -37,6 +40,9 @@ export function useSheetPersistence() {
   const setColumnWidthsBySheet = useSpreadsheetStore(state => state.setColumnWidthsBySheet);
   const setFrozenRowsBySheet = useSpreadsheetStore(state => state.setFrozenRowsBySheet);
   const setFrozenColumnsBySheet = useSpreadsheetStore(state => state.setFrozenColumnsBySheet);
+  const setSheetCellData = useSpreadsheetStore(state => state.setSheetCellData);
+  const setScrollPosition = useSpreadsheetStore(state => state.setScrollPosition);
+  const recalculateFormulas = useSpreadsheetStore(state => state.recalculateFormulas);
 
   // Get current sheet's fetchId
   const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
@@ -141,23 +147,8 @@ export function useSheetPersistence() {
     markSaved();
   }, [dirtyCells, dirtySettings, activeSheetId, currentFetchId, serializeSheetData, markSaved, updateFetchId, fetchWithAuth]);
 
-  // Load sheet from server
-  const loadSheet = useCallback(async (fetchIdToLoad: string) => {
-    const response = await fetchWithAuth(`/api/sheets/${fetchIdToLoad}`, {
-      method: 'GET',
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) return;
-      console.error('Failed to load sheet:', { fetchId: fetchIdToLoad, status: response.status });
-      throw new Error(`Failed to load sheet: ${response.status}`);
-    }
-
-    const sheet = await response.json();
-    const data = sheet.data;
-    const backendName = sheet.name;
-
-    // Deserialize cells
+  // Deserialize a single sheet's API response into CellData and settings
+  const deserializeSheet = useCallback((data: any, sheetId: string) => {
     const newCellData = new Map<string, { raw: string; type: CellType }>();
     if (data.cells) {
       Object.entries(data.cells).forEach(([key, value]: [string, any]) => {
@@ -165,7 +156,6 @@ export function useSheetPersistence() {
       });
     }
 
-    // Deserialize formatting
     const newCellFormat = new Map<string, CellFormat>();
     if (data.formatting) {
       Object.entries(data.formatting).forEach(([key, format]: [string, any]) => {
@@ -174,12 +164,12 @@ export function useSheetPersistence() {
     }
 
     // Deserialize settings
-    if (data.settings && activeSheetId) {
+    if (data.settings) {
       if (data.settings.columnWidths) {
         const widthsMap = new Map<number, number>(data.settings.columnWidths);
         setColumnWidthsBySheet(prev => {
           const next = new Map(prev);
-          next.set(activeSheetId, widthsMap);
+          next.set(sheetId, widthsMap);
           return next;
         });
       }
@@ -187,7 +177,7 @@ export function useSheetPersistence() {
       if (typeof data.settings.frozenRows === 'number') {
         setFrozenRowsBySheet(prev => {
           const next = new Map(prev);
-          next.set(activeSheetId, data.settings.frozenRows);
+          next.set(sheetId, data.settings.frozenRows);
           return next;
         });
       }
@@ -195,17 +185,116 @@ export function useSheetPersistence() {
       if (typeof data.settings.frozenColumns === 'number') {
         setFrozenColumnsBySheet(prev => {
           const next = new Map(prev);
-          next.set(activeSheetId, data.settings.frozenColumns);
+          next.set(sheetId, data.settings.frozenColumns);
           return next;
         });
       }
     }
 
-    // Set state
-    setCellData(newCellData);
-    setCellFormat(newCellFormat);
-    setBaselineData(new Map(newCellData));
-    setBaselineFormat(new Map(newCellFormat));
+    return { cellData: newCellData, cellFormat: newCellFormat };
+  }, [setColumnWidthsBySheet, setFrozenRowsBySheet, setFrozenColumnsBySheet]);
+
+  // Load ALL sheets for the workspace into allSheetsData
+  useEffect(() => {
+    if (!workspaceId) return;
+    if (!activeSheetId) return;
+    if (sheets.length === 0) return;
+    if (hasLoadedAllRef.current === workspaceId) return;
+
+    hasLoadedAllRef.current = workspaceId;
+
+    const loadAllSheets = async () => {
+      // Fetch each sheet that has a fetchId
+      const sheetsWithData = sheets.filter(s => s.fetchId);
+
+      const results = await Promise.all(
+        sheetsWithData.map(async (sheet) => {
+          try {
+            const response = await fetchWithAuth(`/api/sheets/${sheet.fetchId}`, { method: 'GET' });
+            if (!response.ok) return { sheetId: sheet.sheetId, fetchId: sheet.fetchId, data: null, name: null };
+            const result = await response.json();
+            return { sheetId: sheet.sheetId, fetchId: sheet.fetchId, data: result.data, name: result.name };
+          } catch {
+            return { sheetId: sheet.sheetId, fetchId: sheet.fetchId, data: null, name: null };
+          }
+        })
+      );
+
+      // Process each sheet's data
+      // Set active sheet's cellData FIRST so formula engine sees it when allSheetsData triggers recalc
+      for (const result of results) {
+        if (!result.data) continue;
+        if (result.sheetId === activeSheetId) {
+          const { cellData: sheetCells, cellFormat: sheetFormat } = deserializeSheet(result.data, result.sheetId);
+          setCellData(sheetCells);
+          setCellFormat(sheetFormat);
+          setBaselineData(new Map(sheetCells));
+          setBaselineFormat(new Map(sheetFormat));
+          setDirtyCells(new Set());
+        }
+      }
+
+      for (const result of results) {
+        if (!result.data) continue;
+
+        const { cellData: sheetCells } = deserializeSheet(result.data, result.sheetId);
+
+        // Store in allSheetsData
+        setSheetCellData(result.sheetId, sheetCells);
+
+        // Update sheet name from backend
+        if (result.name && result.fetchId) {
+          updateSheetName(result.fetchId, result.name);
+        }
+      }
+
+      // For sheets without fetchId (new unsaved sheets), store empty data
+      for (const sheet of sheets) {
+        if (!sheet.fetchId) {
+          setSheetCellData(sheet.sheetId, new Map());
+        }
+      }
+
+      // Recalculate all formulas now that all data is loaded
+      recalculateFormulas();
+
+      prevActiveSheetIdRef.current = activeSheetId;
+    };
+
+    loadAllSheets().catch(err => {
+      console.error('Failed to load all sheets:', err);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId, activeSheetId, sheets]);
+
+  // Handle tab switch: swap cellData from allSheetsData
+  useEffect(() => {
+    if (!activeSheetId) return;
+    if (!hasLoadedAllRef.current) return; // Wait for bulk load to finish
+    if (prevActiveSheetIdRef.current === activeSheetId) return;
+
+    const prevSheetId = prevActiveSheetIdRef.current;
+    prevActiveSheetIdRef.current = activeSheetId;
+
+    // Save scroll position for the sheet we're leaving
+    if (prevSheetId && containerRef.current) {
+      setScrollPosition(prevSheetId, containerRef.current.scrollLeft, containerRef.current.scrollTop);
+    }
+
+    // Snapshot current cellData into allSheetsData for the sheet we're leaving
+    if (prevSheetId) {
+      const currentCellData = useSpreadsheetStore.getState().cellData;
+      setSheetCellData(prevSheetId, currentCellData);
+    }
+
+    // Load the new sheet's data from allSheetsData
+    const allSheetsData = useSpreadsheetStore.getState().allSheetsData;
+    const newSheetData = allSheetsData.get(activeSheetId) || new Map();
+
+    setCellData(newSheetData);
+    setBaselineData(new Map(newSheetData));
+    setCellFormat(new Map()); // TODO: store formats per-sheet if needed
+    setBaselineFormat(new Map());
     setDirtyCells(new Set());
 
     // Clear UI state
@@ -215,11 +304,15 @@ export function useSheetPersistence() {
     setIsEditing(false);
     setCopiedRange(null);
 
-    // Update sheet name from backend
-    if (backendName) {
-      updateSheetName(fetchIdToLoad, backendName);
-    }
-  }, [activeSheetId, setCellData, setCellFormat, setBaselineData, setBaselineFormat, setDirtyCells, setSelection, setHighlightedCells, setInputValue, setIsEditing, setCopiedRange, setColumnWidthsBySheet, setFrozenRowsBySheet, setFrozenColumnsBySheet, updateSheetName, fetchWithAuth]);
+    // Restore scroll position for the new sheet
+    const savedScroll = useSpreadsheetStore.getState().scrollPositionBySheet.get(activeSheetId);
+    requestAnimationFrame(() => {
+      if (containerRef.current) {
+        containerRef.current.scrollTo(savedScroll?.left ?? 0, savedScroll?.top ?? 0);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSheetId]);
 
   // Auto-save
   useEffect(() => {
@@ -233,34 +326,4 @@ export function useSheetPersistence() {
 
     return () => clearTimeout(timer);
   }, [dirtyCells, dirtySettings, saveBatch]);
-
-  // Load data when activeSheetId changes
-  useEffect(() => {
-    if (!activeSheetId) return;
-    if (hasLoadedRef.current === activeSheetId) return;
-
-    const sheet = sheets.find(s => s.sheetId === activeSheetId);
-    if (!sheet) return;
-
-    hasLoadedRef.current = activeSheetId;
-
-    // Clear cell data immediately
-    setCellData(new Map());
-    setCellFormat(new Map());
-    setBaselineData(new Map());
-    setBaselineFormat(new Map());
-    setDirtyCells(new Set());
-    setSelection(null);
-    setHighlightedCells(null);
-    setInputValue('');
-    setIsEditing(false);
-    setCopiedRange(null);
-
-    if (sheet.fetchId) {
-      loadSheet(sheet.fetchId).catch(err => {
-        console.error('Load sheet failed:', err);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSheetId]);
 }

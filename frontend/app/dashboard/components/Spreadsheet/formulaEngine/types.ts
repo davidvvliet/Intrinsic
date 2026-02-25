@@ -24,6 +24,7 @@ export type CellRef = {
   row: number;
   absCol: boolean;
   absRow: boolean;
+  sheet?: string;
 };
 
 // AST Node types

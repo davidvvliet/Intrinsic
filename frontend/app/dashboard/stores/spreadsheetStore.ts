@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import type { CellData, CellFormat, CellFormatData, CellType, Selection, CopiedRange, ComputedData } from '../components/Spreadsheet/types';
 import { getCellKey } from '../components/Spreadsheet/drawUtils';
+import { recalculateAll, recalculateDirty, getDisplayValue as computeDisplayValue } from '../components/Spreadsheet/formulaComputation';
+
+const EMPTY_COMPUTED: ComputedData = new Map();
 
 type SheetMetadata = {
   sheetId: string;
@@ -21,7 +24,6 @@ interface SpreadsheetState {
   // Cell data
   cellData: CellData;
   cellFormat: CellFormatData;
-  computedData: ComputedData;
   baselineData: CellData;
   baselineFormat: CellFormatData;
   dirtyCells: Set<string>;
@@ -40,9 +42,16 @@ interface SpreadsheetState {
   activeSheetId: string | null;
   sheets: SheetMetadata[];
 
+  // Cross-sheet data (for cross-sheet formula references)
+  allSheetsData: Map<string, CellData>;
+  allSheetsComputed: Map<string, ComputedData>;
+
   // Column widths
   columnWidths: Map<number, number>;
   columnWidthsBySheet: Map<string, Map<number, number>>;
+
+  // Scroll position (per-sheet)
+  scrollPositionBySheet: Map<string, { left: number; top: number }>;
 
   // Freeze panes (per-sheet)
   frozenRows: number;
@@ -64,7 +73,6 @@ interface SpreadsheetActions {
   // Setters
   setCellData: (data: CellData | ((prev: CellData) => CellData)) => void;
   setCellFormat: (format: CellFormatData | ((prev: CellFormatData) => CellFormatData)) => void;
-  setComputedData: (data: ComputedData) => void;
   setBaselineData: (data: CellData) => void;
   setBaselineFormat: (format: CellFormatData) => void;
   setDirtyCells: (cells: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
@@ -78,9 +86,11 @@ interface SpreadsheetActions {
   setWorkspaceId: (id: string | null) => void;
   setActiveSheetId: (id: string | null | ((prev: string | null) => string | null)) => void;
   setSheets: (sheets: SheetMetadata[] | ((prev: SheetMetadata[]) => SheetMetadata[])) => void;
+  setSheetCellData: (sheetId: string, data: CellData) => void;
   setColumnWidthsBySheet: (widths: Map<string, Map<number, number>> | ((prev: Map<string, Map<number, number>>) => Map<string, Map<number, number>>)) => void;
   setFrozenRows: (rows: number) => void;
   setFrozenColumns: (cols: number) => void;
+  setScrollPosition: (sheetId: string, left: number, top: number) => void;
   setFrozenRowsBySheet: (rows: Map<string, number> | ((prev: Map<string, number>) => Map<string, number>)) => void;
   setFrozenColumnsBySheet: (cols: Map<string, number> | ((prev: Map<string, number>) => Map<string, number>)) => void;
 
@@ -96,9 +106,9 @@ interface SpreadsheetActions {
   undo: () => void;
   redo: () => void;
 
-  // Formula engine integration
+  // Formula engine
+  recalculateFormulas: () => void;
   getDisplayValue: (key: string) => string;
-  setGetDisplayValue: (fn: (key: string) => string) => void;
 }
 
 type SpreadsheetStore = SpreadsheetState & SpreadsheetActions;
@@ -137,17 +147,10 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     });
   };
 
-  // Store for the getDisplayValue function from formula engine
-  let _getDisplayValue: (key: string) => string = (key) => {
-    const cell = get().cellData.get(key);
-    return cell?.raw || '';
-  };
-
   return {
     // Initial state
     cellData: new Map(),
     cellFormat: new Map(),
-    computedData: new Map(),
     baselineData: new Map(),
     baselineFormat: new Map(),
     dirtyCells: new Set(),
@@ -161,10 +164,13 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     workspaceId: null,
     activeSheetId: null,
     sheets: [],
+    allSheetsData: new Map(),
+    allSheetsComputed: new Map(),
     columnWidths: new Map(),
     columnWidthsBySheet: new Map(),
     frozenRows: 0,
     frozenColumns: 0,
+    scrollPositionBySheet: new Map(),
     frozenRowsBySheet: new Map(),
     frozenColumnsBySheet: new Map(),
     undoStack: [],
@@ -183,8 +189,6 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       const newFormat = typeof format === 'function' ? format(state.cellFormat) : format;
       return { cellFormat: newFormat };
     }),
-
-    setComputedData: (data) => set({ computedData: data }),
 
     setBaselineData: (data) => set({ baselineData: data }),
 
@@ -236,10 +240,11 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           workspaceId: id,
           cellData: new Map(),
           cellFormat: new Map(),
-          computedData: new Map(),
           baselineData: new Map(),
           baselineFormat: new Map(),
           dirtyCells: new Set(),
+          allSheetsData: new Map(),
+          allSheetsComputed: new Map(),
           sheets: [],
           activeSheetId: null,
           selection: null,
@@ -269,10 +274,22 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       return { sheets: newSheets };
     }),
 
+    setSheetCellData: (sheetId, data) => set(state => {
+      const next = new Map(state.allSheetsData);
+      next.set(sheetId, data);
+      return { allSheetsData: next };
+    }),
+
     setColumnWidthsBySheet: (widths) => set(state => {
       const newWidths = typeof widths === 'function' ? widths(state.columnWidthsBySheet) : widths;
       const columnWidths = newWidths.get(state.activeSheetId || '') || new Map();
       return { columnWidthsBySheet: newWidths, columnWidths };
+    }),
+
+    setScrollPosition: (sheetId, left, top) => set(state => {
+      const next = new Map(state.scrollPositionBySheet);
+      next.set(sheetId, { left, top });
+      return { scrollPositionBySheet: next };
     }),
 
     setFrozenRows: (rows) => set(state => {
@@ -324,6 +341,13 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           next.delete(key);
         }
 
+        // Mirror into allSheetsData for cross-sheet formula references
+        let allSheetsData = state.allSheetsData;
+        if (state.activeSheetId) {
+          allSheetsData = new Map(state.allSheetsData);
+          allSheetsData.set(state.activeSheetId, next);
+        }
+
         const baselineValue = state.baselineData.get(key);
         const newRaw = value?.raw || '';
         const baselineRaw = baselineValue?.raw || '';
@@ -335,8 +359,17 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           newDirtyCells.delete(key);
         }
 
+        // Recalculate affected formulas
+        const sheetsInfo = state.sheets.map(s => ({ sheetId: s.sheetId, name: s.name }));
+        const allSheetsComputed = recalculateDirty(
+          [key], allSheetsData, sheetsInfo, state.activeSheetId!,
+          state.allSheetsComputed,
+        );
+
         return {
           cellData: next,
+          allSheetsData,
+          allSheetsComputed,
           dirtyCells: newDirtyCells,
           hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
         };
@@ -423,8 +456,21 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           }
         });
 
+        // Mirror into allSheetsData for cross-sheet formula references
+        let allSheetsData = state.allSheetsData;
+        if (state.activeSheetId) {
+          allSheetsData = new Map(state.allSheetsData);
+          allSheetsData.set(state.activeSheetId, newCellData);
+        }
+
+        // Recalculate all formulas (bulk operation)
+        const sheetsInfo = state.sheets.map(s => ({ sheetId: s.sheetId, name: s.name }));
+        const allSheetsComputed = recalculateAll(allSheetsData, sheetsInfo);
+
         return {
           cellData: newCellData,
+          allSheetsData,
+          allSheetsComputed,
           dirtyCells: newDirtyCells,
           hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
         };
@@ -599,9 +645,20 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
         const newUndoStack = state.undoStack.slice(0, -1);
         const newRedoStack = [...state.redoStack, action];
 
+        // Recalculate formulas after undo
+        let allSheetsData = state.allSheetsData;
+        if (state.activeSheetId) {
+          allSheetsData = new Map(state.allSheetsData);
+          allSheetsData.set(state.activeSheetId, newCellData);
+        }
+        const sheetsInfo = state.sheets.map(s => ({ sheetId: s.sheetId, name: s.name }));
+        const allSheetsComputed = recalculateAll(allSheetsData, sheetsInfo);
+
         return {
           cellData: newCellData,
           cellFormat: newCellFormat,
+          allSheetsData,
+          allSheetsComputed,
           dirtyCells: newDirtyCells,
           hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
           inputValue: newInputValue,
@@ -680,9 +737,20 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
         const newRedoStack = state.redoStack.slice(0, -1);
         const newUndoStack = [...state.undoStack, action];
 
+        // Recalculate formulas after redo
+        let allSheetsData = state.allSheetsData;
+        if (state.activeSheetId) {
+          allSheetsData = new Map(state.allSheetsData);
+          allSheetsData.set(state.activeSheetId, newCellData);
+        }
+        const sheetsInfo = state.sheets.map(s => ({ sheetId: s.sheetId, name: s.name }));
+        const allSheetsComputed = recalculateAll(allSheetsData, sheetsInfo);
+
         return {
           cellData: newCellData,
           cellFormat: newCellFormat,
+          allSheetsData,
+          allSheetsComputed,
           dirtyCells: newDirtyCells,
           hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
           inputValue: newInputValue,
@@ -694,11 +762,18 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       });
     },
 
-    // Formula engine integration
-    getDisplayValue: (key) => _getDisplayValue(key),
+    // Formula engine
+    recalculateFormulas: () => {
+      const state = get();
+      const sheetsInfo = state.sheets.map(s => ({ sheetId: s.sheetId, name: s.name }));
+      const allSheetsComputed = recalculateAll(state.allSheetsData, sheetsInfo);
+      set({ allSheetsComputed });
+    },
 
-    setGetDisplayValue: (fn) => {
-      _getDisplayValue = fn;
+    getDisplayValue: (key) => {
+      const state = get();
+      const sheetComputed = state.allSheetsComputed.get(state.activeSheetId || '') || EMPTY_COMPUTED;
+      return computeDisplayValue(key, state.cellData, sheetComputed);
     },
   };
 });
