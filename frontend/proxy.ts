@@ -8,8 +8,11 @@ export default authkitMiddleware({
     unauthenticatedPaths: [
       '/',
       '/login',
+      '/signup',
       '/callback',
       '/logout',
+      '/onboarding',
+      '/pricing',
       '/api/auth/:path*',
       '/:path*.png',
       '/:path*.jpg',
@@ -24,6 +27,6 @@ export default authkitMiddleware({
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

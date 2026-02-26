@@ -54,6 +54,19 @@
   margin-left: auto;
 }
 
+.authActions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-left: auto;
+}
+
+.userEmail {
+  font-size: 14px;
+  color: #000000;
+  font-weight: 500;
+}
+
 .signInButton {
   background-color: #6d8196;
   color: #ffffff;
@@ -66,7 +79,20 @@
   font-family: 'Helvetica', Arial, sans-serif;
   text-decoration: none;
   display: inline-block;
-  margin-left: auto;
+}
+
+.logoutButton {
+  background: none;
+  color: #000000;
+  border: 1px solid #000000;
+  cursor: pointer;
+  padding: 6px 14px;
+  font-size: 1rem;
+  font-weight: 525;
+  border-radius: 0;
+  font-family: 'Helvetica', Arial, sans-serif;
+  text-decoration: none;
+  display: inline-block;
 }
 
 @media (max-width: 768px) {

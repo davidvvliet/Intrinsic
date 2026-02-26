@@ -1,11 +1,14 @@
 "use client";
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import pageStyles from './page.module.css';
 import Navbar from './components/Navbar';
 import MobileNavbar from './components/MobileNavbar';
 
 export default function Landing() {
+  const router = useRouter();
+
   return (
     <div id="main-grid-container" className={pageStyles.gridContainer}>
       {/* Row 1: Navbar */}
@@ -23,7 +26,7 @@ export default function Landing() {
         <div className={pageStyles.heroText}>Unlock intrinsic value</div>
         <div className={pageStyles.heroSubheader}>Automated financial modeling with verified SEC data</div>
         <div className={pageStyles.heroButtons}>
-          <button className={pageStyles.heroButtonFilled}>Get started</button>
+          <button className={pageStyles.heroButtonFilled} onClick={() => router.push('/onboarding')}>Get started</button>
           <button className={pageStyles.heroButtonTransparent}>Book a demo</button>
         </div>
         <img
