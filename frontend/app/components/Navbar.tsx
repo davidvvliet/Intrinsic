@@ -46,7 +46,7 @@ export default function Navbar() {
           <a href="/onboarding" className={styles.signInButton}>
             Get started
           </a>
-          <a href="/login" className={styles.navLink}>
+          <a href="/login" className={styles.logoutButton}>
             Sign in
           </a>
         </div>

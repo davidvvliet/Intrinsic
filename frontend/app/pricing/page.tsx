@@ -10,6 +10,7 @@ export default function Pricing() {
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('yearly');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const checkIsMobile = () => {
@@ -35,6 +36,20 @@ export default function Pricing() {
       document.cookie = 'onboarding_data=; max-age=0; path=/';
     }
   }, []);
+
+  const handleFreePlan = async () => {
+    setSubmitting(true);
+    try {
+      await fetch('/api/user/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: 'free' }),
+      });
+      window.location.href = '/dashboard';
+    } catch {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className={styles.container}>
@@ -90,9 +105,10 @@ export default function Pricing() {
               </div>
               <button
                 className={styles.subscribeButton}
-                onClick={() => router.push('/onboarding')}
+                onClick={handleFreePlan}
+                disabled={submitting}
               >
-                Get started
+                {submitting ? 'Setting up...' : 'Select'}
               </button>
             </div>
           </div>
@@ -135,9 +151,8 @@ export default function Pricing() {
               </div>
               <button
                 className={styles.subscribeButton}
-                onClick={() => router.push('/onboarding')}
               >
-                Get started
+                Select
               </button>
             </div>
           </div>
