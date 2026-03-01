@@ -11,6 +11,8 @@ class ChatRequest(BaseModel):
     sheet_data: Optional[str] = None
     workspace_id: Optional[str] = None
     template_names: Optional[List[str]] = None
+    sheet_names: Optional[List[str]] = None
+    workspace_name: Optional[str] = None
 
 class CompactRequest(BaseModel):
     previous_response_id: str

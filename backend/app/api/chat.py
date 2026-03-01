@@ -35,6 +35,7 @@ Rules:
  - The user can see the spreadsheet in real-time as you make changes. Do NOT read out or recite cell values, formulas, or data that you've written — the user can already see it. Instead, briefly describe what you did (e.g., "Added the revenue projections" not "I set A1 to Revenue, A2 to 2024, B2 to $5.2M..."). Similarly, when fetching financial data, don't narrate every number — just confirm the data was retrieved and point out key insights if relevant.
  - The default cell background color is #FFFFEF. Be aware of this when setting fill colors.
  - When using colors (fill or text), use pleasant bright pastel colors by default unless the user specifies the colors they want.
+ - When asked to color or style a sheet without specific color instructions, first use get_cell_range to read the sheet contents so you can choose contextually appropriate colors (e.g., green for revenue/positive values, red for expenses/losses, blue for headers, etc.).
  - IMPORTANT: If the active sheet changes between messages and the user did not mention switching sheets, ask for clarification before making any edits. This prevents accidental edits to the wrong sheet.
  - When the user specifies a ticker symbol, ALWAYS use exactly what they provide. Never substitute a different ticker based on your own knowledge — ticker symbols change (e.g., SQ → XYZ for Block), and your training data may be outdated. The user's ticker is always more current than yours.
  - When building financial models or analyzing real companies, ALWAYS use the get_financial_data tool to fetch verified SEC data rather than relying on potentially outdated training knowledge. This ensures accuracy with audited 10-K/10-Q filings. (You can still make assumptions in subjective parameters like discount rates or anything else as long as you highlight that to the user.)
@@ -61,6 +62,10 @@ SPREADSHEET_TOOLS = [
                 "value": {
                     "type": "string",
                     "description": "The value to set. Can be text, number, or formula (starting with =)"
+                },
+                "sheet": {
+                    "type": "string",
+                    "description": "Target sheet name. Omit to use the active sheet."
                 }
             },
             "required": ["cell", "value"]
@@ -88,6 +93,10 @@ SPREADSHEET_TOOLS = [
                         "items": {"type": "string"}
                     },
                     "description": "2D array of values. Each inner array represents a row."
+                },
+                "sheet": {
+                    "type": "string",
+                    "description": "Target sheet name. Omit to use the active sheet."
                 }
             },
             "required": ["startCell", "endCell", "values"]
@@ -107,6 +116,10 @@ SPREADSHEET_TOOLS = [
                 "endCell": {
                     "type": "string",
                     "description": "Ending cell in A1 notation (e.g., 'C3')"
+                },
+                "sheet": {
+                    "type": "string",
+                    "description": "Target sheet name. Omit to use the active sheet."
                 }
             },
             "required": ["startCell", "endCell"]
@@ -138,6 +151,10 @@ SPREADSHEET_TOOLS = [
                         "additionalProperties": False
                     },
                     "description": "Array of cell format objects. Each cell can have different formatting."
+                },
+                "sheet": {
+                    "type": "string",
+                    "description": "Target sheet name. Omit to use the active sheet."
                 }
             },
             "required": ["formats"]
@@ -171,6 +188,10 @@ SPREADSHEET_TOOLS = [
                         }
                     },
                     "additionalProperties": False
+                },
+                "sheet": {
+                    "type": "string",
+                    "description": "Target sheet name. Omit to use the active sheet."
                 }
             },
             "required": ["startCell", "endCell", "format"]
@@ -263,6 +284,13 @@ async def generate_chat_stream(request: ChatRequest, user):
         # Add optional selected range context
         if request.selected_range:
             instructions += f"\n\nNote: The user currently has range {request.selected_range} selected. Use this as context if relevant to their request, but ignore it if the request is unrelated."
+
+        # Add workspace and sheet names to context
+        if request.workspace_name:
+            instructions += f"\n\nThe user is working in workspace: \"{request.workspace_name}\"."
+        if request.sheet_names:
+            sheet_list = ", ".join(f'"{n}"' for n in request.sheet_names)
+            instructions += f"\n\nAll sheets in this workspace: {sheet_list}. ALWAYS include the 'sheet' parameter in every spreadsheet tool call to specify which sheet you are targeting by name. Never omit it."
 
         # Add available templates from frontend
         user_id = user["id"]

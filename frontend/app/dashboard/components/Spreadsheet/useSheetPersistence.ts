@@ -41,6 +41,7 @@ export function useSheetPersistence() {
   const setFrozenRowsBySheet = useSpreadsheetStore(state => state.setFrozenRowsBySheet);
   const setFrozenColumnsBySheet = useSpreadsheetStore(state => state.setFrozenColumnsBySheet);
   const setSheetCellData = useSpreadsheetStore(state => state.setSheetCellData);
+  const setSheetCellFormat = useSpreadsheetStore(state => state.setSheetCellFormat);
   const setScrollPosition = useSpreadsheetStore(state => state.setScrollPosition);
   const recalculateFormulas = useSpreadsheetStore(state => state.recalculateFormulas);
 
@@ -230,10 +231,11 @@ export function useSheetPersistence() {
       for (const result of results) {
         if (!result.data) continue;
 
-        const { cellData: sheetCells } = deserializeSheet(result.data, result.sheetId);
+        const { cellData: sheetCells, cellFormat: sheetFormat } = deserializeSheet(result.data, result.sheetId);
 
-        // Store in allSheetsData
+        // Store in allSheetsData and allSheetsFormat
         setSheetCellData(result.sheetId, sheetCells);
+        setSheetCellFormat(result.sheetId, sheetFormat);
 
         // Update sheet name from backend
         if (result.name) {
@@ -245,6 +247,7 @@ export function useSheetPersistence() {
       for (const sheet of sheets) {
         if (!sheet.isSaved) {
           setSheetCellData(sheet.sheetId, new Map());
+          setSheetCellFormat(sheet.sheetId, new Map());
         }
       }
 
@@ -274,20 +277,22 @@ export function useSheetPersistence() {
       setScrollPosition(prevSheetId, containerRef.current.scrollLeft, containerRef.current.scrollTop);
     }
 
-    // Snapshot current cellData into allSheetsData for the sheet we're leaving
+    // Snapshot current cellData and cellFormat into allSheets for the sheet we're leaving
     if (prevSheetId) {
-      const currentCellData = useSpreadsheetStore.getState().cellData;
-      setSheetCellData(prevSheetId, currentCellData);
+      const state = useSpreadsheetStore.getState();
+      setSheetCellData(prevSheetId, state.cellData);
+      setSheetCellFormat(prevSheetId, state.cellFormat);
     }
 
-    // Load the new sheet's data from allSheetsData
-    const allSheetsData = useSpreadsheetStore.getState().allSheetsData;
-    const newSheetData = allSheetsData.get(activeSheetId) || new Map();
+    // Load the new sheet's data and format from allSheets
+    const state = useSpreadsheetStore.getState();
+    const newSheetData = state.allSheetsData.get(activeSheetId) || new Map();
+    const newSheetFormat = state.allSheetsFormat.get(activeSheetId) || new Map();
 
     setCellData(newSheetData);
     setBaselineData(new Map(newSheetData));
-    setCellFormat(new Map()); // TODO: store formats per-sheet if needed
-    setBaselineFormat(new Map());
+    setCellFormat(newSheetFormat);
+    setBaselineFormat(new Map(newSheetFormat));
     setDirtyCells(new Set());
 
     // Clear UI state

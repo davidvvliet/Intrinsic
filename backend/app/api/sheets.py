@@ -41,9 +41,12 @@ async def list_sheets(
 
     if workspace_id:
         rows = await execute_query(
-            """SELECT id, name, created_at, updated_at, list_ids, thumbnail, workspace_id
-               FROM sheets WHERE user_id = $1 AND workspace_id = $2
-               ORDER BY created_at ASC""",
+            """SELECT s.id, s.name, s.created_at, s.updated_at, s.list_ids, s.thumbnail, s.workspace_id,
+                      w.name AS workspace_name
+               FROM sheets s
+               JOIN workspaces w ON w.id = s.workspace_id
+               WHERE s.user_id = $1 AND s.workspace_id = $2
+               ORDER BY s.created_at ASC""",
             user_id, workspace_id
         )
     else:
@@ -62,7 +65,8 @@ async def list_sheets(
             "updated_at": row["updated_at"].isoformat(),
             "list_ids": row["list_ids"] or [],
             "thumbnail": row["thumbnail"],
-            "workspace_id": row["workspace_id"]
+            "workspace_id": row["workspace_id"],
+            "workspace_name": row.get("workspace_name"),
         }
         for row in rows
     ]

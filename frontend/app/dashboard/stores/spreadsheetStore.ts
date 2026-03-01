@@ -39,11 +39,13 @@ interface SpreadsheetState {
 
   // Sheet management
   workspaceId: string | null;
+  workspaceName: string | null;
   activeSheetId: string | null;
   sheets: SheetMetadata[];
 
   // Cross-sheet data (for cross-sheet formula references)
   allSheetsData: Map<string, CellData>;
+  allSheetsFormat: Map<string, CellFormatData>;
   allSheetsComputed: Map<string, ComputedData>;
 
   // Column widths
@@ -84,9 +86,11 @@ interface SpreadsheetActions {
   setCopiedRange: (range: CopiedRange | ((prev: CopiedRange) => CopiedRange)) => void;
   setAnimatingRanges: (ranges: CopiedRange[] | ((prev: CopiedRange[]) => CopiedRange[])) => void;
   setWorkspaceId: (id: string | null) => void;
+  setWorkspaceName: (name: string | null) => void;
   setActiveSheetId: (id: string | null | ((prev: string | null) => string | null)) => void;
   setSheets: (sheets: SheetMetadata[] | ((prev: SheetMetadata[]) => SheetMetadata[])) => void;
   setSheetCellData: (sheetId: string, data: CellData) => void;
+  setSheetCellFormat: (sheetId: string, format: CellFormatData) => void;
   setColumnWidthsBySheet: (widths: Map<string, Map<number, number>> | ((prev: Map<string, Map<number, number>>) => Map<string, Map<number, number>>)) => void;
   setFrozenRows: (rows: number) => void;
   setFrozenColumns: (cols: number) => void;
@@ -162,9 +166,11 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     copiedRange: null,
     animatingRanges: [],
     workspaceId: null,
+    workspaceName: null,
     activeSheetId: null,
     sheets: [],
     allSheetsData: new Map(),
+    allSheetsFormat: new Map(),
     allSheetsComputed: new Map(),
     columnWidths: new Map(),
     columnWidthsBySheet: new Map(),
@@ -234,16 +240,20 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       return { animatingRanges: newRanges };
     }),
 
+    setWorkspaceName: (name) => set({ workspaceName: name }),
+
     setWorkspaceId: (id) => set(state => {
       if (state.workspaceId !== id) {
         return {
           workspaceId: id,
+          workspaceName: null,
           cellData: new Map(),
           cellFormat: new Map(),
           baselineData: new Map(),
           baselineFormat: new Map(),
           dirtyCells: new Set(),
           allSheetsData: new Map(),
+          allSheetsFormat: new Map(),
           allSheetsComputed: new Map(),
           sheets: [],
           activeSheetId: null,
@@ -278,6 +288,12 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       const next = new Map(state.allSheetsData);
       next.set(sheetId, data);
       return { allSheetsData: next };
+    }),
+
+    setSheetCellFormat: (sheetId, format) => set(state => {
+      const next = new Map(state.allSheetsFormat);
+      next.set(sheetId, format);
+      return { allSheetsFormat: next };
     }),
 
     setColumnWidthsBySheet: (widths) => set(state => {
@@ -396,6 +412,13 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           next.delete(key);
         }
 
+        // Mirror into allSheetsFormat
+        let allSheetsFormat = state.allSheetsFormat;
+        if (state.activeSheetId) {
+          allSheetsFormat = new Map(state.allSheetsFormat);
+          allSheetsFormat.set(state.activeSheetId, next);
+        }
+
         const baselineFmt = state.baselineFormat.get(key);
         const formatStr = format ? JSON.stringify(format) : '';
         const baselineStr = baselineFmt ? JSON.stringify(baselineFmt) : '';
@@ -409,6 +432,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
 
         return {
           cellFormat: next,
+          allSheetsFormat,
           dirtyCells: newDirtyCells,
           hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
         };
@@ -518,8 +542,16 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           }
         });
 
+        // Mirror into allSheetsFormat
+        let allSheetsFormat = state.allSheetsFormat;
+        if (state.activeSheetId) {
+          allSheetsFormat = new Map(state.allSheetsFormat);
+          allSheetsFormat.set(state.activeSheetId, newCellFormat);
+        }
+
         return {
           cellFormat: newCellFormat,
+          allSheetsFormat,
           dirtyCells: newDirtyCells,
           hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
         };

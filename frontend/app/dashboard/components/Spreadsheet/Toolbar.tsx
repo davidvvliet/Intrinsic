@@ -1,6 +1,6 @@
 import { useCallback, useState, useRef } from 'react';
 import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
-import { useWorkspacesStore } from '../../stores/workspacesStore';
+
 import { useAuthFetch } from '../../hooks/useAuthFetch';
 import { getCellKey } from './drawUtils';
 import type { CellFormat, NumberFormatSettings } from './types';
@@ -35,11 +35,8 @@ export default function Toolbar() {
   const sheets = useSpreadsheetStore(state => state.sheets);
   const workspaceId = useSpreadsheetStore(state => state.workspaceId);
 
-  // Get workspace name from workspaces store
-  const workspaceName = useWorkspacesStore(state =>
-    workspaceId ? state.workspaces.find(w => w.id === workspaceId)?.name : null
-  );
-  const updateWorkspace = useWorkspacesStore(state => state.updateWorkspace);
+  const workspaceName = useSpreadsheetStore(state => state.workspaceName);
+  const setWorkspaceName = useSpreadsheetStore(state => state.setWorkspaceName);
   const { fetchWithAuth } = useAuthFetch();
 
   const [isEditingName, setIsEditingName] = useState(false);
@@ -58,7 +55,7 @@ export default function Toolbar() {
     const trimmed = editingName.trim() || 'Untitled';
     setIsEditingName(false);
     if (!workspaceId || trimmed === workspaceName) return;
-    updateWorkspace(workspaceId, { name: trimmed });
+    setWorkspaceName(trimmed);
     fetchWithAuth(`/api/workspaces/${workspaceId}/name`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

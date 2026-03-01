@@ -33,6 +33,7 @@ export default function WorkspacePage() {
   const activeSheetId = useSpreadsheetStore(state => state.activeSheetId);
   const sheets = useSpreadsheetStore(state => state.sheets);
   const setWorkspaceId = useSpreadsheetStore(state => state.setWorkspaceId);
+  const setWorkspaceName = useSpreadsheetStore(state => state.setWorkspaceName);
   const setSheets = useSpreadsheetStore(state => state.setSheets);
   const setActiveSheetId = useSpreadsheetStore(state => state.setActiveSheetId);
   const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
@@ -63,6 +64,7 @@ export default function WorkspacePage() {
           }));
 
           setSheets(sheetMetadata);
+          setWorkspaceName(data[0]?.workspace_name ?? null);
 
           // Restore active sheet from URL if present, otherwise default to first
           const urlSheet = new URLSearchParams(window.location.search).get('sheet');
@@ -90,7 +92,7 @@ export default function WorkspacePage() {
     return () => {
       setWorkspaceId(null);
     };
-  }, [workspaceId, fetchWithAuth, setWorkspaceId, setSheets, setActiveSheetId]);
+  }, [workspaceId, fetchWithAuth, setWorkspaceId, setWorkspaceName, setSheets, setActiveSheetId]);
 
   // Sync active sheet to URL
   useEffect(() => {
@@ -158,7 +160,9 @@ export default function WorkspacePage() {
     summaryContext?: string | null,
     sheetData?: string | null,
     workspaceId?: string | null,
-    templateNames?: string[] | null
+    templateNames?: string[] | null,
+    sheetNames?: string[] | null,
+    workspaceName?: string | null
   ) => Promise<void>) | null>(null);
 
   const handleMessageComplete = useCallback(async (message: string, toolCalls?: ToolCall[], responseId?: string) => {
@@ -212,7 +216,7 @@ export default function WorkspacePage() {
 
       // Make another API call using previous_response_id approach
       if (sendMessageRef.current) {
-        sendMessageRef.current(null, null, responseId, functionCallOutputs, selectedRange, sheetIdRef.current, sheetNameRef.current, undefined, undefined, workspaceId, templateNamesRef.current);
+        sendMessageRef.current(null, null, responseId, functionCallOutputs, selectedRange, sheetIdRef.current, sheetNameRef.current, undefined, undefined, workspaceId, templateNamesRef.current, useSpreadsheetStore.getState().sheets.map(s => s.name), useSpreadsheetStore.getState().workspaceName);
       }
     } else if (toolCalls && toolCalls.length > 0 && iterationCountRef.current >= maxIterations) {
       // Hit iteration limit - add warning message
@@ -310,10 +314,10 @@ export default function WorkspacePage() {
     // Send message with appropriate context
     if (currentResponseId && sendMessageRef.current) {
       // Continue existing chain
-      sendMessageRef.current(messageText, null, currentResponseId, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, undefined, sheetData, workspaceId, templateNamesRef.current);
+      sendMessageRef.current(messageText, null, currentResponseId, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, undefined, sheetData, workspaceId, templateNamesRef.current, useSpreadsheetStore.getState().sheets.map(s => s.name), useSpreadsheetStore.getState().workspaceName);
     } else {
       // Start fresh chain (possibly with summary context)
-      sendMessage(messageText, null, undefined, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, currentSummary, sheetData, workspaceId, templateNamesRef.current);
+      sendMessage(messageText, null, undefined, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, currentSummary, sheetData, workspaceId, templateNamesRef.current, useSpreadsheetStore.getState().sheets.map(s => s.name), useSpreadsheetStore.getState().workspaceName);
     }
   }, [query, selectedRange, sendMessage, activeConversationId, lastResponseId, addMessage, chatMessages, summary, setSummary, fetchWithAuth]);
 

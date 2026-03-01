@@ -24,6 +24,8 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
   const updateCell = useSpreadsheetStore(state => state.updateCell);
   const updateCells = useSpreadsheetStore(state => state.updateCells);
   const updateCellFormat = useSpreadsheetStore(state => state.updateCellFormat);
+  const setSheetCellData = useSpreadsheetStore(state => state.setSheetCellData);
+  const setSheetCellFormat = useSpreadsheetStore(state => state.setSheetCellFormat);
 
   // Hook handles auto-save and load on mount
   useSheetPersistence();
@@ -42,7 +44,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
       }
 
       if (name === 'set_cell_value') {
-        const { cell, value } = args;
+        const { cell, value, sheet } = args;
         if (!cell || value === undefined) {
           return { error: 'Missing required arguments: cell and value' };
         }
@@ -50,51 +52,78 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
         const cellKey = getCellKey(row, col);
         const parsed = parseInputValue(value);
 
-        // Add animation for single cell - force immediate render
-        const range = { minRow: row, maxRow: row, minCol: col, maxCol: col };
-        flushSync(() => {
-          setAnimatingRanges(prev => [...prev, range]);
-        });
+        // Resolve target sheet
+        const storeState = useSpreadsheetStore.getState();
+        const targetSheet = sheet ? storeState.sheets.find(s => s.name === sheet) : null;
+        const isOtherSheet = targetSheet && targetSheet.sheetId !== storeState.activeSheetId;
 
-        updateCell(cellKey, { raw: parsed.value, type: parsed.type });
+        if (isOtherSheet) {
+          // Write to allSheetsData directly
+          const sheetData = new Map(storeState.allSheetsData.get(targetSheet.sheetId) || new Map());
+          sheetData.set(cellKey, { raw: parsed.value, type: parsed.type });
+          setSheetCellData(targetSheet.sheetId, sheetData);
 
-        // Apply or clear format based on input
-        const trimmed = value.trim();
-        const currentCellFormat = useSpreadsheetStore.getState().cellFormat;
-        const existingFormat = currentCellFormat.get(cellKey) || {};
-        if (trimmed.endsWith('%')) {
-          updateCellFormat(cellKey, { ...existingFormat, numberFormat: { type: 'percent' } });
-        } else if (/^[\$£€¥]/.test(trimmed)) {
-          updateCellFormat(cellKey, { ...existingFormat, numberFormat: { type: 'currency' } });
-        } else if (parsed.type === 'number') {
-          updateCellFormat(cellKey, { ...existingFormat, numberFormat: undefined });
+          // Handle format for other sheet
+          const sheetFormat = new Map(storeState.allSheetsFormat.get(targetSheet.sheetId) || new Map());
+          const trimmed = value.trim();
+          const existingFormat = sheetFormat.get(cellKey) || {};
+          if (trimmed.endsWith('%')) {
+            sheetFormat.set(cellKey, { ...existingFormat, numberFormat: { type: 'percent' } });
+            setSheetCellFormat(targetSheet.sheetId, sheetFormat);
+          } else if (/^[\$£€¥]/.test(trimmed)) {
+            sheetFormat.set(cellKey, { ...existingFormat, numberFormat: { type: 'currency' } });
+            setSheetCellFormat(targetSheet.sheetId, sheetFormat);
+          } else if (parsed.type === 'number') {
+            sheetFormat.set(cellKey, { ...existingFormat, numberFormat: undefined });
+            setSheetCellFormat(targetSheet.sheetId, sheetFormat);
+          }
+        } else {
+          // Active sheet - use existing logic with animation
+          const range = { minRow: row, maxRow: row, minCol: col, maxCol: col };
+          flushSync(() => {
+            setAnimatingRanges(prev => [...prev, range]);
+          });
+
+          updateCell(cellKey, { raw: parsed.value, type: parsed.type });
+
+          const trimmed = value.trim();
+          const currentCellFormat = storeState.cellFormat;
+          const existingFormat = currentCellFormat.get(cellKey) || {};
+          if (trimmed.endsWith('%')) {
+            updateCellFormat(cellKey, { ...existingFormat, numberFormat: { type: 'percent' } });
+          } else if (/^[\$£€¥]/.test(trimmed)) {
+            updateCellFormat(cellKey, { ...existingFormat, numberFormat: { type: 'currency' } });
+          } else if (parsed.type === 'number') {
+            updateCellFormat(cellKey, { ...existingFormat, numberFormat: undefined });
+          }
+
+          setTimeout(() => {
+            setAnimatingRanges(prev => prev.filter(r => r !== range));
+          }, 2000);
         }
-
-        // Remove animation after delay
-        setTimeout(() => {
-          setAnimatingRanges(prev => prev.filter(r => r !== range));
-        }, 2000);
       } else if (name === 'set_cell_range') {
-        const { startCell, endCell, values } = args;
+        const { startCell, endCell, values, sheet } = args;
         if (!startCell || !endCell || !values) {
           return { error: 'Missing required arguments: startCell, endCell, or values' };
         }
         const start = a1ToRowCol(startCell);
         const end = a1ToRowCol(endCell);
 
-        // Add animation for range - force immediate render
-        const range = { minRow: start.row, maxRow: end.row, minCol: start.col, maxCol: end.col };
-        flushSync(() => {
-          setAnimatingRanges(prev => [...prev, range]);
-        });
+        const storeState = useSpreadsheetStore.getState();
+        const targetSheet = sheet ? storeState.sheets.find(s => s.name === sheet) : null;
+        const isOtherSheet = targetSheet && targetSheet.sheetId !== storeState.activeSheetId;
 
-        // Clone existing cellData to preserve all cells
-        const currentCellData = useSpreadsheetStore.getState().cellData;
-        const currentCellFormat = useSpreadsheetStore.getState().cellFormat;
-        const mergedCellData = new Map(currentCellData);
+        const sourceCellData = isOtherSheet
+          ? (storeState.allSheetsData.get(targetSheet.sheetId) || new Map())
+          : storeState.cellData;
+        const sourceCellFormat = isOtherSheet
+          ? (storeState.allSheetsFormat.get(targetSheet.sheetId) || new Map())
+          : storeState.cellFormat;
+
+        const mergedCellData = new Map(sourceCellData);
+        const mergedCellFormat = new Map(sourceCellFormat);
         const formatUpdates: Array<{ cellKey: string; format: CellFormat }> = [];
 
-        // Update only the range cells in the cloned Map
         for (let rowIdx = 0; rowIdx < values.length; rowIdx++) {
           const row = start.row + rowIdx;
           if (row > end.row) break;
@@ -109,9 +138,8 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
             const parsed = parseInputValue(value);
             mergedCellData.set(cellKey, { raw: parsed.value, type: parsed.type });
 
-            // Collect format updates based on input
             const trimmed = value.trim();
-            const existingFormat = currentCellFormat.get(cellKey) || {};
+            const existingFormat = sourceCellFormat.get(cellKey) || {};
             if (trimmed.endsWith('%')) {
               formatUpdates.push({ cellKey, format: { ...existingFormat, numberFormat: { type: 'percent' } } });
             } else if (/^[\$£€¥]/.test(trimmed)) {
@@ -122,18 +150,27 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           }
         }
 
-        // Single bulk update with merged data (preserves all existing cells)
-        updateCells(mergedCellData);
+        if (isOtherSheet) {
+          for (const { cellKey, format } of formatUpdates) {
+            mergedCellFormat.set(cellKey, format);
+          }
+          setSheetCellData(targetSheet.sheetId, mergedCellData);
+          setSheetCellFormat(targetSheet.sheetId, mergedCellFormat);
+        } else {
+          const range = { minRow: start.row, maxRow: end.row, minCol: start.col, maxCol: end.col };
+          flushSync(() => {
+            setAnimatingRanges(prev => [...prev, range]);
+          });
 
-        // Apply format updates
-        for (const { cellKey, format } of formatUpdates) {
-          updateCellFormat(cellKey, format);
+          updateCells(mergedCellData);
+          for (const { cellKey, format } of formatUpdates) {
+            updateCellFormat(cellKey, format);
+          }
+
+          setTimeout(() => {
+            setAnimatingRanges(prev => prev.filter(r => r !== range));
+          }, 2000);
         }
-
-        // Remove animation after delay
-        setTimeout(() => {
-          setAnimatingRanges(prev => prev.filter(r => r !== range));
-        }, 2000);
       } else if (name === 'get_cell_range') {
         const { startCell, endCell } = args;
         if (!startCell || !endCell) {
@@ -142,17 +179,30 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
         const start = a1ToRowCol(startCell);
         const end = a1ToRowCol(endCell);
 
-        const result: ({ value: string; raw?: string })[][] = [];
-        const currentCellData = useSpreadsheetStore.getState().cellData;
-        const currentGetDisplayValue = useSpreadsheetStore.getState().getDisplayValue;
+        const storeState = useSpreadsheetStore.getState();
+        let targetCellData = storeState.cellData;
+        let targetSheetId = storeState.activeSheetId;
 
-        // Build 2D array from spreadsheet data
+        // If targeting a different sheet, read from allSheetsData
+        if (args.sheet) {
+          const targetSheet = storeState.sheets.find(s => s.name === args.sheet);
+          if (targetSheet && targetSheet.sheetId !== storeState.activeSheetId) {
+            targetCellData = storeState.allSheetsData.get(targetSheet.sheetId) || new Map();
+            targetSheetId = targetSheet.sheetId;
+          }
+        }
+
+        const targetComputed = storeState.allSheetsComputed.get(targetSheetId || '') || new Map();
+
+        const result: ({ value: string; raw?: string })[][] = [];
+
         for (let row = start.row; row <= end.row; row++) {
           const rowValues: ({ value: string; raw?: string })[] = [];
           for (let col = start.col; col <= end.col; col++) {
             const cellKey = getCellKey(row, col);
-            const displayValue = currentGetDisplayValue(cellKey);
-            const cell = currentCellData.get(cellKey);
+            const computed = targetComputed.get(cellKey);
+            const displayValue = computed !== undefined ? String(computed) : (targetCellData.get(cellKey)?.raw || '');
+            const cell = targetCellData.get(cellKey);
             if (cell?.type === 'formula') {
               rowValues.push({ value: displayValue, raw: cell.raw });
             } else {
@@ -164,16 +214,22 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
 
         return result;
       } else if (name === 'format_cells') {
-        const { formats } = args;
+        const { formats, sheet } = args;
         if (!formats || !Array.isArray(formats)) {
           return { error: 'Missing or invalid required argument: formats (must be an array)' };
         }
 
-        // Collect all cells being formatted for animation
-        const animatingCells: Array<{ row: number; col: number }> = [];
-        const currentCellFormat = useSpreadsheetStore.getState().cellFormat;
+        const storeState = useSpreadsheetStore.getState();
+        const targetSheet = sheet ? storeState.sheets.find(s => s.name === sheet) : null;
+        const isOtherSheet = targetSheet && targetSheet.sheetId !== storeState.activeSheetId;
 
-        // Apply format to each cell (merge with existing format)
+        const sourceCellFormat = isOtherSheet
+          ? (storeState.allSheetsFormat.get(targetSheet.sheetId) || new Map())
+          : storeState.cellFormat;
+
+        const animatingCells: Array<{ row: number; col: number }> = [];
+        const mergedCellFormat = isOtherSheet ? new Map(sourceCellFormat) : null;
+
         for (const item of formats) {
           if (!item || typeof item !== 'object' || !item.cell) {
             continue;
@@ -183,10 +239,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           const cellKey = getCellKey(row, col);
           animatingCells.push({ row, col });
 
-          // Get existing format for this cell
-          const existingFormat = currentCellFormat.get(cellKey) || {};
-
-          // Build new format object, merging with existing
+          const existingFormat = sourceCellFormat.get(cellKey) || {};
           const newFormat: CellFormat = { ...existingFormat };
 
           if (item.bold !== undefined) newFormat.bold = item.bold;
@@ -194,11 +247,16 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           if (item.fillColor !== undefined) newFormat.fillColor = item.fillColor;
           if (item.textColor !== undefined) newFormat.textColor = item.textColor;
 
-          updateCellFormat(cellKey, newFormat);
+          if (isOtherSheet) {
+            mergedCellFormat!.set(cellKey, newFormat);
+          } else {
+            updateCellFormat(cellKey, newFormat);
+          }
         }
 
-        // Add animations for all affected cells (create bounding box)
-        if (animatingCells.length > 0) {
+        if (isOtherSheet) {
+          setSheetCellFormat(targetSheet.sheetId, mergedCellFormat!);
+        } else if (animatingCells.length > 0) {
           const minRow = Math.min(...animatingCells.map(c => c.row));
           const maxRow = Math.max(...animatingCells.map(c => c.row));
           const minCol = Math.min(...animatingCells.map(c => c.col));
@@ -208,13 +266,12 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
             setAnimatingRanges(prev => [...prev, range]);
           });
 
-          // Remove animation after delay
           setTimeout(() => {
             setAnimatingRanges(prev => prev.filter(r => r !== range));
           }, 2000);
         }
       } else if (name === 'format_cell_range') {
-        const { startCell, endCell, format } = args;
+        const { startCell, endCell, format, sheet } = args;
         if (!startCell || !endCell || !format || typeof format !== 'object') {
           return { error: 'Missing required arguments: startCell, endCell, or format' };
         }
@@ -222,40 +279,53 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
         const start = a1ToRowCol(startCell);
         const end = a1ToRowCol(endCell);
 
-        // Add animation for range - force immediate render
-        const range = { minRow: start.row, maxRow: end.row, minCol: start.col, maxCol: end.col };
-        flushSync(() => {
-          setAnimatingRanges(prev => [...prev, range]);
-        });
+        const storeState = useSpreadsheetStore.getState();
+        const targetSheet = sheet ? storeState.sheets.find(s => s.name === sheet) : null;
+        const isOtherSheet = targetSheet && targetSheet.sheetId !== storeState.activeSheetId;
 
-        // Build format object from format properties
         const formatToApply: Partial<CellFormat> = {};
         if (format.bold !== undefined) formatToApply.bold = format.bold;
         if (format.italic !== undefined) formatToApply.italic = format.italic;
         if (format.fillColor !== undefined) formatToApply.fillColor = format.fillColor;
         if (format.textColor !== undefined) formatToApply.textColor = format.textColor;
 
-        const currentCellFormat = useSpreadsheetStore.getState().cellFormat;
+        const sourceCellFormat = isOtherSheet
+          ? (storeState.allSheetsFormat.get(targetSheet.sheetId) || new Map())
+          : storeState.cellFormat;
 
-        // Apply format to all cells in range
-        for (let row = start.row; row <= end.row; row++) {
-          for (let col = start.col; col <= end.col; col++) {
-            const cellKey = getCellKey(row, col);
-            const existingFormat = currentCellFormat.get(cellKey) || {};
-            const newFormat: CellFormat = { ...existingFormat, ...formatToApply };
-            updateCellFormat(cellKey, newFormat);
+        if (isOtherSheet) {
+          const mergedCellFormat = new Map(sourceCellFormat);
+          for (let row = start.row; row <= end.row; row++) {
+            for (let col = start.col; col <= end.col; col++) {
+              const cellKey = getCellKey(row, col);
+              const existingFormat = sourceCellFormat.get(cellKey) || {};
+              mergedCellFormat.set(cellKey, { ...existingFormat, ...formatToApply });
+            }
           }
-        }
+          setSheetCellFormat(targetSheet.sheetId, mergedCellFormat);
+        } else {
+          const range = { minRow: start.row, maxRow: end.row, minCol: start.col, maxCol: end.col };
+          flushSync(() => {
+            setAnimatingRanges(prev => [...prev, range]);
+          });
 
-        // Remove animation after delay
-        setTimeout(() => {
-          setAnimatingRanges(prev => prev.filter(r => r !== range));
-        }, 2000);
+          for (let row = start.row; row <= end.row; row++) {
+            for (let col = start.col; col <= end.col; col++) {
+              const cellKey = getCellKey(row, col);
+              const existingFormat = sourceCellFormat.get(cellKey) || {};
+              updateCellFormat(cellKey, { ...existingFormat, ...formatToApply });
+            }
+          }
+
+          setTimeout(() => {
+            setAnimatingRanges(prev => prev.filter(r => r !== range));
+          }, 2000);
+        }
       }
     };
 
     onToolCall(handleToolCall);
-  }, [onToolCall, setAnimatingRanges, updateCell, updateCells, updateCellFormat]);
+  }, [onToolCall, setAnimatingRanges, updateCell, updateCells, updateCellFormat, setSheetCellData, setSheetCellFormat]);
 
   return (
     <div className={styles.spreadsheet}>

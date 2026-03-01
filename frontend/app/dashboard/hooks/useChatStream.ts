@@ -30,7 +30,9 @@ export function useChatStream(
     summaryContext?: string | null,
     sheetData?: string | null,
     workspaceId?: string | null,
-    templateNames?: string[] | null
+    templateNames?: string[] | null,
+    sheetNames?: string[] | null,
+    workspaceName?: string | null
   ) => {
     setIsStreaming(true);
     setIsToolCalling(false);
@@ -77,6 +79,12 @@ export function useChatStream(
       }
       if (templateNames && templateNames.length > 0) {
         body.template_names = templateNames;
+      }
+      if (sheetNames && sheetNames.length > 0) {
+        body.sheet_names = sheetNames;
+      }
+      if (workspaceName) {
+        body.workspace_name = workspaceName;
       }
 
       const response = await fetchWithAuth('/api/chat', {
