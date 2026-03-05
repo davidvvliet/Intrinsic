@@ -5,7 +5,9 @@ from app.core.deps import get_workos_user
 from app.api.sec import get_financial_data
 from app.api.market import get_stock_quote
 from app.api.templates import apply_template_to_workspace
+from app.api.conversation_service import save_user_message, save_assistant_turn, auto_title
 from openai import AsyncOpenAI
+import asyncio
 import json
 import os
 from datetime import datetime
@@ -263,6 +265,13 @@ async def generate_chat_stream(request: ChatRequest, user):
     client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
     try:
+        # Save user message to DB at the start (not for tool call continuations)
+        if request.conversation_id and request.message and not request.function_call_outputs:
+            await save_user_message(request.conversation_id, request.message)
+            title = await auto_title(request.conversation_id, request.message)
+            if title:
+                yield f"data: {json.dumps({'title': title})}\n\n"
+
         # Get current date and build system prompt
         current_date = datetime.now().strftime("%B %d, %Y")
 
@@ -313,6 +322,7 @@ async def generate_chat_stream(request: ChatRequest, user):
                 input_data.append({"role": "user", "content": request.message})
 
         response_id = None
+        accumulated_text = ""
 
         # True streaming loop with server-side tool interception
         while True:
@@ -340,6 +350,7 @@ async def generate_chat_stream(request: ChatRequest, user):
                 # Stream text deltas IMMEDIATELY to client
                 elif event_type == 'response.output_text.delta':
                     if hasattr(event, 'delta'):
+                        accumulated_text += event.delta
                         yield f"data: {json.dumps({'content': event.delta})}\n\n"
 
                 # Handle completed output items
@@ -417,6 +428,10 @@ async def generate_chat_stream(request: ChatRequest, user):
             # Continue loop with tool outputs - next iteration streams the continuation
             prev_response_id = response_id
             input_data = tool_outputs
+
+        # Save assistant message + update last_response_id
+        if request.conversation_id and accumulated_text and response_id:
+            asyncio.create_task(save_assistant_turn(request.conversation_id, accumulated_text, response_id))
 
         # Send completion event with final response_id
         print(f"[chat] Stream complete, response_id={response_id}")

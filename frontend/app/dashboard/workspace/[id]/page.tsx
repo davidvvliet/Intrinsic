@@ -11,7 +11,7 @@ import TabBar from '../../components/TabBar';
 import { useColumnMinimize } from '../../hooks/useColumnMinimize';
 import { useChatStream, ToolCall } from '../../hooks/useChatStream';
 import { useAuthFetch } from '../../hooks/useAuthFetch';
-import { ChatMessage } from '../../types/chat';
+import { ChatMessage, SendMessageOptions } from '../../types/chat';
 import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
 import { useConversations } from '../../hooks/useConversations';
 import { useConversationsStore } from '../../stores/conversationsStore';
@@ -149,21 +149,7 @@ export default function WorkspacePage() {
   const sheetNameRef = useRef<string | null>(null);
   sheetNameRef.current = sheetName;
 
-  const sendMessageRef = useRef<((
-    message: string | null,
-    conversationHistory: ChatMessage[] | null,
-    previousResponseId?: string,
-    functionCallOutputs?: Array<{type: string, call_id: string, output: string}>,
-    selectedRange?: string | null,
-    sheetId?: string | null,
-    sheetName?: string | null,
-    summaryContext?: string | null,
-    sheetData?: string | null,
-    workspaceId?: string | null,
-    templateNames?: string[] | null,
-    sheetNames?: string[] | null,
-    workspaceName?: string | null
-  ) => Promise<void>) | null>(null);
+  const sendMessageRef = useRef<((options: SendMessageOptions) => Promise<void>) | null>(null);
 
   const handleMessageComplete = useCallback(async (message: string, toolCalls?: ToolCall[], responseId?: string) => {
     const convId = useConversationsStore.getState().activeConversationId;
@@ -216,7 +202,18 @@ export default function WorkspacePage() {
 
       // Make another API call using previous_response_id approach
       if (sendMessageRef.current) {
-        sendMessageRef.current(null, null, responseId, functionCallOutputs, selectedRange, sheetIdRef.current, sheetNameRef.current, undefined, undefined, workspaceId, templateNamesRef.current, useSpreadsheetStore.getState().sheets.map(s => s.name), useSpreadsheetStore.getState().workspaceName);
+        sendMessageRef.current({
+          previousResponseId: responseId,
+          functionCallOutputs,
+          selectedRange,
+          sheetId: sheetIdRef.current,
+          sheetName: sheetNameRef.current,
+          workspaceId,
+          templateNames: templateNamesRef.current,
+          sheetNames: useSpreadsheetStore.getState().sheets.map(s => s.name),
+          workspaceName: useSpreadsheetStore.getState().workspaceName,
+          conversationId: convId,
+        });
       }
     } else if (toolCalls && toolCalls.length > 0 && iterationCountRef.current >= maxIterations) {
       // Hit iteration limit - add warning message
@@ -260,7 +257,14 @@ export default function WorkspacePage() {
     }
   }, [workspaceId, fetchWithAuth, setSheets]);
 
-  const { streamingText, isStreaming, isToolCalling, sendMessage } = useChatStream(handleMessageComplete, handleToolCall, handleSheetsChanged);
+  const handleTitleUpdate = useCallback((title: string) => {
+    const convId = useConversationsStore.getState().activeConversationId;
+    if (convId) {
+      useConversationsStore.getState().updateTitle(convId, title);
+    }
+  }, []);
+
+  const { streamingText, isStreaming, isToolCalling, sendMessage } = useChatStream(handleMessageComplete, handleToolCall, handleSheetsChanged, handleTitleUpdate);
   sendMessageRef.current = sendMessage;
 
   const handleSearch = useCallback(async () => {
@@ -312,12 +316,32 @@ export default function WorkspacePage() {
     );
 
     // Send message with appropriate context
+    const commonOptions = {
+      selectedRange,
+      sheetId: sheetIdRef.current,
+      sheetName: sheetNameRef.current,
+      sheetData,
+      workspaceId,
+      templateNames: templateNamesRef.current,
+      sheetNames: useSpreadsheetStore.getState().sheets.map(s => s.name),
+      workspaceName: useSpreadsheetStore.getState().workspaceName,
+      conversationId: activeConversationId,
+    };
+
     if (currentResponseId && sendMessageRef.current) {
       // Continue existing chain
-      sendMessageRef.current(messageText, null, currentResponseId, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, undefined, sheetData, workspaceId, templateNamesRef.current, useSpreadsheetStore.getState().sheets.map(s => s.name), useSpreadsheetStore.getState().workspaceName);
+      sendMessageRef.current({
+        message: messageText,
+        previousResponseId: currentResponseId,
+        ...commonOptions,
+      });
     } else {
       // Start fresh chain (possibly with summary context)
-      sendMessage(messageText, null, undefined, undefined, selectedRange, sheetIdRef.current, sheetNameRef.current, currentSummary, sheetData, workspaceId, templateNamesRef.current, useSpreadsheetStore.getState().sheets.map(s => s.name), useSpreadsheetStore.getState().workspaceName);
+      sendMessage({
+        message: messageText,
+        summaryContext: currentSummary,
+        ...commonOptions,
+      });
     }
   }, [query, selectedRange, sendMessage, activeConversationId, lastResponseId, addMessage, chatMessages, summary, setSummary, fetchWithAuth]);
 

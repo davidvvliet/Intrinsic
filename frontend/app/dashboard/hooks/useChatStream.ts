@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ChatMessage, UseChatStreamReturn } from '../types/chat';
+import { SendMessageOptions, UseChatStreamReturn } from '../types/chat';
 import { useAuthFetch } from './useAuthFetch';
 
 export interface ToolCall {
@@ -11,7 +11,8 @@ export interface ToolCall {
 export function useChatStream(
   onMessageComplete: (message: string, toolCalls?: ToolCall[], responseId?: string) => void,
   onToolCall?: (name: string, args: any) => void,
-  onSheetsChanged?: () => void
+  onSheetsChanged?: () => void,
+  onTitleUpdate?: (title: string) => void
 ): UseChatStreamReturn {
   const { fetchWithAuth } = useAuthFetch();
   const [streamingText, setStreamingText] = useState<string>('');
@@ -19,21 +20,13 @@ export function useChatStream(
   const [isToolCalling, setIsToolCalling] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendMessage = useCallback(async (
-    message: string | null,
-    conversationHistory: ChatMessage[] | null,
-    previousResponseId?: string,
-    functionCallOutputs?: Array<{type: string, call_id: string, output: string}>,
-    selectedRange?: string | null,
-    sheetId?: string | null,
-    sheetName?: string | null,
-    summaryContext?: string | null,
-    sheetData?: string | null,
-    workspaceId?: string | null,
-    templateNames?: string[] | null,
-    sheetNames?: string[] | null,
-    workspaceName?: string | null
-  ) => {
+  const sendMessage = useCallback(async (options: SendMessageOptions) => {
+    const {
+      message, previousResponseId, functionCallOutputs,
+      selectedRange, sheetId, sheetName, summaryContext,
+      sheetData, workspaceId, templateNames, sheetNames,
+      workspaceName, conversationId,
+    } = options;
     setIsStreaming(true);
     setIsToolCalling(false);
     setStreamingText('');
@@ -85,6 +78,9 @@ export function useChatStream(
       }
       if (workspaceName) {
         body.workspace_name = workspaceName;
+      }
+      if (conversationId) {
+        body.conversation_id = conversationId;
       }
 
       const response = await fetchWithAuth('/api/chat', {
@@ -152,6 +148,10 @@ export function useChatStream(
                 if (onSheetsChanged) onSheetsChanged();
               }
 
+              if (parsed.title) {
+                if (onTitleUpdate) onTitleUpdate(parsed.title);
+              }
+
               if (parsed.done) {
                 setStreamingText('');
                 setIsStreaming(false);
@@ -190,7 +190,7 @@ export function useChatStream(
       setIsStreaming(false);
       setIsToolCalling(false);
     }
-  }, [fetchWithAuth, onMessageComplete, onToolCall, onSheetsChanged]);
+  }, [fetchWithAuth, onMessageComplete, onToolCall, onSheetsChanged, onTitleUpdate]);
 
   return {
     streamingText,

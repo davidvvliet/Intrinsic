@@ -152,54 +152,15 @@ export function useConversations(workspaceId: string) {
     }
   }, [fetchWithAuth, removeConversationFromStore, createConversation]);
 
-  const addMessage = useCallback(async (conversationId: string, message: ChatMessage) => {
-    // Add to store immediately for UI
+  const addMessage = useCallback((conversationId: string, message: ChatMessage) => {
+    // Add to store for UI only — backend persists messages in the chat stream
     addMessageToStore(conversationId, message);
+  }, [addMessageToStore]);
 
-    // Auto-title on first user message
-    const conv = useConversationsStore.getState().conversations.find(c => c.id === conversationId);
-    if (conv && conv.messages.length === 1 && message.role === 'user') {
-      const title = message.content.slice(0, 25) + (message.content.length > 25 ? '...' : '');
-      updateTitleInStore(conversationId, title);
-      // Update title in backend
-      fetchWithAuth(`/api/conversations/${conversationId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title }),
-      }).catch(err => console.error('Failed to update title:', err));
-    }
-
-    // Persist to backend
-    try {
-      const res = await fetchWithAuth(`/api/conversations/${conversationId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: message.role, content: message.content }),
-      });
-      if (!res.ok) {
-        alert('Failed to save message');
-      }
-    } catch (err) {
-      console.error('Failed to save message:', err);
-      alert('Failed to save message');
-    }
-  }, [fetchWithAuth, addMessageToStore, updateTitleInStore]);
-
-  const updateLastResponseId = useCallback(async (conversationId: string, responseId: string) => {
+  const updateLastResponseId = useCallback((conversationId: string, responseId: string) => {
+    // Store only — backend updates last_response_id in the chat stream
     setLastResponseId(conversationId, responseId);
-    try {
-      const res = await fetchWithAuth(`/api/conversations/${conversationId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ last_response_id: responseId }),
-      });
-      if (!res.ok) {
-        console.error('Failed to sync conversation state');
-      }
-    } catch (err) {
-      console.error('Failed to update last_response_id:', err);
-    }
-  }, [fetchWithAuth, setLastResponseId]);
+  }, [setLastResponseId]);
 
   const setSummary = useCallback(async (conversationId: string, summary: string, messageCount: number) => {
     setSummaryInStore(conversationId, summary, messageCount);
