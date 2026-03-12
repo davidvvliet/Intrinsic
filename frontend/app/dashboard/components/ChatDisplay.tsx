@@ -21,6 +21,14 @@ export default function ChatDisplay({
   isCompacting
 }: ChatDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const isNearBottom = useRef(true);
+
+  const handleScroll = () => {
+    if (containerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+      isNearBottom.current = scrollHeight - scrollTop - clientHeight < 50;
+    }
+  };
 
   // Pre-process markdown to make text after numbered patterns bold
   const processMarkdown = (text: string): string => {
@@ -43,33 +51,14 @@ export default function ChatDisplay({
     });
   };
 
-  // Auto-scroll to position newest message at top
   useEffect(() => {
-    if (containerRef.current && (messages.length > 0 || isStreaming || isToolCalling)) {
-      // Wait for DOM to update, then scroll
-      setTimeout(() => {
-        if (containerRef.current) {
-          const container = containerRef.current;
-          const messageElements = container.querySelectorAll('[data-message-index]');
-          const lastMessageIndex = messages.length - 1;
-          const lastMessageElement = container.querySelector(`[data-message-index="${lastMessageIndex}"]`) as HTMLElement;
-          
-          if (lastMessageElement) {
-            container.scrollTop = lastMessageElement.offsetTop;
-          } else if (isStreaming) {
-            // If streaming, scroll to show streaming message
-            const streamingElement = container.querySelector('[data-streaming="true"]') as HTMLElement;
-            if (streamingElement) {
-              container.scrollTop = streamingElement.offsetTop;
-            }
-          }
-        }
-      }, 0);
+    if (containerRef.current && isNearBottom.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
   }, [messages, streamingText, isStreaming, isToolCalling]);
 
   return (
-    <div ref={containerRef} className={styles.chatContainer}>
+    <div ref={containerRef} className={styles.chatContainer} onScroll={handleScroll}>
       {messages.map((message, index) => (
         <div 
           key={index} 
