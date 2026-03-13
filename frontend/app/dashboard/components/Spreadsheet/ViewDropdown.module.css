@@ -1,0 +1,27 @@
+.submenuRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  color: #333;
+  box-sizing: border-box;
+}
+
+.submenuRow:hover,
+.submenuRowHovered {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.submenuLabel {
+  flex: 1;
+}
+
+.submenuArrow {
+  font-size: 9px;
+  color: #666;
+  margin-left: 8px;
+}

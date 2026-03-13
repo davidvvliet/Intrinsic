@@ -234,6 +234,7 @@ export function drawGrid({
   getColumnX,
   frozenRows = 0,
   frozenColumns = 0,
+  showGridlines = true,
 }: {
   ctx: CanvasRenderingContext2D;
   canvas: HTMLCanvasElement;
@@ -252,6 +253,7 @@ export function drawGrid({
   getColumnX: (col: number) => number;
   frozenRows?: number;
   frozenColumns?: number;
+  showGridlines?: boolean;
 }) {
   // Apply DPR scaling for crisp rendering on all displays
   const dpr = window.devicePixelRatio || 1;
@@ -428,7 +430,7 @@ export function drawGrid({
     const isAnchor = selection && row === selection.start.row && col === selection.start.col;
 
     // Draw cell border
-    ctx.strokeRect(x, y, cellWidth, cellHeight);
+    if (showGridlines) ctx.strokeRect(x, y, cellWidth, cellHeight);
 
     // Draw anchor cell border (the "active" cell)
     if (isAnchor) {

@@ -44,6 +44,7 @@ export default function Grid() {
   const canRedo = useSpreadsheetStore(state => state.canRedo);
   const frozenRows = useSpreadsheetStore(state => state.frozenRows);
   const frozenColumns = useSpreadsheetStore(state => state.frozenColumns);
+  const showGridlines = useSpreadsheetStore(state => state.showGridlines);
 
   // Get actions from store
   const updateCells = useSpreadsheetStore(state => state.updateCells);
@@ -101,8 +102,9 @@ export default function Grid() {
       getColumnX,
       frozenRows,
       frozenColumns,
+      showGridlines,
     });
-  }, [cellData, cellFormat, computedData, selection, highlightedCells, zoom, copiedRange, animatingRanges, dashOffset, isEditing, containerRef, columnWidths, getColumnX, frozenRows, frozenColumns]);
+  }, [cellData, cellFormat, computedData, selection, highlightedCells, zoom, copiedRange, animatingRanges, dashOffset, isEditing, containerRef, columnWidths, getColumnX, frozenRows, frozenColumns, showGridlines]);
 
   const handleScroll = useCallback(() => {
     drawGrid();

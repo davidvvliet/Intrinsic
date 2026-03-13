@@ -61,6 +61,9 @@ interface SpreadsheetState {
   frozenRowsBySheet: Map<string, number>;
   frozenColumnsBySheet: Map<string, number>;
 
+  // View options
+  showGridlines: boolean;
+
   // Undo/Redo
   undoStack: Action[];
   redoStack: Action[];
@@ -97,6 +100,7 @@ interface SpreadsheetActions {
   setScrollPosition: (sheetId: string, left: number, top: number) => void;
   setFrozenRowsBySheet: (rows: Map<string, number> | ((prev: Map<string, number>) => Map<string, number>)) => void;
   setFrozenColumnsBySheet: (cols: Map<string, number> | ((prev: Map<string, number>) => Map<string, number>)) => void;
+  toggleGridlines: () => void;
 
   // Actions
   updateCell: (key: string, value: { raw: string; type: CellType } | null, batchWithPrevious?: boolean) => void;
@@ -179,6 +183,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     scrollPositionBySheet: new Map(),
     frozenRowsBySheet: new Map(),
     frozenColumnsBySheet: new Map(),
+    showGridlines: true,
     undoStack: [],
     redoStack: [],
     canUndo: false,
@@ -335,6 +340,8 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       const frozenColumns = newCols.get(state.activeSheetId || '') || 0;
       return { frozenColumnsBySheet: newCols, frozenColumns };
     }),
+
+    toggleGridlines: () => set(state => ({ showGridlines: !state.showGridlines })),
 
     // Actions
     updateCell: (key, value, batchWithPrevious = false) => {
