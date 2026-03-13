@@ -1,4 +1,5 @@
 import json
+import re
 import secrets
 import io
 import csv
@@ -14,7 +15,7 @@ router = APIRouter()
 MAX_TEMPLATE_SIZE_BYTES = 1 * 1024 * 1024  # 1MB
 
 
-def extract_preview_data(cells: Dict[str, Any]) -> Dict[str, Any]:
+def extract_preview_data(cells: Dict[str, Any], formatting: Dict[str, Any] = None) -> Dict[str, Any]:
     """Extract A1:F10 (rows 0-9, cols 0-5) from cells for preview."""
     preview = {}
     for key, value in cells.items():
@@ -22,13 +23,110 @@ def extract_preview_data(cells: Dict[str, Any]) -> Dict[str, Any]:
         if len(parts) == 2:
             row, col = int(parts[0]), int(parts[1])
             if row < 10 and col < 6:
-                preview[key] = value
+                entry = dict(value)
+                if formatting and key in formatting:
+                    entry['format'] = formatting[key]
+                preview[key] = entry
     return preview if preview else None
+
+
+def _parse_rgb(color) -> Optional[str]:
+    """Convert an openpyxl Color object to a #RRGGBB hex string, or None if default/theme color."""
+    try:
+        if color is None or color.type == 'theme':
+            return None
+        rgb = color.rgb  # e.g. 'FF3F51B5' or '00000000'
+        if not rgb or rgb in ('00000000', 'FF000000') and color.type == 'rgb':
+            # Only skip pure black for text (it's the default); keep it for fill
+            pass
+        if len(rgb) == 8:
+            return f"#{rgb[2:]}"  # strip alpha prefix
+        if len(rgb) == 6:
+            return f"#{rgb}"
+    except Exception:
+        pass
+    return None
+
+
+def _parse_number_format(fmt_code: str) -> Optional[Dict[str, Any]]:
+    """Map an Excel number format code to our NumberFormatSettings."""
+    if not fmt_code or fmt_code == 'General':
+        return None
+    f = fmt_code.lower()
+    if '%' in f:
+        return {"type": "percent"}
+    if 'e+' in f or 'e-' in f:
+        return {"type": "scientific"}
+    if any(c in f for c in ('y', 'd')) and 'm' in f:
+        if 'h' in f:
+            return {"type": "datetime"}
+        return {"type": "date"}
+    if 'h' in f and ('m' in f or 's' in f):
+        return {"type": "time"}
+    if '$' in fmt_code or '£' in fmt_code or '€' in fmt_code or '[$' in fmt_code:
+        # Try to extract currency symbol
+        sym_match = re.search(r'\[(\$[^\]]*)\]', fmt_code)
+        symbol = '$'
+        if sym_match:
+            symbol = sym_match.group(1).lstrip('$').split('-')[0] or '$'
+            if not symbol:
+                symbol = '$'
+        # Check if rounded (no decimals)
+        if '.' not in fmt_code:
+            return {"type": "currencyRounded", "currencySymbol": symbol}
+        return {"type": "currency", "currencySymbol": symbol}
+    if '_(' in fmt_code or '_(* ' in fmt_code:
+        return {"type": "accounting"}
+    # Plain number — count decimal places
+    dec_match = re.search(r'0\.(0+)', fmt_code)
+    if dec_match:
+        return {"type": "number", "decimals": len(dec_match.group(1))}
+    if '0' in fmt_code or '#' in fmt_code:
+        return {"type": "number", "decimals": 0}
+    return None
+
+
+def _parse_cell_format(cell) -> Optional[Dict[str, Any]]:
+    """Extract CellFormat fields from an openpyxl cell."""
+    fmt = {}
+    try:
+        font = cell.font
+        if font:
+            if font.bold:
+                fmt['bold'] = True
+            if font.italic:
+                fmt['italic'] = True
+            if font.strike:
+                fmt['strikethrough'] = True
+            if font.underline and font.underline != 'none':
+                fmt['underline'] = True
+            color = _parse_rgb(font.color)
+            # Exclude default black text color
+            if color and color.lower() not in ('#000000', '#ffffff' if False else ''):
+                fmt['textColor'] = color
+    except Exception:
+        pass
+    try:
+        fill = cell.fill
+        if fill and fill.fill_type == 'solid':
+            color = _parse_rgb(fill.fgColor)
+            if color and color.lower() != '#ffffff':
+                fmt['fillColor'] = color
+    except Exception:
+        pass
+    try:
+        nf = _parse_number_format(cell.number_format)
+        if nf:
+            fmt['numberFormat'] = nf
+    except Exception:
+        pass
+    return fmt if fmt else None
 
 
 def parse_worksheet(worksheet) -> Dict[str, Any]:
     """Parse a single worksheet and convert to our cell format."""
     cells = {}
+    formatting = {}
     max_row = 0
     max_col = 0
 
@@ -53,8 +151,13 @@ def parse_worksheet(worksheet) -> Dict[str, Any]:
                 else:
                     cells[key] = {"raw": str(cell.value), "type": "text"}
 
+            fmt = _parse_cell_format(cell)
+            if fmt:
+                formatting[key] = fmt
+
     return {
         "cells": cells,
+        "formatting": formatting,
         "dimensions": {
             "rows": max(max_row + 1, 100),
             "cols": max(max_col + 1, 26),
@@ -378,14 +481,15 @@ async def upload_template(
     # Extract preview_data from first sheet
     preview_data = None
     if sheets and sheets[0].get("data", {}).get("cells"):
-        preview_data = extract_preview_data(sheets[0]["data"]["cells"])
+        first_data = sheets[0]["data"]
+        preview_data = extract_preview_data(first_data["cells"], first_data.get("formatting"))
 
     # Create template
     template_row = await execute_query_one(
         """INSERT INTO templates (name, user_id, preview_data)
            VALUES ($1, $2, $3::jsonb)
            RETURNING id, created_at""",
-        name, user_id, json.dumps(preview_data) if preview_data else None
+        name, user_id, preview_data
     )
 
     # Insert sheets
@@ -427,14 +531,15 @@ async def create_template(
     # Extract preview_data from first sheet
     preview_data = None
     if body.sheets and body.sheets[0].get("data", {}).get("cells"):
-        preview_data = extract_preview_data(body.sheets[0]["data"]["cells"])
+        first_data = body.sheets[0]["data"]
+        preview_data = extract_preview_data(first_data["cells"], first_data.get("formatting"))
 
     # Create template
     template_row = await execute_query_one(
         """INSERT INTO templates (name, thumbnail_url, user_id, preview_data)
            VALUES ($1, $2, $3, $4::jsonb)
            RETURNING id, created_at""",
-        body.name, body.thumbnail_url, user_id, json.dumps(preview_data) if preview_data else None
+        body.name, body.thumbnail_url, user_id, preview_data
     )
 
     # Insert sheets
