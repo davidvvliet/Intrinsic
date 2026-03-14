@@ -9,7 +9,7 @@ export default function Navbar() {
   const { user } = useAuth();
 
   return (
-    <div className={styles.navbar}>
+    <div className={styles.navbar} style={{ backgroundColor: 'rgba(255, 255, 239, 0.75)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)' }}>
       <a href="/" className={styles.logo}>Intrinsic</a>
       <div className={styles.navLinks}>
         <a href="#" className={styles.navLink}>
