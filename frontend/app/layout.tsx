@@ -19,6 +19,9 @@ const inconsolata = Inconsolata({
 });
 
 export const metadata: Metadata = {
+  icons: {
+    icon: '/icon.svg',
+  },
   title: "Intrinsic | Unlock true value",
   description: "AI-powered fundamental analysis platform that automates DCF modeling and company research using real SEC data.",
   applicationName: 'Intrinsic',
