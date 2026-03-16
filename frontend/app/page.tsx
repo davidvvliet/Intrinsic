@@ -33,6 +33,16 @@ const faqData = [
   }
 ];
 
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqData.map(({ question, answer }) => ({
+    '@type': 'Question',
+    name: question,
+    acceptedAnswer: { '@type': 'Answer', text: answer },
+  })),
+};
+
 export default function Landing() {
   const router = useRouter();
   const [openFaq, setOpenFaq] = useState<number | null>(null);

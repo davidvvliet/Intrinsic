@@ -71,7 +71,9 @@ export const metadata: Metadata = {
     siteName: 'Intrinsic',
     images: [
       {
-        url: '/icon.svg',
+        url: '/intrinsic-logo.png',
+        width: 1200,
+        height: 630,
         alt: 'Intrinsic - AI-Powered Fundamental Analysis Platform',
       }
     ],
@@ -82,7 +84,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: "Intrinsic | Unlock true value",
     description: "AI-powered fundamental analysis platform that automates DCF modeling and company research using real SEC data.",
-    images: ['/icon.svg'],
+    images: ['/intrinsic-logo.png'],
   },
   robots: {
     index: true,

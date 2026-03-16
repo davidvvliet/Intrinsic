@@ -9,9 +9,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     {
-      url: 'https://www.runintrinsic.com/dashboard',
+      url: 'https://www.runintrinsic.com/pricing',
       lastModified: new Date(),
-      changeFrequency: 'daily',
+      changeFrequency: 'monthly',
       priority: 0.8,
     },
   ]
