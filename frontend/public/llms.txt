@@ -1,0 +1,44 @@
+# Intrinsic
+
+> Intrinsic is an AI-powered financial modeling platform that automates the construction, editing, and analysis of financial models inside a fully functional spreadsheet workspace. It pulls verified data directly from SEC filings to build models grounded in real financials.
+
+Intrinsic is built for investment analysts, portfolio managers, equity researchers, and finance students who need rigorous, data-driven financial models without spending hours on manual data entry and formatting.
+
+## What Intrinsic Does
+
+Intrinsic combines a natural language AI interface with a spreadsheet environment. Users describe what they want — a DCF model for Apple, an LBO for a leveraged buyout target, a comps table for a sector — and Intrinsic builds or edits the model accordingly. The AI understands financial concepts natively: discount rates, terminal values, EBITDA multiples, debt schedules, and more.
+
+Key capabilities:
+- Build DCF (discounted cash flow) models from scratch using real SEC data
+- Build LBO (leveraged buyout) models with debt schedules and returns analysis
+- Build comparable company analysis (comps) tables across sectors
+- Build budget models and operating forecasts
+- Edit any cell, formula, or assumption via natural language instructions
+- Upload existing Excel (.xlsx) or CSV files and continue editing with AI assistance
+- Switch between multiple workspaces, each a separate modeling project
+- Use pre-built professional templates for common model types
+
+## Data Sources
+
+Intrinsic pulls financial data from verified SEC filings — 10-K and 10-Q reports — giving users confidence that the numbers in their models match reported figures. This includes income statements, balance sheets, cash flow statements, and segment disclosures for any public company filing with the SEC.
+
+## Product
+
+- **Landing page**: https://www.runintrinsic.com
+- **Pricing**: https://www.runintrinsic.com/pricing
+- **Dashboard / App**: https://www.runintrinsic.com/dashboard (requires authentication)
+- **Sign up**: https://www.runintrinsic.com/onboarding
+- **Sign in**: https://www.runintrinsic.com/login
+
+## Who Uses Intrinsic
+
+- Buy-side analysts building investment theses
+- Sell-side equity researchers modeling public companies
+- Private equity and venture capital professionals
+- Finance students learning financial modeling
+- Portfolio managers running scenario analysis
+- Anyone who needs to value a business or analyze financials
+
+## Company
+
+Intrinsic is developed by MarketRadar Intelligence, Corp. The platform is available at runintrinsic.com.

@@ -21,6 +21,9 @@ export default authkitMiddleware({
       '/:path*.svg',
       '/:path*.ico',
       '/:path*.webp',
+      '/llms.txt',
+      '/sitemap.xml',
+      '/robots.txt',
     ],
   },
 });

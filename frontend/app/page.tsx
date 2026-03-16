@@ -76,9 +76,9 @@ export default function Landing() {
           <div className={pageStyles.row4Subtext}>
             <p>Intrinsic is an AI that:</p>
             <ul className={pageStyles.featureList}>
-              <li>Can create and edit spreadsheets</li>
-              <li>Uses verified data from SEC filings</li>
               <li>Can build and edit financial models on demand</li>
+              <li>Works inside of a fully functional spreadsheet workspace</li>
+              <li>Uses verified financial data from any SEC filing</li>
             </ul>
             <p>Describe what you want and Intrinsic does the work. From DCF models to comp tables, intrinsic is always ready.</p>
           </div>
