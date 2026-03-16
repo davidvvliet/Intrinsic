@@ -97,6 +97,39 @@ export const metadata: Metadata = {
   },
 };
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': 'https://www.runintrinsic.com/#organization',
+      name: 'Intrinsic',
+      legalName: 'MarketRadar Intelligence, Corp.',
+      url: 'https://www.runintrinsic.com',
+      logo: 'https://www.runintrinsic.com/icon.svg',
+      sameAs: ['https://www.linkedin.com/company/intrinsicco'],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': 'https://www.runintrinsic.com/#website',
+      url: 'https://www.runintrinsic.com',
+      name: 'Intrinsic',
+      publisher: { '@id': 'https://www.runintrinsic.com/#organization' },
+    },
+    {
+      '@type': 'SoftwareApplication',
+      '@id': 'https://www.runintrinsic.com/#app',
+      name: 'Intrinsic',
+      applicationCategory: 'FinanceApplication',
+      operatingSystem: 'Web',
+      url: 'https://www.runintrinsic.com',
+      description: 'AI-powered financial modeling platform that automates DCF, LBO, and comps using verified SEC data.',
+      offers: { '@type': 'Offer', url: 'https://www.runintrinsic.com/pricing' },
+      publisher: { '@id': 'https://www.runintrinsic.com/#organization' },
+    },
+  ],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -104,6 +137,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inconsolata.variable} antialiased`}
       >
