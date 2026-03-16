@@ -48,6 +48,10 @@ export default function Landing() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   return (
     <div id="main-grid-container" className={pageStyles.gridContainer}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
 
       {/* Row 1: Navbar */}
       <div className={pageStyles.navbarCell}>
