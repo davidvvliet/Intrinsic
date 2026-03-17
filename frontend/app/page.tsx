@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import pageStyles from './page.module.css';
 import Navbar from './components/Navbar';
 import MobileNavbar from './components/MobileNavbar';
@@ -64,29 +65,30 @@ export default function Landing() {
       </div>
 
       {/* Row 2: Hero */}
-      <div className={pageStyles.heroSection}>
-        <div className={pageStyles.heroText}>Unlock intrinsic value</div>
-        <div className={pageStyles.heroSubheader}>Automated financial modeling with verified SEC data</div>
+      <section className={pageStyles.heroSection} aria-label="Hero">
+        <h1 className={pageStyles.heroText}>Unlock intrinsic value</h1>
+        <p className={pageStyles.heroSubheader}>Automated financial modeling with verified SEC data</p>
         <div className={pageStyles.heroButtons}>
           <button className={pageStyles.heroButtonFilled} onClick={() => router.push('/onboarding')}>Get started</button>
           <button className={pageStyles.heroButtonTransparent} onClick={() => router.push('/pricing')}>See pricing</button>
         </div>
-        <img
+        <Image
           src="/intrinsic-dashboard-hero.png"
-          alt="Intrinsic Dashboard"
+          alt="Intrinsic AI financial modeling dashboard showing a DCF model and spreadsheet workspace"
+          priority
+          width={1400}
+          height={875}
           className={pageStyles.heroImage}
         />
-      </div>
+      </section>
 
       {/* Row 3: Tagline */}
-      <div className={pageStyles.row3Cell}>
-        <h2 className={pageStyles.row3Text}></h2>
-      </div>
+      <div className={pageStyles.row3Cell} aria-hidden="true"></div>
 
       {/* Row 4: How it works — text left, image right */}
       <section id="how-it-works" className={pageStyles.row4Cell}>
         <div className={pageStyles.row4Content}>
-          <h2 className={pageStyles.row4Heading}>Let intrinsic do the legwork, you make the choices.</h2>
+          <h2 className={pageStyles.row4Heading}>Let intrinsic do the legwork, you make the decisions.</h2>
           <div className={pageStyles.row4Subtext}>
             <p>Intrinsic is an AI that:</p>
             <ul className={pageStyles.featureList}>
@@ -98,12 +100,12 @@ export default function Landing() {
           </div>
         </div>
         <div className={pageStyles.row4ImageContainer}>
-          <img src="/intrinsic-workspaces.png" alt="Intrinsic Workspaces" className={pageStyles.featureImage} />
+          <Image src="/intrinsic-workspaces.png" alt="Intrinsic spreadsheet workspace with AI chat panel" width={800} height={600} className={pageStyles.featureImage} />
         </div>
       </section>
 
       {/* Row 5 */}
-      <section className={pageStyles.row5Cell}>
+      <section className={pageStyles.row5Cell} aria-label="Multiple workspaces">
         <div className={pageStyles.featureTextCell}>
           <div className={pageStyles.featureHeadingGroup}>
             <h2 className={pageStyles.featureHeroText}>Work across multiple workspaces</h2>
@@ -111,14 +113,14 @@ export default function Landing() {
           </div>
         </div>
         <div className={pageStyles.featureImageCell}>
-          <img src="/intrinsic-workspaces.png" alt="Intrinsic Workspaces" className={pageStyles.featureImage} />
+          <Image src="/intrinsic-workspaces.png" alt="Multiple financial model workspaces in Intrinsic" width={800} height={600} className={pageStyles.featureImage} />
         </div>
       </section>
 
       {/* Row 6 */}
-      <section className={pageStyles.row6Cell}>
+      <section className={pageStyles.row6Cell} aria-label="Templates">
         <div className={pageStyles.featureImageCell}>
-          <img src="/intrinsic-templates.png" alt="Intrinsic Templates" className={pageStyles.featureImage} />
+          <Image src="/intrinsic-templates.png" alt="Library of DCF, LBO, and comps financial model templates in Intrinsic" width={800} height={600} className={pageStyles.featureImage} />
         </div>
         <div className={pageStyles.featureTextCellRight}>
           <div className={pageStyles.featureHeadingGroup}>
@@ -134,14 +136,22 @@ export default function Landing() {
       </div>
 
       {/* Row 9: FAQ stacked grid */}
-      <section className={pageStyles.faqRowCell}>
-        <div className={pageStyles.faqRowLeftSideCell}></div>
+      <section className={pageStyles.faqRowCell} aria-label="Frequently asked questions">
+        <div className={pageStyles.faqRowLeftSideCell} aria-hidden="true"></div>
         <div className={pageStyles.faqAccordion}>
           {faqData.map((faq, index) => (
-            <div key={index} className={pageStyles.faqItem} onClick={() => setOpenFaq(openFaq === index ? null : index)}>
+            <div
+              key={index}
+              className={pageStyles.faqItem}
+              onClick={() => setOpenFaq(openFaq === index ? null : index)}
+              role="button"
+              tabIndex={0}
+              aria-expanded={openFaq === index}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenFaq(openFaq === index ? null : index); }}
+            >
               <div className={pageStyles.faqQuestion}>
                 <span>{faq.question}</span>
-                <span className={pageStyles.faqChevron}>{openFaq === index ? '−' : '+'}</span>
+                <span className={pageStyles.faqChevron} aria-hidden="true">{openFaq === index ? '−' : '+'}</span>
               </div>
               {openFaq === index && (
                 <p className={pageStyles.faqAnswer}>{faq.answer}</p>
@@ -149,11 +159,11 @@ export default function Landing() {
             </div>
           ))}
         </div>
-        <div className={pageStyles.faqRowRightSideCell}></div>
+        <div className={pageStyles.faqRowRightSideCell} aria-hidden="true"></div>
       </section>
 
       {/* Row 10: CTA */}
-      <section className={pageStyles.ctaSection}>
+      <section className={pageStyles.ctaSection} aria-label="Call to action">
         <h2 className={pageStyles.ctaText}>Ready to model smarter?</h2>
         <button className={pageStyles.ctaButton} onClick={() => router.push('/onboarding')}>Get started free</button>
       </section>
