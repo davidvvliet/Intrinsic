@@ -13,6 +13,8 @@ export default authkitMiddleware({
       '/logout',
       '/onboarding',
       '/pricing',
+      '/blog',
+      '/blog/:path*',
       '/api/auth/:path*',
       '/:path*.png',
       '/:path*.jpg',

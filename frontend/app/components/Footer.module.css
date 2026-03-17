@@ -1,0 +1,47 @@
+.footer {
+  border-top: 1px solid rgba(0, 0, 0, 0.2);
+  height: 80px;
+  background-color: #ffffef;
+}
+
+.footerContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 48px;
+  height: 100%;
+}
+
+.footerLogo {
+  display: flex;
+  align-items: center;
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-weight: 550;
+  font-size: 24px;
+  color: #000;
+  text-decoration: none;
+}
+
+.footerCopy {
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 12px;
+  color: #999;
+}
+
+.linkedinLink {
+  margin-left: 12px;
+  display: flex;
+  align-items: center;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.linkedinLink:hover {
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .footerContent {
+    padding: 0 24px;
+  }
+}

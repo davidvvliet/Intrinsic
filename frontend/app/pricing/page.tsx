@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Navbar from '../components/Navbar';
 import MobileNavbar from '../components/MobileNavbar';
+import Footer from '../components/Footer';
 import styles from './page.module.css';
 
 export default function Pricing() {
-  const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('yearly');
   const [submitting, setSubmitting] = useState(false);
@@ -53,9 +52,7 @@ export default function Pricing() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.navbarCell}>
-        {isMobile ? <MobileNavbar /> : <Navbar />}
-      </div>
+      {isMobile ? <MobileNavbar /> : <Navbar />}
       <div className={styles.content}>
         <div className={styles.header}>
           <h1 className={styles.title}>Choose your plan</h1>
@@ -158,6 +155,7 @@ export default function Pricing() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

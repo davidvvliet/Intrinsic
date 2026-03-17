@@ -19,9 +19,12 @@ export default function MobileNavbar() {
       </div>
       {isMenuOpen && (
         <div className={styles.menu}>
-          <a href="/login" className={styles.menuItem}>
-            Sign in
-          </a>
+          <a href="/#how-it-works" className={styles.menuItem}>How it works</a>
+          <a href="/#use-cases" className={styles.menuItem}>Use cases</a>
+          <a href="/#faq" className={styles.menuItem}>FAQ</a>
+          <a href="/blog" className={styles.menuItem}>Resources</a>
+          <a href="/pricing" className={styles.menuItem}>Pricing</a>
+          <a href="/login" className={styles.menuItem}>Sign in</a>
         </div>
       )}
     </>

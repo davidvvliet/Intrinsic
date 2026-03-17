@@ -12,14 +12,17 @@ export default function Navbar() {
     <div className={styles.navbar} style={{ backgroundColor: 'rgba(255, 255, 239, 0.75)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)' }}>
       <a href="/" className={styles.logo}>Intrinsic</a>
       <div className={styles.navLinks}>
-        <a href="#how-it-works" className={styles.navLink}>
+        <a href="/#how-it-works" className={styles.navLink}>
           How it works
         </a>
-        <a href="#" className={styles.navLink}>
+        <a href="/#use-cases" className={styles.navLink}>
           Use cases
         </a>
-        <a href="#" className={styles.navLink}>
+        <a href="/#faq" className={styles.navLink}>
           FAQ
+        </a>
+        <a href="/blog" className={styles.navLink}>
+          Resources
         </a>
         <a href="/pricing" className={styles.navLink}>
           Pricing

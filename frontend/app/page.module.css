@@ -198,6 +198,7 @@
   grid-template-columns: 1fr 1.618fr;
   border-top: 1px solid rgba(0, 0, 0, 0.2);
   min-height: 600px;
+  scroll-margin-top: 60px;
 }
 
 .row6Cell {
