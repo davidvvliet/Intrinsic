@@ -19,6 +19,7 @@ import {
   CELL_TEXT_PADDING,
   DEFAULT_BORDER_WIDTH,
   ACTIVE_BORDER_WIDTH,
+  LLM_ANIMATION_BORDER_WIDTH,
   EDITING_OUTLINE_WIDTH,
   DASH_PATTERN,
   POINTING_SELECTION_BORDER,
@@ -730,7 +731,7 @@ export function drawGrid({
   if (animatingRanges && animatingRanges.length > 0) {
     ctx.setLineDash(DASH_PATTERN);
     ctx.lineDashOffset = -dashOffset;
-    ctx.lineWidth = ACTIVE_BORDER_WIDTH;
+    ctx.lineWidth = LLM_ANIMATION_BORDER_WIDTH;
     ctx.strokeStyle = LLM_ANIMATION_COLOR.border;
 
     animatingRanges.forEach(range => {

@@ -99,7 +99,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
 
           setTimeout(() => {
             setAnimatingRanges(prev => prev.filter(r => r !== range));
-          }, 2000);
+          }, 5000);
         }
       } else if (name === 'set_cell_range') {
         const { startCell, endCell, values, sheet } = args;
@@ -169,7 +169,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
 
           setTimeout(() => {
             setAnimatingRanges(prev => prev.filter(r => r !== range));
-          }, 2000);
+          }, 5000);
         }
       } else if (name === 'get_cell_range') {
         const { startCell, endCell } = args;
@@ -201,7 +201,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           for (let col = start.col; col <= end.col; col++) {
             const cellKey = getCellKey(row, col);
             const computed = targetComputed.get(cellKey);
-            const displayValue = computed !== undefined ? String(computed) : (targetCellData.get(cellKey)?.raw || '');
+            const displayValue = computed !== undefined ? String(computed.value) : (targetCellData.get(cellKey)?.raw || '');
             const cell = targetCellData.get(cellKey);
             if (cell?.type === 'formula') {
               rowValues.push({ value: displayValue, raw: cell.raw });
@@ -268,7 +268,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
 
           setTimeout(() => {
             setAnimatingRanges(prev => prev.filter(r => r !== range));
-          }, 2000);
+          }, 5000);
         }
       } else if (name === 'format_cell_range') {
         const { startCell, endCell, format, sheet } = args;
@@ -319,7 +319,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
 
           setTimeout(() => {
             setAnimatingRanges(prev => prev.filter(r => r !== range));
-          }, 2000);
+          }, 5000);
         }
       }
     };

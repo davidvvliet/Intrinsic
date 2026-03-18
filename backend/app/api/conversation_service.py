@@ -31,7 +31,7 @@ async def list_conversations(workspace_id: str):
                   message_count_at_last_compaction, created_at, updated_at
            FROM conversations
            WHERE workspace_id = $1
-           ORDER BY updated_at DESC""",
+           ORDER BY created_at ASC""",
         workspace_id
     )
 

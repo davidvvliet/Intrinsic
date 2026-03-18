@@ -47,6 +47,7 @@ export const CELL_TEXT_PADDING = 5;
 // Line widths
 export const DEFAULT_BORDER_WIDTH = 1;
 export const ACTIVE_BORDER_WIDTH = 2;
+export const LLM_ANIMATION_BORDER_WIDTH = 3;
 export const EDITING_OUTLINE_WIDTH = 4;
 
 // Freeze panes

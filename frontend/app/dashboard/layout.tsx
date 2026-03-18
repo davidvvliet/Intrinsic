@@ -4,7 +4,11 @@ import { checkUserAccess } from '../lib/db';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user } = await withAuth({ ensureSignedIn: true });
+  const { user } = await withAuth();
+
+  if (!user) {
+    redirect('/login');
+  }
 
   const { hasAccess, plan } = await checkUserAccess(user.email!);
 
