@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from app.api.schemas import ChatRequest, CompactRequest, CompactResponse
 from app.core.deps import get_workos_user
+from app.core.limits import enforce_message_limit
 from app.api.sec import get_financial_data
 from app.api.market import get_stock_quote
 from app.api.templates import apply_template_to_workspace
@@ -44,9 +45,10 @@ Rules:
  - After making changes, use get_cell_range to read back what you wrote. Compare the actual values against your intent. If anything is wrong (wrong cell, typo, formula error, misaligned data), briefly acknowledge the mistake and fix it immediately before responding to the user.
  - IMPORTANT: Never tell the user to do something themselves. Instead, proactively do it for them using your available tools. Only explain how to do something manually if it's truly outside the scope of your tool capabilities.
  - When making multiple related edits, prefer set_cell_range over multiple set_cell_value calls to reduce latency.
+ - IMPORTANT: Never call get_financial_data, get_stock_quote, or apply_template in the same turn as spreadsheet editing tools (set_cell_value, set_cell_range, get_cell_range, format_cells, format_cell_range). Always fetch data first, then edit the spreadsheet in a separate turn.
  - If a tool call fails or returns unexpected results, acknowledge the issue briefly and attempt a fix rather than repeating the same action.
  - Before making changes that affect more than ~50 cells, briefly confirm your approach with the user.
- - When dealing with large dollar amounts, express them in more readable units unless the user specifies otherwise: billions should be shown in millions (e.g., "2.5B" → "2,500"), and millions should be shown in thousands (e.g., "5M" → "5,000"). Briefly mention this convention to the user when you first use it."""
+ - IMPORTANT: The get_financial_data tool returns values in raw dollars (e.g., revenue of 383285000000 means $383.285 billion). When writing these to the spreadsheet, divide by 1,000,000 ONCE to express in millions (e.g., 383285000000 → 383,285). Do NOT divide more than once. Default templates already label units as "$ in millions", so just fill in the values accordingly. Briefly mention the convention to the user when you first use it."""
 
 # Define tools for spreadsheet editing
 SPREADSHEET_TOOLS = [
@@ -305,7 +307,16 @@ async def generate_chat_stream(request: ChatRequest, user):
         user_id = user["id"]
         if request.template_names:
             template_list = ", ".join(f'"{n}"' for n in request.template_names)
-            instructions += f"\n\nAvailable templates (use apply_template tool with the exact name): {template_list}"
+            instructions += f"""
+
+## Templates
+Every user has access to a set of default templates: DCF_Template, LBO_Template, and Trading_Comps_Template. These are pre-built financial model structures with properly labeled rows, columns, sheets, and formulas. Users may also have their own custom templates.
+
+Available templates (use apply_template tool with the exact name): {template_list}
+
+When the user asks you to build a DCF, LBO model, or trading comps analysis: if there are no existing sheets in the workspace that already serve that purpose, apply the corresponding default template (DCF_Template, LBO_Template, or Trading_Comps_Template) using the apply_template tool, then populate it with real data using get_financial_data. If there are already sheets that look like they could be used for that purpose, ask the user whether they want to use the existing sheets or apply the default template. Only build a model from scratch if the user explicitly asks for a custom layout or says not to use a template.
+
+After applying a template for a specific company, fill in the company name/ticker and today's date in the appropriate header cells of the template so the model is clearly labeled."""
 
         # Determine initial input based on request type
         prev_response_id = request.previous_response_id
@@ -338,6 +349,7 @@ async def generate_chat_stream(request: ChatRequest, user):
             )
 
             server_tools = []
+            client_tool_ids = []
 
             # Process streaming events
             async for event in stream:
@@ -375,6 +387,7 @@ async def generate_chat_stream(request: ChatRequest, user):
                                 }
                             }
                             yield f"data: {json.dumps(tool_call_data)}\n\n"
+                            client_tool_ids.append(item.call_id)
 
                 # Capture response_id from response.completed as fallback
                 elif event_type == 'response.completed':
@@ -425,6 +438,14 @@ async def generate_chat_stream(request: ChatRequest, user):
                     "output": result_json
                 })
 
+            # Failsafe: include outputs for client-side tools that were yielded to frontend
+            for call_id in client_tool_ids:
+                tool_outputs.append({
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": json.dumps({"status": "executed_on_client"})
+                })
+
             # Continue loop with tool outputs - next iteration streams the continuation
             prev_response_id = response_id
             input_data = tool_outputs
@@ -447,6 +468,7 @@ async def chat_stream(
     request: ChatRequest,
     user = Depends(get_workos_user)
 ):
+    await enforce_message_limit(user["id"], user.get("email"))
     return StreamingResponse(
         generate_chat_stream(request, user),
         media_type="text/event-stream",

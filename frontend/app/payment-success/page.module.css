@@ -1,0 +1,36 @@
+.container {
+  min-height: 100vh;
+  background-color: #ffffef;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #000000;
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.dashboardButton {
+  background-color: #000000;
+  color: #ffffef;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 550;
+  font-family: 'Helvetica', Arial, sans-serif;
+  text-decoration: none;
+}

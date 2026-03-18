@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@workos-inc/authkit-nextjs/components';
 import DashboardNavbar from './components/DashboardNavbar';
 import WorkspaceGrid from './components/workspaces/WorkspaceGrid';
+import NoAccessModal from './components/NoAccessModal';
 import { useWorkspaces, Workspace } from './hooks/useWorkspaces';
 import { useAuthFetch } from './hooks/useAuthFetch';
+import { useUserPlan } from '../hooks/useUserPlan';
 import styles from './page.module.css';
 
 export default function DashboardPage() {
@@ -14,6 +17,8 @@ export default function DashboardPage() {
   const firstName = user?.firstName;
   const { workspaces, loading, error, createWorkspace, deleteWorkspace, renameWorkspace } = useWorkspaces();
   const { fetchWithAuth } = useAuthFetch();
+  const userPlan = useUserPlan();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const handleOpen = (workspace: Workspace) => {
     router.push(`/dashboard/workspace/${workspace.id}`);
@@ -50,12 +55,23 @@ export default function DashboardPage() {
   };
 
   const handleAdd = () => {
+    if (userPlan?.plan !== 'pro' && workspaces.length >= 1) {
+      setShowUpgradeModal(true);
+      return;
+    }
     const workspace = createWorkspace();
     router.push(`/dashboard/workspace/${workspace.id}`);
   };
 
   return (
     <div className={styles.container}>
+      <NoAccessModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        title="Workspace limit reached"
+        line1="The free plan only allows 1 workspace."
+        line2="Upgrade to Pro for unlimited workspaces."
+      />
       <DashboardNavbar />
       <h1 className={styles.title}>
         {firstName ? `Welcome back, ${firstName}!` : 'Welcome back!'}

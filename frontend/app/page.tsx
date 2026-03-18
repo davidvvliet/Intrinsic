@@ -70,8 +70,8 @@ export default function Landing() {
         <h1 className={pageStyles.heroText}>Unlock intrinsic value</h1>
         <p className={pageStyles.heroSubheader}>Automated financial modeling with verified SEC data</p>
         <div className={pageStyles.heroButtons}>
-          <button className={pageStyles.heroButtonFilled} onClick={() => router.push('/onboarding')}>Get started</button>
-          <button className={pageStyles.heroButtonTransparent} onClick={() => router.push('/pricing')}>See pricing</button>
+          <button className={pageStyles.heroButtonFilled} onClick={() => router.push('/onboarding')}>Get started free</button>
+          <button className={pageStyles.heroButtonTransparent} onClick={() => router.push('/pricing')}>See plans</button>
         </div>
         <Image
           src="/intrinsic-dashboard-hero.png"

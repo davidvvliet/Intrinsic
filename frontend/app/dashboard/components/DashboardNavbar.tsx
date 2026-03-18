@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import styles from './DashboardNavbar.module.css';
@@ -61,7 +61,14 @@ export default function DashboardNavbar() {
           </button>
           {isDropdownOpen && (
             <div className={styles.dropdown}>
-              <button 
+              <Link href="/dashboard/profile" className={styles.dropdownLink} onClick={() => setIsDropdownOpen(false)}>
+                Profile
+              </Link>
+              <Link href="/dashboard/feedback" className={styles.dropdownLink} onClick={() => setIsDropdownOpen(false)}>
+                Feedback
+              </Link>
+              <div className={styles.dropdownDivider} />
+              <button
                 className={styles.signOutButton}
                 onClick={handleSignOut}
               >

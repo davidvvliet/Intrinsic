@@ -1,15 +1,19 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@workos-inc/authkit-nextjs/components';
+import { useUserPlan } from '../hooks/useUserPlan';
 import Navbar from '../components/Navbar';
 import MobileNavbar from '../components/MobileNavbar';
 import Footer from '../components/Footer';
 import styles from './page.module.css';
 
 export default function Pricing() {
+  const { user } = useAuth();
+  const currentPlan = useUserPlan();
   const [isMobile, setIsMobile] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('yearly');
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState<'pro' | 'free' | null>(null);
 
   useEffect(() => {
     const checkIsMobile = () => {
@@ -36,8 +40,68 @@ export default function Pricing() {
     }
   }, []);
 
+  const triggerCheckout = async (period: 'monthly' | 'yearly') => {
+    setSubmitting('pro');
+    try {
+      const priceId = period === 'monthly'
+        ? process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID
+        : process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID;
+
+      const response = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId }),
+      });
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error('Stripe checkout error:', data.error);
+        setSubmitting(null);
+      }
+    } catch (e) {
+      console.error('Stripe checkout error:', e);
+      setSubmitting(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    const match = document.cookie.match(/(?:^|; )checkout_intent=([^;]*)/);
+    if (!match) return;
+    try {
+      const intent = JSON.parse(decodeURIComponent(match[1]));
+      document.cookie = 'checkout_intent=; max-age=0; path=/';
+      triggerCheckout(intent.billingPeriod || 'yearly');
+    } catch {
+      document.cookie = 'checkout_intent=; max-age=0; path=/';
+    }
+  }, [user]);
+
+  const handleProPlan = async () => {
+    if (!user) {
+      document.cookie = `checkout_intent=${encodeURIComponent(JSON.stringify({ billingPeriod }))}; max-age=300; path=/`;
+      window.location.href = '/signup';
+      return;
+    }
+    if (currentPlan?.source === 'stripe' && currentPlan?.stripe_customer_id) {
+      setSubmitting('pro');
+      try {
+        const response = await fetch('/api/stripe/billing-portal', { method: 'POST' });
+        const data = await response.json();
+        if (data.url) window.location.href = data.url;
+      } catch (e) {
+        console.error('Billing portal error:', e);
+      } finally {
+        setSubmitting(null);
+      }
+      return;
+    }
+    await triggerCheckout(billingPeriod);
+  };
+
   const handleFreePlan = async () => {
-    setSubmitting(true);
+    setSubmitting('free');
     try {
       await fetch('/api/user/plan', {
         method: 'POST',
@@ -45,8 +109,9 @@ export default function Pricing() {
         body: JSON.stringify({ plan: 'free' }),
       });
       window.location.href = '/dashboard';
-    } catch {
-      setSubmitting(false);
+    } catch (e) {
+      console.error('Free plan error:', e);
+      setSubmitting(null);
     }
   };
 
@@ -71,7 +136,7 @@ export default function Pricing() {
             Yearly (save 20%)
           </button>
         </div>
-        <div className={styles.cardsContainer}>
+<div className={styles.cardsContainer}>
           <div className={styles.card}>
             <h2 className={`${styles.cardTitle} ${styles.cardTitleWithPadding}`}>Free</h2>
             <div className={styles.cardContent}>
@@ -82,11 +147,11 @@ export default function Pricing() {
                 </li>
                 <li className={styles.featureItem}>
                   <span className={styles.checkIcon}>&#10003;</span>
-                  <span>5 models per month</span>
+                  <span>100 messages per month</span>
                 </li>
                 <li className={styles.featureItem}>
                   <span className={styles.checkIcon}>&#10003;</span>
-                  <span>Basic valuation templates</span>
+                  <span>Our core valuation templates</span>
                 </li>
                 <li className={styles.featureItem}>
                   <span className={styles.checkIcon}>&#10003;</span>
@@ -101,11 +166,11 @@ export default function Pricing() {
                 </div>
               </div>
               <button
-                className={styles.subscribeButton}
+                className={`${styles.subscribeButton} ${currentPlan?.plan === 'free' ? styles.currentPlanButton : ''}`}
                 onClick={handleFreePlan}
-                disabled={submitting}
+                disabled={submitting !== null || currentPlan?.plan === 'free'}
               >
-                {submitting ? 'Setting up...' : 'Select'}
+                {submitting === 'free' ? 'Setting up...' : currentPlan?.plan === 'free' ? 'Current plan' : 'Select'}
               </button>
             </div>
           </div>
@@ -147,9 +212,11 @@ export default function Pricing() {
                 </div>
               </div>
               <button
-                className={styles.subscribeButton}
+                className={`${styles.subscribeButton} ${currentPlan?.plan === 'pro' ? styles.currentPlanButton : ''}`}
+                onClick={handleProPlan}
+                disabled={submitting !== null || currentPlan?.plan === 'pro'}
               >
-                Select
+                {submitting === 'pro' ? 'Setting up...' : currentPlan?.plan === 'pro' ? 'Current plan' : 'Select'}
               </button>
             </div>
           </div>

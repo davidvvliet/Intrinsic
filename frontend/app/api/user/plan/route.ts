@@ -2,6 +2,33 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@workos-inc/authkit-nextjs';
 import { pool } from '../../../lib/db';
 
+export async function GET() {
+  try {
+    const { user } = await withAuth();
+
+    if (!user?.email) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
+    const result = await pool.query(
+      `SELECT plan, firm_name, status, seats, current_period_end, source, stripe_customer_id
+       FROM auth.user_access
+       WHERE email = $1 AND status = 'active'
+       LIMIT 1`,
+      [user.email]
+    );
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({ plan: null, firm_name: null });
+    }
+
+    return NextResponse.json(result.rows[0]);
+  } catch (e) {
+    console.error('Failed to get plan:', e);
+    return NextResponse.json({ error: 'Failed to get plan' }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { user } = await withAuth();

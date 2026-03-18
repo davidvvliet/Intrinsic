@@ -25,4 +25,5 @@ export interface UseChatStreamReturn {
   isToolCalling: boolean;
   sendMessage: (options: SendMessageOptions) => Promise<void>;
   error: string | null;
+  rateLimitResetAt: string | null;
 }

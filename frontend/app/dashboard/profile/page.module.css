@@ -1,0 +1,128 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background-color: #ffffef;
+}
+
+.container::before {
+  content: '';
+  position: absolute;
+  left: 30vh;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.15);
+  z-index: 1;
+}
+
+.container::after {
+  content: '';
+  position: absolute;
+  right: 30vh;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.15);
+  z-index: 1;
+}
+
+.row1 {
+  height: calc(100vh * 1 / 3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 140px;
+}
+
+.title {
+  font-family: 'Helvetica', Arial, sans-serif;
+  color: #000000;
+  font-size: 26px;
+  font-weight: 550;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.row2 {
+  height: calc(100vh * 4 / 9);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 35vh;
+  position: relative;
+  z-index: 0;
+}
+
+.row3 {
+  height: calc(100vh * 2 / 9);
+  position: relative;
+  z-index: 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.profileInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.infoItem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.infoLabel {
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.infoValue {
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 18px;
+  color: #000000;
+  font-weight: 500;
+}
+
+.buttonContainer {
+  display: flex;
+  gap: 1rem;
+  margin-top: 24px;
+  align-items: center;
+}
+
+.signOutButton {
+  background-color: #6d8196;
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 550;
+  border-radius: 0;
+  font-family: 'Helvetica', Arial, sans-serif;
+  width: fit-content;
+}
+
+.signOutButton:hover {
+  opacity: 0.9;
+}
+
+.manageButton {
+  background-color: transparent;
+  color: #000000;
+  border: 1px solid #000000;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 550;
+  border-radius: 0;
+  font-family: 'Helvetica', Arial, sans-serif;
+  text-decoration: none;
+  display: inline-block;
+}

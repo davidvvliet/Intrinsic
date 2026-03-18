@@ -4,6 +4,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from app.core.deps import get_workos_user
+from app.core.limits import enforce_workspace_limit
 from app.storage.async_db import execute_query, execute_query_one, execute_command
 from pydantic import BaseModel
 from typing import Optional
@@ -54,6 +55,7 @@ async def create_workspace(
 ):
     """Create a new workspace."""
     user_id = user["id"]
+    await enforce_workspace_limit(user_id, user.get("email"))
     workspace_id = body.id or secrets.token_urlsafe(12)
 
     row = await execute_query_one(

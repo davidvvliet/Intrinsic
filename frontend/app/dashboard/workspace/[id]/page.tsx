@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import DashboardNavbar from '../../components/DashboardNavbar';
 import Globe from '../../components/Globe';
 import ChatDisplay from '../../components/ChatDisplay';
+import NoAccessModal from '../../components/NoAccessModal';
 import SearchInput from '../../components/SearchInput';
 import TabBar from '../../components/TabBar';
 import { useColumnMinimize } from '../../hooks/useColumnMinimize';
@@ -139,6 +140,7 @@ export default function WorkspacePage() {
   const [query, setQuery] = useState<string>('');
   const [selectedRange, setSelectedRange] = useState<string | null>(null);
   const [isCompacting, setIsCompacting] = useState<boolean>(false);
+  const [rateLimitDismissed, setRateLimitDismissed] = useState(false);
   const toolCallHandlerRef = useRef<((name: string, args: any) => any) | null>(null);
   const iterationCountRef = useRef<number>(0);
   const maxIterations = 50;
@@ -251,11 +253,16 @@ export default function WorkspacePage() {
           createdAt: sheet.created_at || new Date().toISOString(),
           isSaved: true,
         })));
+        // If no sheet is active (e.g. brand new workspace), select the first one
+        const currentActive = useSpreadsheetStore.getState().activeSheetId;
+        if (!currentActive) {
+          setActiveSheetId(data[0].id);
+        }
       }
     } catch (err) {
       console.error('Error reloading sheets:', err);
     }
-  }, [workspaceId, fetchWithAuth, setSheets]);
+  }, [workspaceId, fetchWithAuth, setSheets, setActiveSheetId]);
 
   const handleTitleUpdate = useCallback((title: string) => {
     const convId = useConversationsStore.getState().activeConversationId;
@@ -264,7 +271,7 @@ export default function WorkspacePage() {
     }
   }, []);
 
-  const { streamingText, isStreaming, isToolCalling, sendMessage } = useChatStream(handleMessageComplete, handleToolCall, handleSheetsChanged, handleTitleUpdate);
+  const { streamingText, isStreaming, isToolCalling, sendMessage, error: chatError, rateLimitResetAt } = useChatStream(handleMessageComplete, handleToolCall, handleSheetsChanged, handleTitleUpdate);
   sendMessageRef.current = sendMessage;
 
   const handleSearch = useCallback(async () => {
@@ -347,6 +354,13 @@ export default function WorkspacePage() {
 
   return (
     <div className={styles.dashboard}>
+      <NoAccessModal
+        isOpen={chatError === 'rate_limit' && !rateLimitDismissed}
+        onClose={() => setRateLimitDismissed(true)}
+        title="Message limit reached"
+        line1={`You have reached the limit of 50 messages. Your limit will reset at ${rateLimitResetAt ? new Date(rateLimitResetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}.`}
+        line2="Upgrade to Pro for unlimited messages."
+      />
       <DashboardNavbar />
       <div 
         className={styles.dashboardContainer}

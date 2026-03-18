@@ -230,7 +230,7 @@ async def apply_template_to_workspace(template_name: str, workspace_id: str, use
 
     # Find template by name
     template = await execute_query_one(
-        """SELECT id, name FROM templates
+        """SELECT id, name, preview_data FROM templates
            WHERE name = $1 AND (user_id IS NULL OR user_id = $2)""",
         template_name, user_id
     )
@@ -284,6 +284,13 @@ async def apply_template_to_workspace(template_name: str, workspace_id: str, use
             sheet_id, workspace_id, user_id, name, data
         )
         created_sheets.append({"id": sheet_id, "name": name})
+
+    # Copy template preview_data to workspace
+    if template.get("preview_data"):
+        await execute_command(
+            "UPDATE workspaces SET preview_data = $1::jsonb, updated_at = NOW() WHERE id = $2 AND user_id = $3",
+            template["preview_data"], workspace_id, user_id
+        )
 
     return {
         "status": "applied",

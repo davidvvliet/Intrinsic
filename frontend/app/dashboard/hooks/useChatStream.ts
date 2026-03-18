@@ -19,6 +19,7 @@ export function useChatStream(
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [isToolCalling, setIsToolCalling] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [rateLimitResetAt, setRateLimitResetAt] = useState<string | null>(null);
 
   const sendMessage = useCallback(async (options: SendMessageOptions) => {
     const {
@@ -90,6 +91,11 @@ export function useChatStream(
       });
 
       if (!response.ok) {
+        if (response.status === 429) {
+          const body = await response.json().catch(() => ({}));
+          setRateLimitResetAt(body?.detail?.reset_at ?? null);
+          throw new Error('rate_limit');
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -198,5 +204,6 @@ export function useChatStream(
     isToolCalling,
     sendMessage,
     error,
+    rateLimitResetAt,
   };
 }

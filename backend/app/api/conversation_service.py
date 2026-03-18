@@ -73,8 +73,8 @@ async def list_messages(conversation_id: str):
 async def save_user_message(conversation_id: str, content: str):
     message_id = str(uuid.uuid4())
     row = await execute_query_one(
-        """INSERT INTO messages (id, conversation_id, role, content)
-           VALUES ($1, $2, 'user', $3)
+        """INSERT INTO messages (id, conversation_id, role, content, created_at)
+           VALUES ($1, $2, 'user', $3, NOW())
            RETURNING id, role, content, created_at""",
         message_id, conversation_id, content
     )

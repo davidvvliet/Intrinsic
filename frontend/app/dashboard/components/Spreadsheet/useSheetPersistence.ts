@@ -10,7 +10,7 @@ export function useSheetPersistence() {
   const { fetchWithAuth } = useAuthFetch();
   const { updateSheetName, markSheetSaved } = useSheetRouter();
   const { containerRef } = useRefContext();
-  const hasLoadedAllRef = useRef<string | null>(null); // tracks workspaceId that was bulk-loaded
+  const loadedSheetIdsRef = useRef<string | null>(null); // tracks which sheets have been bulk-loaded
   const prevActiveSheetIdRef = useRef<string | null>(null);
 
   // Subscribe to store state
@@ -193,9 +193,10 @@ export function useSheetPersistence() {
     if (!workspaceId) return;
     if (!activeSheetId) return;
     if (sheets.length === 0) return;
-    if (hasLoadedAllRef.current === workspaceId) return;
+    const sheetKey = workspaceId + ':' + sheets.map(s => s.sheetId).sort().join(',');
+    if (loadedSheetIdsRef.current === sheetKey) return;
 
-    hasLoadedAllRef.current = workspaceId;
+    loadedSheetIdsRef.current = sheetKey;
 
     const loadAllSheets = async () => {
       // Fetch each sheet that has been saved to the backend
@@ -266,7 +267,7 @@ export function useSheetPersistence() {
   // Handle tab switch: swap cellData from allSheetsData
   useEffect(() => {
     if (!activeSheetId) return;
-    if (!hasLoadedAllRef.current) return; // Wait for bulk load to finish
+    if (!loadedSheetIdsRef.current) return; // Wait for bulk load to finish
     if (prevActiveSheetIdRef.current === activeSheetId) return;
 
     const prevSheetId = prevActiveSheetIdRef.current;

@@ -6,6 +6,8 @@ from app.api.lists import router as lists_router
 from app.api.templates import router as templates_router
 from app.api.workspaces import router as workspaces_router
 from app.api.conversations import router as conversations_router
+from app.api.reports import router as reports_router
+from app.api.stripe_webhook import router as stripe_router
 from app.api.sec import load_company_tickers
 from app.storage.async_db import get_pool, close_pool as close_async_pool
 from app.storage.search_db import close_pool as close_search_pool
@@ -26,6 +28,8 @@ app.include_router(lists_router, prefix="/api")
 app.include_router(templates_router, prefix="/api")
 app.include_router(workspaces_router, prefix="/api")
 app.include_router(conversations_router, prefix="/api")
+app.include_router(reports_router, prefix="/api")
+app.include_router(stripe_router, prefix="/api")
 
 
 @app.on_event("startup")
