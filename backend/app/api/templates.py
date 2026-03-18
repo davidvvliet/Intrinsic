@@ -394,7 +394,7 @@ async def use_template(
 
     # Fetch template
     template = await execute_query_one(
-        """SELECT id, name
+        """SELECT id, name, preview_data
            FROM templates
            WHERE id = $1 AND (user_id IS NULL OR user_id = $2)""",
         template_id, user_id
@@ -418,9 +418,9 @@ async def use_template(
     # Create workspace
     workspace_id = secrets.token_urlsafe(12)
     await execute_command(
-        """INSERT INTO workspaces (id, user_id, name)
-           VALUES ($1, $2, $3)""",
-        workspace_id, user_id, template["name"]
+        """INSERT INTO workspaces (id, user_id, name, preview_data)
+           VALUES ($1, $2, $3, $4::jsonb)""",
+        workspace_id, user_id, template["name"], template.get("preview_data")
     )
 
     # Create sheets

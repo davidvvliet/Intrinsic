@@ -47,7 +47,7 @@ export default function Navbar() {
       ) : (
         <div className={styles.authActions}>
           <a href="/onboarding" className={styles.signInButton}>
-            Get started
+            Get started free
           </a>
           <a href="/login" className={styles.logoutButton}>
             Sign in
