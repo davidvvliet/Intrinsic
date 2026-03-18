@@ -12,7 +12,7 @@ export interface SavedList {
 
 export function useSavedLists() {
   const { user, loading: authLoading } = useAuth();
-  const { fetchWithAuth, getAccessToken } = useAuthFetch();
+  const { fetchWithAuth } = useAuthFetch();
   const [lists, setLists] = useState<SavedList[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -20,12 +20,6 @@ export function useSavedLists() {
 
   const loadLists = useCallback(async () => {
     try {
-      const token = await getAccessToken();
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
       const response = await fetchWithAuth('/api/lists');
 
       if (!response.ok) {
@@ -41,7 +35,7 @@ export function useSavedLists() {
     } finally {
       setLoading(false);
     }
-  }, [fetchWithAuth, getAccessToken]);
+  }, [fetchWithAuth]);
 
   const createList = useCallback(async (name: string, color?: string) => {
     try {

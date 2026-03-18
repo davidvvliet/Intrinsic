@@ -10,3 +10,4 @@ export async function GET(request: NextRequest) {
   if (hasCheckoutIntent || hasOnboarding) return pricingHandler(request);
   return defaultHandler(request);
 }
+

@@ -9,7 +9,7 @@ export type { PreviewCellFormat, Workspace } from '../stores/workspacesStore';
 
 export function useWorkspaces() {
   const { user, loading: authLoading } = useAuth();
-  const { fetchWithAuth, getAccessToken } = useAuthFetch();
+  const { fetchWithAuth } = useAuthFetch();
   const hasLoadedRef = useRef(false);
 
   // Get state from store
@@ -25,12 +25,6 @@ export function useWorkspaces() {
 
   const loadWorkspaces = useCallback(async () => {
     try {
-      const token = await getAccessToken();
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
       const response = await fetchWithAuth('/api/workspaces');
 
       if (!response.ok) {
@@ -44,7 +38,7 @@ export function useWorkspaces() {
       console.error('Error loading workspaces:', err);
       setError(err.message || 'Failed to load workspaces');
     }
-  }, [fetchWithAuth, getAccessToken, setWorkspaces, setLoading, setError]);
+  }, [fetchWithAuth, setWorkspaces, setLoading, setError]);
 
   const createWorkspace = useCallback((name?: string): Workspace => {
     // Generate ID client-side for immediate navigation

@@ -30,7 +30,7 @@ export const MAX_TEMPLATE_SIZE_BYTES = 1 * 1024 * 1024; // 1MB
 
 export function useTemplates() {
   const { user, loading: authLoading } = useAuth();
-  const { fetchWithAuth, getAccessToken } = useAuthFetch();
+  const { fetchWithAuth } = useAuthFetch();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -38,12 +38,6 @@ export function useTemplates() {
 
   const loadTemplates = useCallback(async () => {
     try {
-      const token = await getAccessToken();
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
       const response = await fetchWithAuth('/api/templates');
 
       if (!response.ok) {
@@ -59,7 +53,7 @@ export function useTemplates() {
     } finally {
       setLoading(false);
     }
-  }, [fetchWithAuth, getAccessToken]);
+  }, [fetchWithAuth]);
 
   const getTemplate = useCallback(async (templateId: number): Promise<Template> => {
     const response = await fetchWithAuth(`/api/templates/${templateId}`);

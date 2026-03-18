@@ -13,7 +13,7 @@ export interface SavedSheet {
 
 export function useSavedSheets() {
   const { user, loading: authLoading } = useAuth();
-  const { fetchWithAuth, getAccessToken } = useAuthFetch();
+  const { fetchWithAuth } = useAuthFetch();
   const [sheets, setSheets] = useState<SavedSheet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -21,12 +21,6 @@ export function useSavedSheets() {
 
   const loadSheets = useCallback(async () => {
     try {
-      const token = await getAccessToken();
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
       const response = await fetchWithAuth('/api/sheets');
 
       if (!response.ok) {
@@ -42,7 +36,7 @@ export function useSavedSheets() {
     } finally {
       setLoading(false);
     }
-  }, [fetchWithAuth, getAccessToken]);
+  }, [fetchWithAuth]);
 
   const deleteSheet = useCallback(async (sheetId: string) => {
     try {
