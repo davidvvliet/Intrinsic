@@ -1,4 +1,3 @@
-import React from 'react';
 import { Template } from '../hooks/useTemplates';
 import TemplateCard from './TemplateCard';
 import AddTemplateCard from './AddTemplateCard';
@@ -10,12 +9,13 @@ interface TemplateGridProps {
   onDelete: (template: Template) => void;
   onFileSelect: (file: File) => void;
   uploading?: boolean;
+  onUpgradeRequired?: () => void;
 }
 
-export default function TemplateGrid({ templates, onUse, onDelete, onFileSelect, uploading }: TemplateGridProps) {
+export default function TemplateGrid({ templates, onUse, onDelete, onFileSelect, uploading, onUpgradeRequired }: TemplateGridProps) {
   return (
     <div className={styles.grid}>
-      <AddTemplateCard onFileSelect={onFileSelect} uploading={uploading} />
+      <AddTemplateCard onFileSelect={onFileSelect} uploading={uploading} onUpgradeRequired={onUpgradeRequired} />
       {templates.map(template => (
         <TemplateCard
           key={template.id}

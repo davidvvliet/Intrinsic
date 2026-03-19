@@ -1,0 +1,174 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.modal {
+  background-color: #ffffef;
+  padding: 28px;
+  max-width: 440px;
+  width: 90%;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  position: relative;
+}
+
+.closeButton {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: #000;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.4;
+}
+
+.closeButton:hover {
+  opacity: 1;
+}
+
+.title {
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+  margin: 0 0 24px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.label {
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #000;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.5;
+}
+
+.input {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 10px 12px;
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 14px;
+  color: #000;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  border-color: #000;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.fileButton {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 10px 12px;
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 14px;
+  color: #000;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  opacity: 0.6;
+}
+
+.fileButton:hover {
+  border-color: #000;
+  opacity: 1;
+}
+
+.clearFile {
+  background: transparent;
+  border: none;
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 12px;
+  color: #000;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.4;
+  text-decoration: underline;
+  align-self: flex-start;
+}
+
+.clearFile:hover {
+  opacity: 1;
+}
+
+.error {
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 13px;
+  color: red;
+  margin: 0 0 16px 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.cancelButton {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 10px 20px;
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+  cursor: pointer;
+}
+
+.cancelButton:hover {
+  border-color: #000;
+}
+
+.createButton {
+  background-color: #000;
+  border: none;
+  padding: 10px 20px;
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffef;
+  cursor: pointer;
+}
+
+.createButton:hover:not(:disabled) {
+  background-color: #222;
+}
+
+.createButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

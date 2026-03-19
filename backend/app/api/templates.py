@@ -5,6 +5,7 @@ import io
 import csv
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from app.core.deps import get_workos_user
+from app.core.limits import get_plan, enforce_workspace_limit
 from app.storage.async_db import execute_query, execute_query_one, execute_command
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
@@ -391,6 +392,13 @@ async def use_template(
 ):
     """Create a new workspace from a template with all its sheets."""
     user_id = user["id"]
+    email = user.get("email")
+
+    plan = await get_plan(email)
+    if plan != "pro":
+        raise HTTPException(status_code=403, detail="Upgrade to Pro to use templates.")
+
+    await enforce_workspace_limit(user_id, email)
 
     # Fetch template
     template = await execute_query_one(
@@ -451,6 +459,10 @@ async def upload_template(
 ):
     """Upload and parse an xlsx or csv file as a template."""
     user_id = user["id"]
+
+    plan = await get_plan(user.get("email"))
+    if plan != "pro":
+        raise HTTPException(status_code=403, detail="Upgrade to Pro to upload templates.")
 
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename required")
@@ -523,6 +535,10 @@ async def create_template(
 ):
     """Create a new user template with sheets."""
     user_id = user["id"]
+
+    plan = await get_plan(user.get("email"))
+    if plan != "pro":
+        raise HTTPException(status_code=403, detail="Upgrade to Pro to create templates.")
 
     if not body.sheets:
         raise HTTPException(status_code=400, detail="At least one sheet required")

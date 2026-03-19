@@ -3,16 +3,26 @@
 import { useState } from 'react';
 import DashboardNavbar from '../components/DashboardNavbar';
 import TemplateGrid from './components/TemplateGrid';
+import NoAccessModal from '../components/NoAccessModal';
 import { useTemplates, Template, MAX_TEMPLATE_SIZE_BYTES } from './hooks/useTemplates';
 import { useAuthFetch } from '../hooks/useAuthFetch';
+import { useUserPlan } from '../../hooks/useUserPlan';
 import styles from './page.module.css';
 
 export default function TemplatesPage() {
   const { templates, loading, error, uploadTemplate, deleteTemplate } = useTemplates();
   const { fetchWithAuth } = useAuthFetch();
+  const userPlan = useUserPlan();
   const [uploading, setUploading] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const isPro = userPlan?.plan === 'pro';
 
   const handleUse = async (template: Template) => {
+    if (!isPro) {
+      setShowUpgradeModal(true);
+      return;
+    }
     try {
       const res = await fetchWithAuth(`/api/templates/${template.id}/use`, {
         method: 'POST',
@@ -58,6 +68,13 @@ export default function TemplatesPage() {
 
   return (
     <div className={styles.container}>
+      <NoAccessModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        title="Pro feature"
+        line1="Templates are only available on the Pro plan."
+        line2="Upgrade to Pro to use and upload templates."
+      />
       <DashboardNavbar />
       <h1 className={styles.title}>Templates</h1>
 
@@ -72,6 +89,7 @@ export default function TemplatesPage() {
           onDelete={handleDelete}
           onFileSelect={handleFileSelect}
           uploading={uploading}
+          onUpgradeRequired={!isPro ? () => setShowUpgradeModal(true) : undefined}
         />
       )}
     </div>

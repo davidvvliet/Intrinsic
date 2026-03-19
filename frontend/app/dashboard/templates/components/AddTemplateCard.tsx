@@ -4,13 +4,18 @@ import styles from './AddTemplateCard.module.css';
 interface AddTemplateCardProps {
   onFileSelect: (file: File) => void;
   uploading?: boolean;
+  onUpgradeRequired?: () => void;
 }
 
-export default function AddTemplateCard({ onFileSelect, uploading }: AddTemplateCardProps) {
+export default function AddTemplateCard({ onFileSelect, uploading, onUpgradeRequired }: AddTemplateCardProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleClick = () => {
     if (uploading) return;
+    if (onUpgradeRequired) {
+      onUpgradeRequired();
+      return;
+    }
     inputRef.current?.click();
   };
 

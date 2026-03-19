@@ -6,6 +6,7 @@ import { useAuth } from '@workos-inc/authkit-nextjs/components';
 import DashboardNavbar from './components/DashboardNavbar';
 import WorkspaceGrid from './components/workspaces/WorkspaceGrid';
 import NoAccessModal from './components/NoAccessModal';
+import CreateWorkspaceModal from './components/CreateWorkspaceModal';
 import { useWorkspaces, Workspace } from './hooks/useWorkspaces';
 import { useAuthFetch } from './hooks/useAuthFetch';
 import { useUserPlan } from '../hooks/useUserPlan';
@@ -19,6 +20,7 @@ export default function DashboardPage() {
   const { fetchWithAuth } = useAuthFetch();
   const userPlan = useUserPlan();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const handleOpen = (workspace: Workspace) => {
     router.push(`/dashboard/workspace/${workspace.id}`);
@@ -54,13 +56,38 @@ export default function DashboardPage() {
     }
   };
 
+  const addDisabled = loading || userPlan === null;
+
   const handleAdd = () => {
+    if (addDisabled) return;
     if (userPlan?.plan !== 'pro' && workspaces.length >= 1) {
       setShowUpgradeModal(true);
       return;
     }
-    const workspace = createWorkspace();
+    setShowCreateModal(true);
+  };
+
+  const handleCreateBlank = (name: string) => {
+    const workspace = createWorkspace(name);
     router.push(`/dashboard/workspace/${workspace.id}`);
+  };
+
+  const handleCreateWithFile = async (name: string, file: File) => {
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('file', file);
+    const res = await fetchWithAuth('/api/workspaces/upload', { method: 'POST', body: formData });
+    if (!res.ok) {
+      if (res.status === 403) {
+        setShowCreateModal(false);
+        setShowUpgradeModal(true);
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || 'Failed to create workspace');
+    }
+    const data = await res.json();
+    router.push(`/dashboard/workspace/${data.workspace_id}`);
   };
 
   return (
@@ -71,6 +98,12 @@ export default function DashboardPage() {
         title="Workspace limit reached"
         line1="The free plan only allows 1 workspace."
         line2="Upgrade to Pro for unlimited workspaces."
+      />
+      <CreateWorkspaceModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreateBlank={handleCreateBlank}
+        onCreateWithFile={handleCreateWithFile}
       />
       <DashboardNavbar />
       <h1 className={styles.title}>
@@ -89,6 +122,7 @@ export default function DashboardPage() {
           onRename={handleRename}
           onExport={handleExport}
           onAdd={handleAdd}
+          addDisabled={addDisabled}
         />
       )}
     </div>

@@ -1,11 +1,12 @@
 import secrets
 import io
 import json
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from app.core.deps import get_workos_user
 from app.core.limits import enforce_workspace_limit
 from app.storage.async_db import execute_query, execute_query_one, execute_command
+from app.api.templates import parse_xlsx_all_sheets, parse_csv, extract_preview_data, MAX_TEMPLATE_SIZE_BYTES
 from pydantic import BaseModel
 from typing import Optional
 from openpyxl import Workbook
@@ -155,6 +156,63 @@ async def delete_workspace(
     )
 
     return {"status": "deleted", "id": workspace_id}
+
+
+@router.post("/workspaces/upload")
+async def create_workspace_from_file(
+    name: str = Form("Untitled"),
+    file: UploadFile = File(...),
+    user=Depends(get_workos_user)
+):
+    """Create a new workspace by uploading an xlsx or csv file."""
+    user_id = user["id"]
+    await enforce_workspace_limit(user_id, user.get("email"))
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename required")
+
+    filename_lower = file.filename.lower()
+    if not (filename_lower.endswith('.xlsx') or filename_lower.endswith('.csv')):
+        raise HTTPException(status_code=400, detail="Only .xlsx and .csv files are supported")
+
+    content = await file.read()
+
+    if len(content) > MAX_TEMPLATE_SIZE_BYTES * 10:
+        raise HTTPException(status_code=413, detail="File too large. Max size is 10MB")
+
+    try:
+        if filename_lower.endswith('.xlsx'):
+            sheets = parse_xlsx_all_sheets(content)
+        else:
+            sheets = parse_csv(content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
+
+    workspace_name = name.strip() or file.filename.rsplit('.', 1)[0] or "Untitled"
+    workspace_id = secrets.token_urlsafe(12)
+
+    preview_data = None
+    if sheets and sheets[0].get("data", {}).get("cells"):
+        first_data = sheets[0]["data"]
+        preview_data = extract_preview_data(first_data["cells"], first_data.get("formatting"))
+
+    await execute_command(
+        """INSERT INTO workspaces (id, user_id, name, preview_data)
+           VALUES ($1, $2, $3, $4::jsonb)""",
+        workspace_id, user_id, workspace_name, preview_data
+    )
+
+    created_sheets = []
+    for sheet in sheets:
+        sheet_id = secrets.token_urlsafe(12)
+        await execute_command(
+            """INSERT INTO sheets (id, workspace_id, user_id, name, data, updated_at)
+               VALUES ($1, $2, $3, $4, $5::jsonb, NOW())""",
+            sheet_id, workspace_id, user_id, sheet["name"], sheet["data"]
+        )
+        created_sheets.append({"id": sheet_id, "name": sheet["name"]})
+
+    return {"workspace_id": workspace_id, "sheets": created_sheets}
 
 
 @router.get("/workspaces/{workspace_id}/export")

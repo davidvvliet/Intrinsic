@@ -1,4 +1,3 @@
-import React from 'react';
 import { Workspace } from '../../hooks/useWorkspaces';
 import WorkspaceCard from './WorkspaceCard';
 import AddWorkspaceCard from './AddWorkspaceCard';
@@ -11,12 +10,13 @@ interface WorkspaceGridProps {
   onRename: (workspace: Workspace, name: string) => void;
   onExport: (workspace: Workspace) => void;
   onAdd: () => void;
+  addDisabled?: boolean;
 }
 
-export default function WorkspaceGrid({ workspaces, onOpen, onDelete, onRename, onExport, onAdd }: WorkspaceGridProps) {
+export default function WorkspaceGrid({ workspaces, onOpen, onDelete, onRename, onExport, onAdd, addDisabled }: WorkspaceGridProps) {
   return (
     <div className={styles.grid}>
-      <AddWorkspaceCard onAdd={onAdd} />
+      <AddWorkspaceCard onAdd={onAdd} disabled={addDisabled} />
       {workspaces.map(workspace => (
         <WorkspaceCard
           key={workspace.id}
