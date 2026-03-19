@@ -1,0 +1,143 @@
+.container {
+  min-height: 100vh;
+  background-color: #ffffef;
+  color: #000000;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  flex: 1;
+  padding: 4rem 2rem;
+  padding-top: 3rem;
+  max-width: 700px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.backLinks {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.backLink {
+  font-size: 0.9rem;
+  color: rgba(0, 0, 0, 0.45);
+  text-decoration: none;
+  font-family: 'Helvetica', Arial, sans-serif;
+  transition: color 0.15s ease;
+}
+
+.backLink:hover {
+  color: #6d8196;
+}
+
+.meta {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.metaItem {
+  font-size: 0.875rem;
+  color: rgba(0, 0, 0, 0.45);
+  font-family: 'Helvetica', Arial, sans-serif;
+}
+
+.title {
+  font-size: 2.25rem;
+  font-weight: 550;
+  font-family: 'Helvetica', Arial, sans-serif;
+  margin: 0 0 1rem 0;
+  line-height: 1.2;
+}
+
+.description {
+  font-size: 1.1rem;
+  color: rgba(0, 0, 0, 0.6);
+  font-family: 'Helvetica', Arial, sans-serif;
+  margin: 0 0 2.5rem 0;
+  line-height: 1.6;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  padding-bottom: 2rem;
+}
+
+.body {
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #000000;
+}
+
+.body h2 {
+  font-size: 1.4rem;
+  font-weight: 550;
+  margin: 2.5rem 0 0.75rem 0;
+}
+
+.body h3 {
+  font-size: 1.15rem;
+  font-weight: 550;
+  margin: 2rem 0 0.5rem 0;
+}
+
+.body p {
+  margin: 0 0 1.25rem 0;
+}
+
+.body ul,
+.body ol {
+  padding-left: 1.5rem;
+  margin: 0 0 1.25rem 0;
+}
+
+.body li {
+  margin-bottom: 0.4rem;
+}
+
+.body a {
+  color: #6d8196;
+  text-decoration: underline;
+}
+
+.body a:hover {
+  color: #5e7285;
+}
+
+.body code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.body pre {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 0 0 1.25rem 0;
+}
+
+.body pre code {
+  background: none;
+  padding: 0;
+}
+
+.body blockquote {
+  border-left: 3px solid #6d8196;
+  margin: 0 0 1.25rem 0;
+  padding: 0.5rem 0 0.5rem 1.25rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+@media (max-width: 768px) {
+  .content {
+    padding: 2rem 1.25rem;
+    padding-top: 2rem;
+  }
+
+  .title {
+    font-size: 1.75rem;
+  }
+}

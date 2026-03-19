@@ -11,6 +11,7 @@
   "dependencies": {
     "@formulajs/formulajs": "^4.5.6",
     "@workos-inc/authkit-nextjs": "^2.13.0",
+    "gray-matter": "^4.0.3",
     "next": "16.1.6",
     "pg": "^8.19.0",
     "posthog-js": "^1.342.1",

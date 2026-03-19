@@ -29,14 +29,10 @@
   z-index: 1;
 }
 
-.container > :last-child {
-  margin-top: auto;
-}
-
 .content {
   flex: 1;
   padding: 2rem;
-  padding-top: 70px;
+  padding-top: 40px;
   margin-left: 25vh;
   margin-right: 25vh;
   position: relative;
@@ -47,7 +43,67 @@
   font-family: 'Helvetica', Arial, sans-serif;
   font-size: 3rem;
   font-weight: 525;
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.subtext {
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 1.1rem;
   color: rgba(0, 0, 0, 0.5);
+  margin-top: 0.5rem;
+  margin-bottom: 3rem;
+}
+
+.postList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.postCard {
+  display: block;
+  padding: 2rem 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.15);
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.2s;
+}
+
+.postCard:last-child {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.postCard:hover {
+  opacity: 0.6;
+}
+
+.postMeta {
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.4);
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dot {
+  opacity: 0.4;
+}
+
+.postTitle {
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #000000;
+  margin-bottom: 0.5rem;
+}
+
+.postDescription {
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 0.95rem;
+  color: rgba(0, 0, 0, 0.55);
+  line-height: 1.5;
 }
 
 @media (max-width: 768px) {
@@ -65,5 +121,9 @@
 
   .text {
     font-size: 2rem;
+  }
+
+  .subtext {
+    font-size: 1rem;
   }
 }

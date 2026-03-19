@@ -1,28 +1,36 @@
-"use client";
-
-import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import Navbar from '../components/Navbar';
-import MobileNavbar from '../components/MobileNavbar';
 import Footer from '../components/Footer';
+import { getAllPosts } from './lib/posts';
 import styles from './page.module.css';
 
-export default function Resources() {
-  const [isMobile, setIsMobile] = useState(false);
+export const metadata = {
+  title: 'Resources | Intrinsic',
+  description: 'Articles and case studies on financial modeling and valuation.',
+};
 
-  useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    checkIsMobile();
-    window.addEventListener('resize', checkIsMobile);
-    return () => window.removeEventListener('resize', checkIsMobile);
-  }, []);
+export default function Blog() {
+  const posts = getAllPosts();
 
   return (
     <div className={styles.container}>
-      {isMobile ? <MobileNavbar /> : <Navbar />}
+      <Navbar />
       <div className={styles.content}>
-        <p className={styles.text}>Articles and case studies coming soon...</p>
+        <div className={styles.text}>Resources</div>
+        <p className={styles.subtext}>Articles and case studies on financial modeling and valuation.</p>
+        <div className={styles.postList}>
+          {posts.map(post => (
+            <Link key={post.slug} href={`/blog/${post.slug}`} className={styles.postCard}>
+              <div className={styles.postMeta}>
+                {new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                <span className={styles.dot}>·</span>
+                {post.readTime}
+              </div>
+              <div className={styles.postTitle}>{post.title}</div>
+              <div className={styles.postDescription}>{post.description}</div>
+            </Link>
+          ))}
+        </div>
       </div>
       <Footer />
     </div>
