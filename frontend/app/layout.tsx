@@ -22,8 +22,8 @@ export const metadata: Metadata = {
   icons: {
     icon: '/icon.svg',
   },
-  title: "Intrinsic | Unlock true value",
-  description: "AI-powered fundamental analysis platform that automates DCF modeling and company research using real SEC data.",
+  title: "Intrinsic | AI-Powered Automated Financial Modeling with Real Data",
+  description: "Intrinsic is an AI-powered financial modeling platform that automates DCF valuations, LBO analyses, and trading comps using verified SEC 10-K and 10-Q data. Build, edit, and analyze financial models inside an interactive spreadsheet workspace using natural language — no manual data entry required.",
   applicationName: 'Intrinsic',
   authors: [{ name: 'MarketRadar Intelligence, Corp.' }],
   category: 'Financial Technology',
@@ -65,8 +65,8 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: "Intrinsic | Unlock true value",
-    description: "AI-powered fundamental analysis platform that automates DCF modeling and company research using real SEC data.",
+    title: "Intrinsic | AI-Powered Automated Financial Modeling with Real Data",
+    description: "Intrinsic is an AI-powered financial modeling platform that automates DCF valuations, LBO analyses, and trading comps using verified SEC 10-K and 10-Q data. Build, edit, and analyze financial models inside an interactive spreadsheet workspace using natural language.",
     url: 'https://www.runintrinsic.com',
     siteName: 'Intrinsic',
     images: [
@@ -82,8 +82,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: "Intrinsic | Unlock true value",
-    description: "AI-powered fundamental analysis platform that automates DCF modeling and company research using real SEC data.",
+    title: "Intrinsic | AI-Powered Automated Financial Modeling with Real Data",
+    description: "Intrinsic is an AI-powered financial modeling platform that automates DCF valuations, LBO analyses, and trading comps using verified SEC 10-K and 10-Q data.",
     images: ['/intrinsic-logo.png'],
   },
   robots: {
@@ -125,7 +125,8 @@ const jsonLd = {
       applicationCategory: 'FinanceApplication',
       operatingSystem: 'Web',
       url: 'https://www.runintrinsic.com',
-      description: 'AI-powered financial modeling platform that automates DCF, LBO, and comps using verified SEC data.',
+      description: 'Intrinsic is an AI-powered financial modeling platform for equity analysts, investors, portfolio managers, and finance students. It automates the creation of DCF (discounted cash flow) valuations, LBO (leveraged buyout) analyses, and trading comparables using verified data from SEC 10-K and 10-Q filings. Users describe what they want in natural language — for example, "build a 5-year DCF for Apple" — and the AI fetches real financial data (revenue, EBITDA, free cash flow, balance sheet items), structures the model with proper formulas and formatting, and populates every cell inside an interactive spreadsheet workspace. Key features include: multi-sheet workspaces, Excel/CSV template upload and import, built-in professional templates (DCF, LBO, trading comps), real-time AI chat for model editing, cross-sheet formula support, and data sourced directly from SEC EDGAR filings. Intrinsic eliminates manual data entry and lets analysts focus on analysis rather than spreadsheet construction.',
+      featureList: 'AI-powered financial model generation, Verified SEC 10-K and 10-Q data, DCF valuation models, LBO analysis models, Trading comparables analysis, Interactive spreadsheet workspace, Natural language model editing, Excel and CSV template upload, Multi-sheet workspaces, Cross-sheet formula support, Real-time stock quotes, Professional built-in templates',
       offers: { '@type': 'Offer', url: 'https://www.runintrinsic.com/pricing' },
       publisher: { '@id': 'https://www.runintrinsic.com/#organization' },
     },

@@ -11,27 +11,27 @@ import Footer from './components/Footer';
 const faqData = [
   {
     question: "What is Intrinsic?",
-    answer: "Intrinsic is an AI-powered financial modeling platform that combines automated spreadsheet generation with verified SEC data. Build, analyze, and share financial models faster than ever before."
+    answer: "Intrinsic is an AI-powered financial modeling platform that builds DCF valuations, LBO analyses, and trading comparables from verified SEC 10-K and 10-Q filings. It combines a fully functional spreadsheet workspace with an AI assistant that understands financial modeling — you describe what you need in plain English and Intrinsic builds the model, fetches the data, and populates every cell."
   },
   {
     question: "What data sources does Intrinsic use?",
-    answer: "Intrinsic pulls from verified SEC filings, earnings reports, and financial databases to ensure your models are built on accurate, up-to-date data."
+    answer: "Intrinsic pulls financial data directly from SEC EDGAR filings — 10-K annual reports and 10-Q quarterly reports. This includes income statement data (revenue, COGS, operating expenses, net income), balance sheet items (assets, liabilities, equity), and cash flow statement data (operating cash flow, capex, free cash flow). All data is sourced from audited filings, not estimated or scraped from third parties. Intrinsic also provides real-time stock quotes."
   },
   {
     question: "Who uses Intrinsic?",
-    answer: "Intrinsic is used by analysts, investors, portfolio managers, and finance students who want to build rigorous financial models without spending hours on manual data entry."
+    answer: "Intrinsic is built for equity research analysts, investment banking analysts, portfolio managers, buy-side and sell-side professionals, and finance students who want to build rigorous financial models without spending hours on manual data entry and formatting."
   },
   {
     question: "Can I upload my own Excel models?",
-    answer: "Yes. You can upload .xlsx or .csv files directly and Intrinsic will import your data and formatting. You can also use our built-in templates to get started quickly."
+    answer: "Yes. You can upload .xlsx or .csv files directly and Intrinsic will import your data, formulas, and formatting — including bold, colors, number formats, and cell styles. You can also save any workspace as a reusable template, or start from built-in professional templates for DCF, LBO, and trading comps models."
   },
   {
     question: "How does the AI work?",
-    answer: "Intrinsic's AI understands financial concepts and can build or modify models based on natural language instructions. Just describe what you want and it will update the spreadsheet accordingly."
+    answer: "Intrinsic's AI understands financial modeling concepts and spreadsheet structure. You can ask it to build a complete DCF model for any public company, fetch historical financials, add sensitivity tables, format cells, create new sheets, or modify existing formulas — all through natural language. The AI reads your current spreadsheet state and makes precise edits, just like a human analyst would."
   },
   {
     question: "Is my data secure?",
-    answer: "Yes. Your models and data are private by default. We use industry-standard encryption and security practices to keep your work safe."
+    answer: "Yes. Your models, workspaces, and data are private by default. We use industry-standard encryption, secure authentication via WorkOS, and all data is stored in isolated databases. Your financial models are never shared with other users or used to train AI models."
   }
 ];
 
@@ -68,7 +68,7 @@ export default function Landing() {
       {/* Row 2: Hero */}
       <section className={pageStyles.heroSection} aria-label="Hero">
         <h1 className={pageStyles.heroText}>Unlock intrinsic value</h1>
-        <p className={pageStyles.heroSubheader}>Automated financial modeling with verified SEC data</p>
+        <p className={pageStyles.heroSubheader}>Automated financial modeling with verified SEC data. Intrinsic is an AI-powered platform that builds DCF models, LBO analyses, trading comps, and custom financial models from real SEC 10-K and 10-Q filings — all inside an interactive spreadsheet workspace.</p>
         <div className={pageStyles.heroButtons}>
           <button className={pageStyles.heroButtonFilled} onClick={() => router.push('/onboarding')}>Get started free</button>
           <button className={pageStyles.heroButtonTransparent} onClick={() => router.push('/pricing')}>See plans</button>
@@ -91,13 +91,13 @@ export default function Landing() {
         <div className={pageStyles.row4Content}>
           <h2 className={pageStyles.row4Heading}>Let intrinsic do the legwork, you make the decisions.</h2>
           <div className={pageStyles.row4Subtext}>
-            <p>Intrinsic is an AI that:</p>
+            <p>Intrinsic is an AI financial modeling assistant that:</p>
             <ul className={pageStyles.featureList}>
-              <li>Can build and edit financial models on demand</li>
-              <li>Works inside of a fully functional spreadsheet workspace</li>
-              <li>Uses verified financial data from any SEC filing</li>
+              <li>Builds and edits DCF, LBO, and comps models from natural language instructions</li>
+              <li>Works inside a fully functional spreadsheet workspace with formulas, formatting, and multi-sheet support</li>
+              <li>Pulls verified financial data directly from SEC 10-K and 10-Q filings — revenue, EBITDA, free cash flow, balance sheet items, and more</li>
             </ul>
-            <p>Describe what you want and Intrinsic does the work. From DCF models to comp tables, intrinsic is always ready.</p>
+            <p>Tell Intrinsic what you need — &quot;build a DCF for Apple using 5 years of historical data&quot; — and it fetches real financials, structures the model, and populates every cell. You focus on the analysis, not the data entry.</p>
           </div>
         </div>
         <div className={pageStyles.row4ImageContainer}>
@@ -110,7 +110,7 @@ export default function Landing() {
         <div className={pageStyles.featureTextCell}>
           <div className={pageStyles.featureHeadingGroup}>
             <h2 className={pageStyles.featureHeroText}>Work across multiple workspaces</h2>
-            <p className={pageStyles.featureSubtext}>Create and manage multiple financial models in different workspaces. Each workspace is a separate project with its own data and models.</p>
+            <p className={pageStyles.featureSubtext}>Organize your financial analysis across separate workspaces — one for each company, deal, or research project. Each workspace has its own sheets, data, and AI conversation history, so your Tesla DCF stays separate from your Meta comps analysis.</p>
           </div>
         </div>
         <div className={pageStyles.featureImageCell}>
@@ -126,7 +126,7 @@ export default function Landing() {
         <div className={pageStyles.featureTextCellRight}>
           <div className={pageStyles.featureHeadingGroup}>
             <h2 className={pageStyles.featureHeroText}>Upload your preferred templates</h2>
-            <p className={pageStyles.featureSubtext}>Upload your own templates or choose from a library of professional financial models. DCF, LBO, comps, and more, pre-built and ready to customize with real data.</p>
+            <p className={pageStyles.featureSubtext}>Upload your own Excel (.xlsx) or CSV templates, or start from built-in professional models — DCF valuation, leveraged buyout (LBO), and trading comparables. The AI understands your template structure and fills in the right cells with real SEC data, preserving your formulas and formatting.</p>
           </div>
         </div>
       </section>
