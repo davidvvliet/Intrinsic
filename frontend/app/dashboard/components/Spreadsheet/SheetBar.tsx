@@ -82,7 +82,9 @@ export default function SheetBar() {
                 className={styles.deleteButton}
                 onClick={(e) => {
                   e.stopPropagation();
-                  deleteSheet(sheet.sheetId);
+                  if (window.confirm(`Delete "${sheet.name}"?`)) {
+                    deleteSheet(sheet.sheetId);
+                  }
                 }}
                 title="Delete sheet"
               >
