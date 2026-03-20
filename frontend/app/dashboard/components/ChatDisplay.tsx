@@ -30,14 +30,6 @@ export default function ChatDisplay({
     }
   };
 
-  // Pre-process markdown to make text after numbered patterns bold
-  const processMarkdown = (text: string): string => {
-    // Match patterns like "1) Text" or "1. Text" and make the text after bold
-    return text.replace(/^(\d+[).])\s+(.+)$/gm, (match, number, text) => {
-      return `${number} **${text}**`;
-    });
-  };
-
   // Render content with tool call markers styled separately
   const renderContent = (text: string) => {
     const parts = text.split(/(\|\|\|TOOL\|\|\|.*?\|\|\|\/TOOL\|\|\|)/);
@@ -47,7 +39,7 @@ export default function ChatDisplay({
         return <span key={i} className={styles.toolCallMessage}>{content}</span>;
       }
       if (!part) return null;
-      return <ReactMarkdown key={i}>{processMarkdown(part)}</ReactMarkdown>;
+      return <ReactMarkdown key={i}>{part}</ReactMarkdown>;
     });
   };
 

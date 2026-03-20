@@ -247,15 +247,18 @@ export default function WorkspacePage() {
       if (!response.ok) return;
       const data = await response.json();
       if (data.length > 0) {
+        const currentIds = new Set(useSpreadsheetStore.getState().sheets.map((s: any) => s.sheetId));
+        const currentActive = useSpreadsheetStore.getState().activeSheetId;
         setSheets(data.map((sheet: any) => ({
           sheetId: sheet.id,
           name: sheet.name || 'Untitled',
           createdAt: sheet.created_at || new Date().toISOString(),
           isSaved: true,
         })));
-        // If no sheet is active (e.g. brand new workspace), select the first one
-        const currentActive = useSpreadsheetStore.getState().activeSheetId;
-        if (!currentActive) {
+        const firstNew = data.find((s: any) => !currentIds.has(s.id));
+        if (firstNew) {
+          setActiveSheetId(firstNew.id);
+        } else if (!currentActive) {
           setActiveSheetId(data[0].id);
         }
       }
