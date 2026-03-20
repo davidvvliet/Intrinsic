@@ -3,7 +3,7 @@ from app.storage.async_db import execute_query_one
 
 PLAN_LIMITS = {
     "free": {"workspaces": 1, "messages_per_2h": 50},
-    "pro":  {"workspaces": None, "messages_per_2h": None},  # None = unlimited
+    "pro":  {"workspaces": 50, "messages_per_2h": 200},
 }
 
 
@@ -62,4 +62,7 @@ async def enforce_workspace_limit(user_id: str, email: str):
         user_id
     )
     if row and row["count"] >= limit:
-        raise HTTPException(status_code=403, detail=f"Free plan is limited to {limit} workspace(s). Upgrade to Pro for unlimited workspaces.")
+        if plan == "free":
+            raise HTTPException(status_code=403, detail=f"Free plan is limited to {limit} workspace(s). Upgrade to Pro for more workspaces.")
+        else:
+            raise HTTPException(status_code=403, detail=f"You've reached the maximum of {limit} workspaces for your plan.")

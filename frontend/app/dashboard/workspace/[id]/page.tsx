@@ -257,7 +257,7 @@ export default function WorkspacePage() {
         })));
         const firstNew = data.find((s: any) => !currentIds.has(s.id));
         if (firstNew) {
-          setActiveSheetId(firstNew.id);
+          useSpreadsheetStore.getState().setPendingSheetId(firstNew.id);
         } else if (!currentActive) {
           setActiveSheetId(data[0].id);
         }

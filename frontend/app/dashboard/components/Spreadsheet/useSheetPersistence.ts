@@ -43,6 +43,8 @@ export function useSheetPersistence() {
   const setSheetCellData = useSpreadsheetStore(state => state.setSheetCellData);
   const setSheetCellFormat = useSpreadsheetStore(state => state.setSheetCellFormat);
   const setScrollPosition = useSpreadsheetStore(state => state.setScrollPosition);
+  const setActiveSheetId = useSpreadsheetStore(state => state.setActiveSheetId);
+  const setPendingSheetId = useSpreadsheetStore(state => state.setPendingSheetId);
   const recalculateFormulas = useSpreadsheetStore(state => state.recalculateFormulas);
 
   // Check if active sheet has been saved
@@ -255,7 +257,15 @@ export function useSheetPersistence() {
       // Recalculate all formulas now that all data is loaded
       recalculateFormulas();
 
-      prevActiveSheetIdRef.current = activeSheetId;
+      // Switch to pending sheet now that data is in cache
+      const pendingId = useSpreadsheetStore.getState().pendingSheetId;
+      if (pendingId) {
+        setPendingSheetId(null);
+        setActiveSheetId(pendingId);
+        prevActiveSheetIdRef.current = pendingId;
+      } else {
+        prevActiveSheetIdRef.current = activeSheetId;
+      }
     };
 
     loadAllSheets().catch(err => {

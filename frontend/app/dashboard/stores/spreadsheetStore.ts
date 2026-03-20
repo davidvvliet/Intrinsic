@@ -48,6 +48,9 @@ interface SpreadsheetState {
   allSheetsFormat: Map<string, CellFormatData>;
   allSheetsComputed: Map<string, ComputedData>;
 
+  // Pending sheet switch (set by handleSheetsChanged, consumed by bulk load)
+  pendingSheetId: string | null;
+
   // Column widths
   columnWidths: Map<number, number>;
   columnWidthsBySheet: Map<string, Map<number, number>>;
@@ -94,6 +97,7 @@ interface SpreadsheetActions {
   setSheets: (sheets: SheetMetadata[] | ((prev: SheetMetadata[]) => SheetMetadata[])) => void;
   setSheetCellData: (sheetId: string, data: CellData) => void;
   setSheetCellFormat: (sheetId: string, format: CellFormatData) => void;
+  setPendingSheetId: (id: string | null) => void;
   setColumnWidthsBySheet: (widths: Map<string, Map<number, number>> | ((prev: Map<string, Map<number, number>>) => Map<string, Map<number, number>>)) => void;
   setFrozenRows: (rows: number) => void;
   setFrozenColumns: (cols: number) => void;
@@ -176,6 +180,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     allSheetsData: new Map(),
     allSheetsFormat: new Map(),
     allSheetsComputed: new Map(),
+    pendingSheetId: null,
     columnWidths: new Map(),
     columnWidthsBySheet: new Map(),
     frozenRows: 0,
@@ -300,6 +305,8 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       next.set(sheetId, format);
       return { allSheetsFormat: next };
     }),
+
+    setPendingSheetId: (id) => set({ pendingSheetId: id }),
 
     setColumnWidthsBySheet: (widths) => set(state => {
       const newWidths = typeof widths === 'function' ? widths(state.columnWidthsBySheet) : widths;
