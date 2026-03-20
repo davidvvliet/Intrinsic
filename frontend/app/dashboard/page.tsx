@@ -60,7 +60,12 @@ export default function DashboardPage() {
 
   const handleAdd = () => {
     if (addDisabled) return;
-    if (userPlan?.plan !== 'pro' && workspaces.length >= 1) {
+    const isFree = userPlan?.plan !== 'pro';
+    if (isFree && workspaces.length >= 1) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    if (!isFree && workspaces.length >= 50) {
       setShowUpgradeModal(true);
       return;
     }
@@ -96,8 +101,12 @@ export default function DashboardPage() {
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
         title="Workspace limit reached"
-        line1="The free plan only allows 1 workspace."
-        line2="Upgrade to Pro for unlimited workspaces."
+        line1={userPlan?.plan === 'pro'
+          ? "You've reached the maximum of 50 workspaces."
+          : "The free plan only allows 1 workspace."}
+        line2={userPlan?.plan === 'pro'
+          ? "Delete an existing workspace to create a new one."
+          : "Upgrade to Pro for up to 50 workspaces."}
       />
       <CreateWorkspaceModal
         isOpen={showCreateModal}
