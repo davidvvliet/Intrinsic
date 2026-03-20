@@ -256,7 +256,9 @@ export default function WorkspacePage() {
           isSaved: true,
         })));
         const firstNew = data.find((s: any) => !currentIds.has(s.id));
+        console.log('[handleSheetsChanged] currentIds:', [...currentIds], 'newIds:', data.map((s: any) => s.id), 'firstNew:', firstNew?.id);
         if (firstNew) {
+          console.log('[handleSheetsChanged] switching to new sheet:', firstNew.id);
           setActiveSheetId(firstNew.id);
         } else if (!currentActive) {
           setActiveSheetId(data[0].id);

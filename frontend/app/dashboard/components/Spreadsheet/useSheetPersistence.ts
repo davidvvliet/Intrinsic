@@ -202,14 +202,21 @@ export function useSheetPersistence() {
       // Fetch each sheet that has been saved to the backend
       const savedSheets = sheets.filter(s => s.isSaved);
 
+      console.log('[loadAllSheets] starting, activeSheetId:', activeSheetId, 'sheets:', savedSheets.map(s => s.sheetId));
       const results = await Promise.all(
         savedSheets.map(async (sheet) => {
           try {
             const response = await fetchWithAuth(`/api/sheets/${sheet.sheetId}`, { method: 'GET' });
-            if (!response.ok) return { sheetId: sheet.sheetId, data: null, name: null };
+            if (!response.ok) {
+              console.warn('[loadAllSheets] fetch not ok for', sheet.sheetId, 'status:', response.status);
+              return { sheetId: sheet.sheetId, data: null, name: null };
+            }
             const result = await response.json();
+            const fmtCount = result.data?.formatting ? Object.keys(result.data.formatting).length : 0;
+            console.log('[loadAllSheets] fetched', sheet.sheetId, 'cells:', result.data?.cells ? Object.keys(result.data.cells).length : 0, 'formatting:', fmtCount);
             return { sheetId: sheet.sheetId, data: result.data, name: result.name };
-          } catch {
+          } catch (err) {
+            console.error('[loadAllSheets] fetch error for', sheet.sheetId, err);
             return { sheetId: sheet.sheetId, data: null, name: null };
           }
         })
@@ -217,16 +224,22 @@ export function useSheetPersistence() {
 
       // Process each sheet's data
       // Set active sheet's cellData FIRST so formula engine sees it when allSheetsData triggers recalc
+      let foundActiveSheet = false;
       for (const result of results) {
         if (!result.data) continue;
         if (result.sheetId === activeSheetId) {
+          foundActiveSheet = true;
           const { cellData: sheetCells, cellFormat: sheetFormat } = deserializeSheet(result.data, result.sheetId);
+          console.log('[loadAllSheets] setting active sheet data, sheetId:', result.sheetId, 'cells:', sheetCells.size, 'format:', sheetFormat.size);
           setCellData(sheetCells);
           setCellFormat(sheetFormat);
           setBaselineData(new Map(sheetCells));
           setBaselineFormat(new Map(sheetFormat));
           setDirtyCells(new Set());
         }
+      }
+      if (!foundActiveSheet) {
+        console.warn('[loadAllSheets] active sheet NOT found in results! activeSheetId:', activeSheetId, 'result sheetIds:', results.map(r => r.sheetId));
       }
 
       for (const result of results) {
@@ -269,6 +282,9 @@ export function useSheetPersistence() {
     if (!activeSheetId) return;
     if (!loadedSheetIdsRef.current) return; // Wait for bulk load to finish
     if (prevActiveSheetIdRef.current === activeSheetId) return;
+    const switchState = useSpreadsheetStore.getState();
+    const switchFmtSize = switchState.allSheetsFormat.get(activeSheetId)?.size ?? 0;
+    console.log('[tab-switch] switching to', activeSheetId, 'from', prevActiveSheetIdRef.current, 'allSheetsFormat has', switchFmtSize, 'entries for this sheet');
 
     const prevSheetId = prevActiveSheetIdRef.current;
     prevActiveSheetIdRef.current = activeSheetId;
