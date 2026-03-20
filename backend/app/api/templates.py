@@ -229,10 +229,12 @@ async def apply_template_to_workspace(template_name: str, workspace_id: str, use
     if not template_name:
         return {"error": "No template_name provided"}
 
-    # Find template by name
+    # Find template by name (prefer defaults over user templates)
     template = await execute_query_one(
         """SELECT id, name, preview_data FROM templates
-           WHERE name = $1 AND (user_id IS NULL OR user_id = $2)""",
+           WHERE name = $1 AND (user_id IS NULL OR user_id = $2)
+           ORDER BY user_id NULLS FIRST
+           LIMIT 1""",
         template_name, user_id
     )
     if not template:
@@ -497,6 +499,18 @@ async def upload_template(
 
     name = file.filename.rsplit('.', 1)[0] if file.filename else "Untitled"
 
+    # Deduplicate name against defaults and user's own templates
+    existing_names_rows = await execute_query(
+        "SELECT name FROM templates WHERE user_id IS NULL OR user_id = $1",
+        user_id
+    )
+    existing_names = {r["name"] for r in existing_names_rows}
+    if name in existing_names:
+        counter = 2
+        while f"{name} ({counter})" in existing_names:
+            counter += 1
+        name = f"{name} ({counter})"
+
     # Extract preview_data from first sheet
     preview_data = None
     if sheets and sheets[0].get("data", {}).get("cells"):
@@ -542,6 +556,18 @@ async def create_template(
 
     if not body.sheets:
         raise HTTPException(status_code=400, detail="At least one sheet required")
+
+    # Deduplicate name against defaults and user's own templates
+    existing_names_rows = await execute_query(
+        "SELECT name FROM templates WHERE user_id IS NULL OR user_id = $1",
+        user_id
+    )
+    existing_names = {r["name"] for r in existing_names_rows}
+    if body.name in existing_names:
+        counter = 2
+        while f"{body.name} ({counter})" in existing_names:
+            counter += 1
+        body.name = f"{body.name} ({counter})"
 
     # Validate size
     total_size = sum(len(json.dumps(s.get("data", {})).encode('utf-8')) for s in body.sheets)

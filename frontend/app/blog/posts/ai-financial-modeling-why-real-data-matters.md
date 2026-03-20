@@ -1,5 +1,5 @@
 ---
-title: "Why Real Data Is Everything When Using AI for Financial Modeling"
+title: "Why Does Real Data Matter When Using AI for Financial Modeling?"
 date: "2026-03-14"
 description: "AI can build financial models from natural language instructions — but only if it's working with real, verified data. Hallucinated financials are worse than no model at all."
 readTime: "6 min read"

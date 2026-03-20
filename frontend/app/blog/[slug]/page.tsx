@@ -33,8 +33,36 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   const post = getPost(slug);
   if (!post) notFound();
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: post.title,
+    description: post.description,
+    datePublished: post.date,
+    dateModified: post.date,
+    url: `https://www.runintrinsic.com/blog/${slug}`,
+    author: {
+      '@type': 'Organization',
+      name: 'Intrinsic',
+      url: 'https://www.runintrinsic.com',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Intrinsic',
+      url: 'https://www.runintrinsic.com',
+    },
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': `https://www.runintrinsic.com/blog/${slug}`,
+    },
+  };
+
   return (
     <div className={styles.container}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <Navbar />
       <div className={styles.content}>
         <div className={styles.backLinks}>

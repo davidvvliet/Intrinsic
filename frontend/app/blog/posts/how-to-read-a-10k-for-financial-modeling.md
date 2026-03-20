@@ -1,5 +1,5 @@
 ---
-title: "How to Read a 10-K for Financial Modeling"
+title: "How Do You Read a 10-K for Financial Modeling?"
 date: "2026-03-15"
 description: "A practical guide to navigating an SEC 10-K filing and extracting the financial data you need to build a financial model — including which sections matter most."
 readTime: "8 min read"
