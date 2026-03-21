@@ -27,7 +27,6 @@ export function getUsedRange(cellData: CellData): UsedRange | null {
     const row = parseInt(rowStr, 10);
     const col = parseInt(colStr, 10);
 
-    // Skip cells with empty values
     const cell = cellData.get(key);
     if (!cell || cell.raw === '') continue;
 
@@ -37,7 +36,6 @@ export function getUsedRange(cellData: CellData): UsedRange | null {
     maxCol = Math.max(maxCol, col);
   }
 
-  // No non-empty cells found
   if (minRow === Infinity) {
     return null;
   }
@@ -56,23 +54,18 @@ export function getUsedRange(cellData: CellData): UsedRange | null {
 export function usedRangeToA1(range: UsedRange): string {
   const startCol = getColumnLabel(range.startCol);
   const endCol = getColumnLabel(range.endCol);
-  const startRow = range.startRow + 1; // Convert to 1-indexed
+  const startRow = range.startRow + 1;
   const endRow = range.endRow + 1;
   return `${startCol}${startRow}:${endCol}${endRow}`;
 }
 
 /**
- * Serialize spreadsheet data to a markdown table.
- *
- * @param cellData - The cell data map
- * @param getDisplayValue - Function to get computed display value for a cell
- * @param maxRows - Maximum rows to include (default 50, to avoid token explosion)
- * @returns Markdown table string, or empty string if sheet is empty
+ * Serialize spreadsheet data to sparse cell format for LLM context.
+ * Only includes cells with data, groups by row, marks formulas.
  */
-export function serializeToMarkdown(
+export function serializeToSparse(
   cellData: CellData,
   getDisplayValue: (key: string) => string,
-  maxRows: number = 50
 ): string {
   const range = getUsedRange(cellData);
 
@@ -80,59 +73,60 @@ export function serializeToMarkdown(
     return '';
   }
 
-  const { startRow, endRow, startCol, endCol } = range;
-  const totalRows = endRow - startRow + 1;
-  const truncated = totalRows > maxRows;
-  const displayEndRow = truncated ? startRow + maxRows - 1 : endRow;
+  // Collect all non-empty cells grouped by row
+  const rowMap = new Map<number, { col: number; key: string }[]>();
 
-  // Build header row with column letters
-  const colHeaders = [''];  // Empty cell for row number column
-  for (let col = startCol; col <= endCol; col++) {
-    colHeaders.push(getColumnLabel(col));
-  }
+  cellData.forEach((cell, key) => {
+    if (!cell || cell.raw === '') return;
+    const [rowStr, colStr] = key.split(',');
+    const row = parseInt(rowStr, 10);
+    const col = parseInt(colStr, 10);
 
-  // Build separator row
-  const separator = colHeaders.map(() => '---');
+    if (!rowMap.has(row)) {
+      rowMap.set(row, []);
+    }
+    rowMap.get(row)!.push({ col, key });
+  });
 
-  // Build data rows
-  const dataRows: string[][] = [];
-  for (let row = startRow; row <= displayEndRow; row++) {
-    const rowData: string[] = [String(row + 1)]; // 1-indexed row number
+  // Sort rows
+  const sortedRows = Array.from(rowMap.keys()).sort((a, b) => a - b);
 
-    for (let col = startCol; col <= endCol; col++) {
-      const key = `${row},${col}`;
-      const cell = cellData.get(key);
+  const lines: string[] = [];
+  let lastRow = -1;
 
-      if (!cell || cell.raw === '') {
-        rowData.push('');
-      } else if (cell.type === 'formula') {
-        // Wrap formulas in backticks for visibility
-        rowData.push(`\`${cell.raw}\``);
+  for (const row of sortedRows) {
+    // Insert empty row gap marker
+    if (lastRow >= 0 && row - lastRow > 1) {
+      const gapStart = lastRow + 1;
+      const gapEnd = row - 1;
+      if (gapStart === gapEnd) {
+        lines.push(`(row ${gapStart + 1} empty)`);
       } else {
-        // Use display value (handles formatting)
-        const displayValue = getDisplayValue(key);
-        // Escape pipe characters in cell values
-        rowData.push(displayValue.replace(/\|/g, '\\|'));
+        lines.push(`(rows ${gapStart + 1}-${gapEnd + 1} empty)`);
+      }
+    }
+    lastRow = row;
+
+    // Sort cells in this row by column
+    const cells = rowMap.get(row)!.sort((a, b) => a.col - b.col);
+
+    // Build cell entries for this row
+    const entries: string[] = [];
+    for (const { col, key } of cells) {
+      const cell = cellData.get(key)!;
+      const cellRef = `${getColumnLabel(col)}${row + 1}`;
+
+      if (cell.type === 'formula') {
+        const computed = getDisplayValue(key);
+        entries.push(`${cellRef}: ${cell.raw} → ${computed} [formula]`);
+      } else if (cell.type === 'number') {
+        entries.push(`${cellRef}: ${getDisplayValue(key)}`);
+      } else {
+        entries.push(`${cellRef}: "${cell.raw}"`);
       }
     }
 
-    dataRows.push(rowData);
-  }
-
-  // Assemble markdown table
-  const lines: string[] = [];
-  lines.push('| ' + colHeaders.join(' | ') + ' |');
-  lines.push('| ' + separator.join(' | ') + ' |');
-
-  for (const row of dataRows) {
-    lines.push('| ' + row.join(' | ') + ' |');
-  }
-
-  // Add truncation notice if needed
-  if (truncated) {
-    const remainingRows = totalRows - maxRows;
-    lines.push('');
-    lines.push(`_(${remainingRows} more rows not shown)_`);
+    lines.push(entries.join(' | '));
   }
 
   return lines.join('\n');
@@ -144,7 +138,6 @@ export function serializeToMarkdown(
 export function getSheetContextForLLM(
   cellData: CellData,
   getDisplayValue: (key: string) => string,
-  maxRows: number = 50
 ): string {
   const range = getUsedRange(cellData);
 
@@ -153,7 +146,7 @@ export function getSheetContextForLLM(
   }
 
   const rangeStr = usedRangeToA1(range);
-  const markdown = serializeToMarkdown(cellData, getDisplayValue, maxRows);
+  const sparse = serializeToSparse(cellData, getDisplayValue);
 
-  return `Used range: ${rangeStr}\n\n${markdown}`;
+  return `Used range: ${rangeStr}\n\n${sparse}`;
 }

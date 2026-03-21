@@ -92,7 +92,7 @@ export default function ChatDisplay({
           <div className={styles.messageContent}>
             <div className={styles.loadingContainer}>
               <DotGridLoader />
-              <span className={styles.loadingText}>Searching...</span>
+              <span className={styles.loadingText}>Editing...</span>
             </div>
           </div>
         </div>
