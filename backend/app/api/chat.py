@@ -136,6 +136,25 @@ SPREADSHEET_TOOLS = [
     },
     {
         "type": "function",
+        "name": "find_cells",
+        "description": "Search for cells containing specific text. Returns matching cell references and values. Use this to locate data before reading or editing instead of scanning large ranges with get_cell_range.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Text to search for (case-insensitive)"
+                },
+                "sheet": {
+                    "type": "string",
+                    "description": "Target sheet name. Omit to search the active sheet."
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "type": "function",
         "name": "format_cells",
         "description": "Apply formatting to one or more cells (bold, colors, number format, etc.). You **ONLY** need to include a style property that you are actually setting - omit unused properties to reduce token usage (e.g. {'cell': 'A1', 'bold': True} instead of {'cell': 'A1', 'bold': True, 'italic': False, 'fillColor': '#FFFFFF', 'textColor': '#000000', 'numberFormat': 'number'})",
         "parameters": {

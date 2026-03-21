@@ -10,6 +10,7 @@ import Grid from './Grid';
 import SheetBar from './SheetBar';
 import FindBar from './FindBar';
 import { getCellKey, parseInputValue, a1ToRowCol } from './drawUtils';
+import { colToLetter } from './formulaEngine/cellRef';
 import type { CellFormat } from './types';
 import styles from './Spreadsheet.module.css';
 
@@ -322,6 +323,35 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
             setAnimatingRanges(prev => prev.filter(r => r !== range));
           }, 5000);
         }
+      } else if (name === 'find_cells') {
+        const { query, sheet } = args;
+        if (!query) {
+          return { error: 'Missing required argument: query' };
+        }
+
+        const storeState = useSpreadsheetStore.getState();
+        const targetSheet = sheet ? storeState.sheets.find(s => s.name === sheet) : null;
+        const isOtherSheet = targetSheet && targetSheet.sheetId !== storeState.activeSheetId;
+
+        const sourceCellData = isOtherSheet
+          ? (storeState.allSheetsData.get(targetSheet.sheetId) || new Map())
+          : storeState.cellData;
+
+        const lowerQuery = query.toLowerCase();
+        const results: { cell: string; value: string }[] = [];
+
+        sourceCellData.forEach((_: any, key: string) => {
+          const displayVal = storeState.getDisplayValue(key);
+          if (displayVal && displayVal.toLowerCase().includes(lowerQuery)) {
+            const [rowStr, colStr] = key.split(',');
+            const row = parseInt(rowStr);
+            const col = parseInt(colStr);
+            const cellRef = `${colToLetter(col)}${row + 1}`;
+            results.push({ cell: cellRef, value: displayVal });
+          }
+        });
+
+        return results;
       }
     };
 
