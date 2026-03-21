@@ -14,6 +14,7 @@ import { useChatStream, ToolCall } from '../../hooks/useChatStream';
 import { useAuthFetch } from '../../hooks/useAuthFetch';
 import { ChatMessage, SendMessageOptions } from '../../types/chat';
 import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
+import { useWorkspacesStore } from '../../stores/workspacesStore';
 import { useConversations } from '../../hooks/useConversations';
 import { useConversationsStore } from '../../stores/conversationsStore';
 import { getSheetContextForLLM } from '../../components/Spreadsheet/serializeUtils';
@@ -55,6 +56,12 @@ export default function WorkspacePage() {
 
         const data = await response.json();
 
+        // Always set workspace name — pull from sheets response if available, otherwise from workspaces store
+        const wsName = data.length > 0
+          ? data[0]?.workspace_name
+          : useWorkspacesStore.getState().getWorkspaceName(workspaceId);
+        setWorkspaceName(wsName ?? null);
+
         if (data.length > 0) {
           // Convert API response to SheetMetadata format
           const sheetMetadata = data.map((sheet: any) => ({
@@ -65,7 +72,6 @@ export default function WorkspacePage() {
           }));
 
           setSheets(sheetMetadata);
-          setWorkspaceName(data[0]?.workspace_name ?? null);
 
           // Restore active sheet from URL if present, otherwise default to first
           const urlSheet = new URLSearchParams(window.location.search).get('sheet');

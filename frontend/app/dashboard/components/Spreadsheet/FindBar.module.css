@@ -1,0 +1,85 @@
+.findBar {
+  position: absolute;
+  top: 0;
+  right: 16px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: #ffffef;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-top: none;
+  border-radius: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.input {
+  width: 125px;
+  height: 100%;
+  padding: 0 8px;
+  font-size: 13px;
+  font-family: Arial, sans-serif;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #000000;
+  outline: none;
+}
+
+.matchCount {
+  font-size: 11px;
+  font-family: Arial, sans-serif;
+  color: rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  min-width: 65px;
+  text-align: center;
+}
+
+.navButtons {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+}
+
+.navButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  cursor: pointer;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.navButton:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.navButton:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 18px;
+  color: rgba(0, 0, 0, 0.5);
+  line-height: 1;
+}
+
+.closeButton:hover {
+  background: rgba(0, 0, 0, 0.08);
+}

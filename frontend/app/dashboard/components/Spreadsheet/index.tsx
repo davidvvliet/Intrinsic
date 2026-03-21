@@ -8,6 +8,7 @@ import Toolbar from './Toolbar';
 import FormulaBar from './FormulaBar';
 import Grid from './Grid';
 import SheetBar from './SheetBar';
+import FindBar from './FindBar';
 import { getCellKey, parseInputValue, a1ToRowCol } from './drawUtils';
 import type { CellFormat } from './types';
 import styles from './Spreadsheet.module.css';
@@ -331,7 +332,10 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
     <div className={styles.spreadsheet}>
       <Toolbar />
       <FormulaBar />
-      <Grid />
+      <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+        <FindBar />
+        <Grid />
+      </div>
       <SheetBar />
     </div>
   );

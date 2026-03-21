@@ -236,6 +236,8 @@ export function drawGrid({
   frozenRows = 0,
   frozenColumns = 0,
   showGridlines = true,
+  findMatches = [],
+  findMatchIndex = -1,
 }: {
   ctx: CanvasRenderingContext2D;
   canvas: HTMLCanvasElement;
@@ -255,6 +257,8 @@ export function drawGrid({
   frozenRows?: number;
   frozenColumns?: number;
   showGridlines?: boolean;
+  findMatches?: { row: number; col: number }[];
+  findMatchIndex?: number;
 }) {
   // Apply DPR scaling for crisp rendering on all displays
   const dpr = window.devicePixelRatio || 1;
@@ -320,6 +324,21 @@ export function drawGrid({
   // Check if selection spans multiple cells
   const isMultiCellSelection = minRow !== maxRow || minCol !== maxCol;
 
+  // Build find match lookup
+  const findMatchSet = new Set<string>();
+  for (const m of findMatches) {
+    findMatchSet.add(getCellKey(m.row, m.col));
+  }
+  const activeFindMatch = findMatchIndex >= 0 && findMatchIndex < findMatches.length
+    ? findMatches[findMatchIndex]
+    : null;
+  const activeFindKey = activeFindMatch
+    && selection
+    && selection.start.row === activeFindMatch.row
+    && selection.start.col === activeFindMatch.col
+    ? getCellKey(activeFindMatch.row, activeFindMatch.col)
+    : null;
+
   // Helper function to get the index of the highlighted cell (or -1 if not found)
   const getHighlightedCellIndex = (row: number, col: number): number => {
     if (!highlightedCells || highlightedCells.length === 0) return -1;
@@ -359,6 +378,12 @@ export function drawGrid({
     if (highlightedIndex >= 0) {
       const colorIndex = highlightedIndex % FORMULA_REFERENCE_COLORS.length;
       ctx.fillStyle = FORMULA_REFERENCE_COLORS[colorIndex].fill;
+      ctx.fillRect(x, y, cellWidth, cellHeight);
+    }
+
+    // Draw find match highlights
+    if (findMatchSet.has(key)) {
+      ctx.fillStyle = key === activeFindKey ? 'rgba(60, 180, 75, 0.4)' : 'rgba(130, 220, 130, 0.3)';
       ctx.fillRect(x, y, cellWidth, cellHeight);
     }
   };

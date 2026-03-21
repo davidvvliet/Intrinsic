@@ -61,6 +61,12 @@ interface SpreadsheetState {
   frozenRowsBySheet: Map<string, number>;
   frozenColumnsBySheet: Map<string, number>;
 
+  // Find
+  findOpen: boolean;
+  findQuery: string;
+  findMatches: { row: number; col: number }[];
+  findMatchIndex: number;
+
   // View options
   showGridlines: boolean;
 
@@ -100,6 +106,10 @@ interface SpreadsheetActions {
   setScrollPosition: (sheetId: string, left: number, top: number) => void;
   setFrozenRowsBySheet: (rows: Map<string, number> | ((prev: Map<string, number>) => Map<string, number>)) => void;
   setFrozenColumnsBySheet: (cols: Map<string, number> | ((prev: Map<string, number>) => Map<string, number>)) => void;
+  setFindOpen: (open: boolean) => void;
+  setFindQuery: (query: string) => void;
+  setFindMatches: (matches: { row: number; col: number }[]) => void;
+  setFindMatchIndex: (index: number) => void;
   toggleGridlines: () => void;
 
   // Actions
@@ -183,6 +193,10 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     scrollPositionBySheet: new Map(),
     frozenRowsBySheet: new Map(),
     frozenColumnsBySheet: new Map(),
+    findOpen: false,
+    findQuery: '',
+    findMatches: [],
+    findMatchIndex: -1,
     showGridlines: true,
     undoStack: [],
     redoStack: [],
@@ -266,6 +280,10 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           highlightedCells: null,
           inputValue: '',
           isEditing: false,
+          findOpen: false,
+          findQuery: '',
+          findMatches: [],
+          findMatchIndex: -1,
           undoStack: [],
           redoStack: [],
           canUndo: false,
@@ -341,6 +359,10 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       return { frozenColumnsBySheet: newCols, frozenColumns };
     }),
 
+    setFindOpen: (open) => set({ findOpen: open }),
+    setFindQuery: (query) => set({ findQuery: query }),
+    setFindMatches: (matches) => set({ findMatches: matches }),
+    setFindMatchIndex: (index) => set({ findMatchIndex: index }),
     toggleGridlines: () => set(state => ({ showGridlines: !state.showGridlines })),
 
     // Actions

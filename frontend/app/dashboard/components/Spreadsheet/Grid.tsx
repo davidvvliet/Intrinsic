@@ -45,6 +45,8 @@ export default function Grid() {
   const frozenRows = useSpreadsheetStore(state => state.frozenRows);
   const frozenColumns = useSpreadsheetStore(state => state.frozenColumns);
   const showGridlines = useSpreadsheetStore(state => state.showGridlines);
+  const findMatches = useSpreadsheetStore(state => state.findMatches);
+  const findMatchIndex = useSpreadsheetStore(state => state.findMatchIndex);
 
   // Get actions from store
   const updateCells = useSpreadsheetStore(state => state.updateCells);
@@ -103,8 +105,10 @@ export default function Grid() {
       frozenRows,
       frozenColumns,
       showGridlines,
+      findMatches,
+      findMatchIndex,
     });
-  }, [cellData, cellFormat, computedData, selection, highlightedCells, zoom, copiedRange, animatingRanges, dashOffset, isEditing, containerRef, columnWidths, getColumnX, frozenRows, frozenColumns, showGridlines]);
+  }, [cellData, cellFormat, computedData, selection, highlightedCells, zoom, copiedRange, animatingRanges, dashOffset, isEditing, containerRef, columnWidths, getColumnX, frozenRows, frozenColumns, showGridlines, findMatches, findMatchIndex]);
 
   const handleScroll = useCallback(() => {
     drawGrid();

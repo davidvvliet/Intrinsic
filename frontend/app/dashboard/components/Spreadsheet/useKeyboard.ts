@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { NUM_ROWS, NUM_COLS } from './config';
 import type { CellData, CellFormatData, CellType, CellFormat, Selection, CopiedRange } from './types';
 import { getCellKey, getColumnLabel, parseInputValue } from './drawUtils';
+import { useSpreadsheetStore } from '../../stores/spreadsheetStore';
 import { parseCellRef, adjustCellRef, formatCellRef } from './formulaEngine/cellRef';
 import { writeToClipboard, readFromClipboard, applyPaste } from './clipboardUtils';
 import { scrollToCell } from './scrollUtils';
@@ -490,6 +491,13 @@ export function useKeyboard({
             }
             updateCells(cellUpdates);
           }
+        }
+        break;
+      case 'f':
+        // Ctrl+F: Open find bar
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          useSpreadsheetStore.getState().setFindOpen(true);
         }
         break;
       case 'b':
