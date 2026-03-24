@@ -118,7 +118,7 @@ export function serializeToSparse(
 
       if (cell.type === 'formula') {
         const computed = getDisplayValue(key);
-        entries.push(`${cellRef}: ${cell.raw} → ${computed} [formula]`);
+        entries.push(`${cellRef}: ${cell.raw} → ${computed || '#ERROR!'} [formula]`);
       } else if (cell.type === 'number') {
         entries.push(`${cellRef}: ${getDisplayValue(key)}`);
       } else {

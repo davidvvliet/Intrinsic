@@ -14,10 +14,7 @@ export function useSheetPersistence() {
   const prevActiveSheetIdRef = useRef<string | null>(null);
 
   // Subscribe to store state
-  const cellData = useSpreadsheetStore(state => state.cellData);
-  const cellFormat = useSpreadsheetStore(state => state.cellFormat);
-  const dirtyCells = useSpreadsheetStore(state => state.dirtyCells);
-  const dirtySettings = useSpreadsheetStore(state => state.dirtySettings);
+  const dirtySheets = useSpreadsheetStore(state => state.dirtySheets);
   const activeSheetId = useSpreadsheetStore(state => state.activeSheetId);
   const sheets = useSpreadsheetStore(state => state.sheets);
   const workspaceId = useSpreadsheetStore(state => state.workspaceId);
@@ -29,9 +26,6 @@ export function useSheetPersistence() {
   const markSaved = useSpreadsheetStore(state => state.markSaved);
   const setCellData = useSpreadsheetStore(state => state.setCellData);
   const setCellFormat = useSpreadsheetStore(state => state.setCellFormat);
-  const setBaselineData = useSpreadsheetStore(state => state.setBaselineData);
-  const setBaselineFormat = useSpreadsheetStore(state => state.setBaselineFormat);
-  const setDirtyCells = useSpreadsheetStore(state => state.setDirtyCells);
   const setSelection = useSpreadsheetStore(state => state.setSelection);
   const setHighlightedCells = useSpreadsheetStore(state => state.setHighlightedCells);
   const setInputValue = useSpreadsheetStore(state => state.setInputValue);
@@ -45,14 +39,20 @@ export function useSheetPersistence() {
   const setScrollPosition = useSpreadsheetStore(state => state.setScrollPosition);
   const recalculateFormulas = useSpreadsheetStore(state => state.recalculateFormulas);
 
-  // Check if active sheet has been saved
-  const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
-  const isActiveSheetSaved = activeSheet?.isSaved ?? false;
+  // Convert Maps to JSON format for API — works for any sheet
+  const serializeSheetData = useCallback((sheetId: string) => {
+    const state = useSpreadsheetStore.getState();
 
-  // Convert Maps to JSON format for API
-  const serializeSheetData = useCallback(() => {
+    // Use cellData for active sheet (it's the live copy), allSheetsData for others
+    const sheetCellData = sheetId === state.activeSheetId
+      ? state.cellData
+      : (state.allSheetsData.get(sheetId) || new Map());
+    const sheetCellFormat = sheetId === state.activeSheetId
+      ? state.cellFormat
+      : (state.allSheetsFormat.get(sheetId) || new Map());
+
     const cells: Record<string, { raw: string; type: CellType }> = {};
-    cellData.forEach((value, key) => {
+    sheetCellData.forEach((value, key) => {
       cells[key] = {
         raw: value.raw,
         type: value.type,
@@ -60,28 +60,28 @@ export function useSheetPersistence() {
     });
 
     const formatting: Record<string, CellFormat> = {};
-    cellFormat.forEach((format, key) => {
+    sheetCellFormat.forEach((format, key) => {
       formatting[key] = format;
     });
 
-    const sheetForName = sheets.find(s => s.sheetId === activeSheetId);
+    const sheetForName = sheets.find(s => s.sheetId === sheetId);
     const name = sheetForName?.name || 'Untitled';
 
-    const columnWidthsForSheet = columnWidthsBySheet.get(activeSheetId || '') || new Map();
-    const frozenRows = frozenRowsBySheet.get(activeSheetId || '') || 0;
-    const frozenColumns = frozenColumnsBySheet.get(activeSheetId || '') || 0;
+    const columnWidthsForSheet = columnWidthsBySheet.get(sheetId) || new Map();
+    const frozenRows = frozenRowsBySheet.get(sheetId) || 0;
+    const frozenColumns = frozenColumnsBySheet.get(sheetId) || 0;
     const columnWidthsArray: [number, number][] = Array.from(columnWidthsForSheet.entries());
 
     // Extract preview_data if this is the first sheet (A1:F10)
     let preview_data: Record<string, { raw: string; type: string; format?: CellFormat }> | undefined;
-    if (sheets.length > 0 && sheets[0].sheetId === activeSheetId) {
+    if (sheets.length > 0 && sheets[0].sheetId === sheetId) {
       preview_data = {};
-      cellData.forEach((value, key) => {
+      sheetCellData.forEach((value, key) => {
         const [rowStr, colStr] = key.split(',');
         const row = parseInt(rowStr, 10);
         const col = parseInt(colStr, 10);
         if (row < 10 && col < 6) {
-          const format = cellFormat.get(key);
+          const format = sheetCellFormat.get(key);
           preview_data![key] = {
             raw: value.raw,
             type: value.type,
@@ -103,43 +103,57 @@ export function useSheetPersistence() {
       name,
       preview_data,
     };
-  }, [cellData, cellFormat, sheets, activeSheetId, columnWidthsBySheet, frozenRowsBySheet, frozenColumnsBySheet]);
+  }, [sheets, columnWidthsBySheet, frozenRowsBySheet, frozenColumnsBySheet]);
 
-  // Save sheet to server
+  // Save dirty sheets to server
   const saveBatch = useCallback(async () => {
-    if (dirtyCells.size === 0 && !dirtySettings) return;
-    if (!activeSheetId) return;
+    if (dirtySheets.size === 0) return;
 
-    const sheetData = serializeSheetData();
+    const sheetsToSave = Array.from(dirtySheets);
+    const savedIds: string[] = [];
 
-    if (!isActiveSheetSaved) {
-      // First save - create new sheet with client-generated ID
-      const response = await fetchWithAuth('/api/sheets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...sheetData, id: activeSheetId, workspace_id: workspaceId }),
-      });
+    for (const sheetId of sheetsToSave) {
+      const sheetData = serializeSheetData(sheetId);
+      const sheet = sheets.find(s => s.sheetId === sheetId);
+      const isSaved = sheet?.isSaved ?? false;
 
-      if (!response.ok) {
-        throw new Error(`Failed to create sheet: ${response.statusText}`);
-      }
+      try {
+        if (!isSaved) {
+          // First save - create new sheet with client-generated ID
+          const response = await fetchWithAuth('/api/sheets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...sheetData, id: sheetId, workspace_id: workspaceId }),
+          });
 
-      markSheetSaved(activeSheetId);
-    } else {
-      // Update existing sheet
-      const response = await fetchWithAuth(`/api/sheets/${activeSheetId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sheetData),
-      });
+          if (!response.ok) {
+            throw new Error(`Failed to create sheet: ${response.statusText}`);
+          }
 
-      if (!response.ok) {
-        throw new Error(`Failed to save sheet: ${response.statusText}`);
+          markSheetSaved(sheetId);
+        } else {
+          // Update existing sheet
+          const response = await fetchWithAuth(`/api/sheets/${sheetId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sheetData),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to save sheet: ${response.statusText}`);
+          }
+        }
+
+        savedIds.push(sheetId);
+      } catch (err) {
+        console.error(`Auto-save failed for sheet ${sheetId}:`, err);
       }
     }
 
-    markSaved();
-  }, [dirtyCells, dirtySettings, activeSheetId, isActiveSheetSaved, serializeSheetData, markSaved, markSheetSaved, fetchWithAuth, workspaceId]);
+    if (savedIds.length > 0) {
+      markSaved(savedIds);
+    }
+  }, [dirtySheets, sheets, serializeSheetData, markSaved, markSheetSaved, fetchWithAuth, workspaceId]);
 
   // Deserialize a single sheet's API response into CellData and settings
   const deserializeSheet = useCallback((data: any, sheetId: string) => {
@@ -233,9 +247,6 @@ export function useSheetPersistence() {
           console.log('[loadAllSheets] setting active sheet data, sheetId:', result.sheetId, 'cells:', sheetCells.size, 'format:', sheetFormat.size);
           setCellData(sheetCells);
           setCellFormat(sheetFormat);
-          setBaselineData(new Map(sheetCells));
-          setBaselineFormat(new Map(sheetFormat));
-          setDirtyCells(new Set());
         }
       }
       if (!foundActiveSheet) {
@@ -307,10 +318,7 @@ export function useSheetPersistence() {
     const newSheetFormat = state.allSheetsFormat.get(activeSheetId) || new Map();
 
     setCellData(newSheetData);
-    setBaselineData(new Map(newSheetData));
     setCellFormat(newSheetFormat);
-    setBaselineFormat(new Map(newSheetFormat));
-    setDirtyCells(new Set());
 
     // Clear UI state
     setSelection(null);
@@ -331,7 +339,7 @@ export function useSheetPersistence() {
 
   // Auto-save
   useEffect(() => {
-    if (dirtyCells.size === 0 && !dirtySettings) return;
+    if (dirtySheets.size === 0) return;
 
     const timer = setTimeout(() => {
       saveBatch().catch(err => {
@@ -340,5 +348,5 @@ export function useSheetPersistence() {
     }, AUTO_SAVE_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [dirtyCells, dirtySettings, saveBatch]);
+  }, [dirtySheets, saveBatch]);
 }

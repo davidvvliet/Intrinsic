@@ -28,6 +28,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
   const updateCellFormat = useSpreadsheetStore(state => state.updateCellFormat);
   const setSheetCellData = useSpreadsheetStore(state => state.setSheetCellData);
   const setSheetCellFormat = useSpreadsheetStore(state => state.setSheetCellFormat);
+  const markSheetDirty = useSpreadsheetStore(state => state.markSheetDirty);
 
   // Hook handles auto-save and load on mount
   useSheetPersistence();
@@ -64,6 +65,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           const sheetData = new Map(storeState.allSheetsData.get(targetSheet.sheetId) || new Map());
           sheetData.set(cellKey, { raw: parsed.value, type: parsed.type });
           setSheetCellData(targetSheet.sheetId, sheetData);
+          markSheetDirty(targetSheet.sheetId);
 
           // Handle format for other sheet
           const sheetFormat = new Map(storeState.allSheetsFormat.get(targetSheet.sheetId) || new Map());
@@ -158,6 +160,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           }
           setSheetCellData(targetSheet.sheetId, mergedCellData);
           setSheetCellFormat(targetSheet.sheetId, mergedCellFormat);
+          markSheetDirty(targetSheet.sheetId);
         } else {
           const range = { minRow: start.row, maxRow: end.row, minCol: start.col, maxCol: end.col };
           flushSync(() => {
@@ -196,22 +199,33 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
 
         const targetComputed = storeState.allSheetsComputed.get(targetSheetId || '') || new Map();
 
-        const result: ({ value: string; raw?: string })[][] = [];
+        const result: { cell: string; value: string; raw?: string; type?: string }[] = [];
 
         for (let row = start.row; row <= end.row; row++) {
-          const rowValues: ({ value: string; raw?: string })[] = [];
           for (let col = start.col; col <= end.col; col++) {
             const cellKey = getCellKey(row, col);
+            const cellRef = `${colToLetter(col)}${row + 1}`;
             const computed = targetComputed.get(cellKey);
-            const displayValue = computed !== undefined ? String(computed.value) : (targetCellData.get(cellKey)?.raw || '');
-            const cell = targetCellData.get(cellKey);
-            if (cell?.type === 'formula') {
-              rowValues.push({ value: displayValue, raw: cell.raw });
+            let displayValue: string;
+            if (computed !== undefined) {
+              if (computed.error) {
+                displayValue = computed.error;
+              } else if (computed.value === null || computed.value === undefined) {
+                displayValue = '';
+              } else {
+                displayValue = String(computed.value);
+              }
             } else {
-              rowValues.push({ value: displayValue });
+              displayValue = targetCellData.get(cellKey)?.raw || '';
             }
+            const cell = targetCellData.get(cellKey);
+            const entry: { cell: string; value: string; raw?: string; type?: string } = { cell: cellRef, value: displayValue };
+            if (cell?.type === 'formula') {
+              entry.raw = cell.raw;
+              entry.type = 'formula';
+            }
+            result.push(entry);
           }
-          result.push(rowValues);
         }
 
         return result;
@@ -356,7 +370,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
     };
 
     onToolCall(handleToolCall);
-  }, [onToolCall, setAnimatingRanges, updateCell, updateCells, updateCellFormat, setSheetCellData, setSheetCellFormat]);
+  }, [onToolCall, setAnimatingRanges, updateCell, updateCells, updateCellFormat, setSheetCellData, setSheetCellFormat, markSheetDirty]);
 
   return (
     <div className={styles.spreadsheet}>

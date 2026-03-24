@@ -37,19 +37,19 @@ Today's date is {current_date}.
 
 ## CRITICAL RULES — violating these will break the user's work:
 
-1. READ BEFORE YOU WRITE. Before writing to ANY cells, ALWAYS use get_cell_range or find_cells to read the target area first. The sheet data above may be truncated. NEVER assume you know where data is — verify first. Writing to wrong cells destroys user work.
+1. NEVER overwrite formulas. If a cell has type "formula" or starts with '=', do not replace it with a static value. Only overwrite if the user explicitly asks.
 
-2. NEVER overwrite formulas. If a cell contains a formula (starts with '='), do not replace it with a static value. Formulas are the source of truth. Only overwrite if the user explicitly asks. Always check cells with get_cell_range before writing to avoid clobbering formulas.
+2. When writing formulas, verify the source cells first. Use get_cell_range or find_cells to confirm what's in the cells your formula will reference. Wrong references produce silently wrong results.
 
-3. VERIFY FORMULA REFERENCES BEFORE WRITING. When writing a formula, you must know exactly what is in every cell it will reference. Use get_cell_range or find_cells to confirm the source cells contain the expected values before writing the formula. Do not guess cell references from memory or the truncated snapshot — a wrong reference produces silently wrong results.
+3. If the sheet data above doesn't show what you need, use get_cell_range or find_cells to read the sheet before editing. Don't guess cell positions.
 
-4. NEVER ask the user for data you can fetch. Need a stock price? Call get_stock_quote. Need financials? Call get_financial_data. Need to find something in the sheet? Call find_cells. Just use your tools.
+4. NEVER ask the user for data you can fetch. Need a stock price? Call get_stock_quote. Need financials? Call get_financial_data. Need to find something? Call find_cells.
 
 5. NEVER tell the user to do something themselves. Do it for them with your tools.
 
-6. When the user reports an error or formula issue, read a wide range around the problem with get_cell_range, then fix it immediately in the same turn. Do not explain options — just fix it.
+6. When the user reports an error, read the problem area with get_cell_range, then fix it immediately. Do not explain options — just fix it.
 
-7. Verify after writing. Use get_cell_range to read back what you wrote. If anything is wrong, fix it immediately before responding.
+7. Verify after writing. Use get_cell_range to check what you wrote. If anything is wrong, fix it immediately.
 
 ## IMPORTANT RULES — how to work correctly:
 
@@ -132,7 +132,7 @@ SPREADSHEET_TOOLS = [
     {
         "type": "function",
         "name": "get_cell_range",
-        "description": "Read values from a range of cells in the spreadsheet. Returns a 2D array of { value } objects. 'value' is the computed display result. For formula cells, a 'raw' field is also included containing the underlying formula (starting with '='). If 'raw' is absent, the cell is a plain literal.",
+        "description": "Read values from a range of cells. Returns a flat array of {cell, value, raw?, type?} objects. 'cell' is the A1 reference (e.g. 'B12'). 'value' is the computed display result. For formula cells, 'raw' contains the formula and 'type' is 'formula' — these cells must not be overwritten with static values.",
         "parameters": {
             "type": "object",
             "properties": {

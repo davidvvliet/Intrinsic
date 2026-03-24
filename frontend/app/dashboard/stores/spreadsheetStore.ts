@@ -24,10 +24,7 @@ interface SpreadsheetState {
   // Cell data
   cellData: CellData;
   cellFormat: CellFormatData;
-  baselineData: CellData;
-  baselineFormat: CellFormatData;
-  dirtyCells: Set<string>;
-  dirtySettings: boolean;
+  dirtySheets: Set<string>;
 
   // UI state
   selection: Selection | null;
@@ -84,10 +81,6 @@ interface SpreadsheetActions {
   // Setters
   setCellData: (data: CellData | ((prev: CellData) => CellData)) => void;
   setCellFormat: (format: CellFormatData | ((prev: CellFormatData) => CellFormatData)) => void;
-  setBaselineData: (data: CellData) => void;
-  setBaselineFormat: (format: CellFormatData) => void;
-  setDirtyCells: (cells: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
-  setDirtySettings: (dirty: boolean) => void;
   setSelection: (selection: Selection | null | ((prev: Selection | null) => Selection | null)) => void;
   setHighlightedCells: (cells: Selection[] | null | ((prev: Selection[] | null) => Selection[] | null)) => void;
   setInputValue: (value: string | ((prev: string) => string)) => void;
@@ -117,10 +110,11 @@ interface SpreadsheetActions {
   updateCellFormat: (key: string, format: CellFormat | null, batchWithPrevious?: boolean) => void;
   updateCells: (newCellData: Map<string, { raw: string; type: CellType }>, batchWithPrevious?: boolean) => void;
   updateCellFormats: (newCellFormat: Map<string, CellFormat>, batchWithPrevious?: boolean) => void;
+  markSheetDirty: (sheetId: string) => void;
   updateColumnWidths: (sheetId: string, col: number, width: number) => void;
   updateFrozenRows: (sheetId: string, rows: number) => void;
   updateFrozenColumns: (sheetId: string, cols: number) => void;
-  markSaved: () => void;
+  markSaved: (sheetIds?: string[]) => void;
   undo: () => void;
   redo: () => void;
 
@@ -132,6 +126,14 @@ interface SpreadsheetActions {
 type SpreadsheetStore = SpreadsheetState & SpreadsheetActions;
 
 const BATCH_WINDOW_MS = 500;
+
+// Helper to add activeSheetId to dirtySheets
+const addDirtySheet = (state: SpreadsheetState): { dirtySheets: Set<string>; hasUnsavedChanges: boolean } => {
+  if (!state.activeSheetId) return { dirtySheets: state.dirtySheets, hasUnsavedChanges: state.hasUnsavedChanges };
+  const next = new Set(state.dirtySheets);
+  next.add(state.activeSheetId);
+  return { dirtySheets: next, hasUnsavedChanges: true };
+};
 
 export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
   // Internal helper for pushing actions to undo stack
@@ -169,10 +171,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     // Initial state
     cellData: new Map(),
     cellFormat: new Map(),
-    baselineData: new Map(),
-    baselineFormat: new Map(),
-    dirtyCells: new Set(),
-    dirtySettings: false,
+    dirtySheets: new Set(),
     selection: null,
     highlightedCells: null,
     inputValue: '',
@@ -215,20 +214,6 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       return { cellFormat: newFormat };
     }),
 
-    setBaselineData: (data) => set({ baselineData: data }),
-
-    setBaselineFormat: (format) => set({ baselineFormat: format }),
-
-    setDirtyCells: (cells) => set(state => {
-      const newCells = typeof cells === 'function' ? cells(state.dirtyCells) : cells;
-      return { dirtyCells: newCells, hasUnsavedChanges: newCells.size > 0 || state.dirtySettings };
-    }),
-
-    setDirtySettings: (dirty) => set(state => ({
-      dirtySettings: dirty,
-      hasUnsavedChanges: state.dirtyCells.size > 0 || dirty,
-    })),
-
     setSelection: (selection) => set(state => {
       const newSelection = typeof selection === 'function' ? selection(state.selection) : selection;
       return { selection: newSelection };
@@ -268,9 +253,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           workspaceName: null,
           cellData: new Map(),
           cellFormat: new Map(),
-          baselineData: new Map(),
-          baselineFormat: new Map(),
-          dirtyCells: new Set(),
+          dirtySheets: new Set(),
           allSheetsData: new Map(),
           allSheetsFormat: new Map(),
           allSheetsComputed: new Map(),
@@ -288,6 +271,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           redoStack: [],
           canUndo: false,
           canRedo: false,
+          hasUnsavedChanges: false,
         };
       }
       return { workspaceId: id };
@@ -311,6 +295,12 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       const next = new Map(state.allSheetsData);
       next.set(sheetId, data);
       return { allSheetsData: next };
+    }),
+
+    markSheetDirty: (sheetId) => set(state => {
+      const next = new Set(state.dirtySheets);
+      next.add(sheetId);
+      return { dirtySheets: next, hasUnsavedChanges: true };
     }),
 
     setSheetCellFormat: (sheetId, format) => set(state => {
@@ -393,17 +383,6 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           allSheetsData.set(state.activeSheetId, next);
         }
 
-        const baselineValue = state.baselineData.get(key);
-        const newRaw = value?.raw || '';
-        const baselineRaw = baselineValue?.raw || '';
-        const newDirtyCells = new Set(state.dirtyCells);
-
-        if (newRaw !== baselineRaw) {
-          newDirtyCells.add(key);
-        } else {
-          newDirtyCells.delete(key);
-        }
-
         // Recalculate affected formulas
         const sheetsInfo = state.sheets.map(s => ({ sheetId: s.sheetId, name: s.name }));
         const allSheetsComputed = recalculateDirty(
@@ -415,8 +394,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           cellData: next,
           allSheetsData,
           allSheetsComputed,
-          dirtyCells: newDirtyCells,
-          hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
+          ...addDirtySheet(state),
         };
       });
     },
@@ -448,22 +426,10 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           allSheetsFormat.set(state.activeSheetId, next);
         }
 
-        const baselineFmt = state.baselineFormat.get(key);
-        const formatStr = format ? JSON.stringify(format) : '';
-        const baselineStr = baselineFmt ? JSON.stringify(baselineFmt) : '';
-        const newDirtyCells = new Set(state.dirtyCells);
-
-        if (formatStr !== baselineStr) {
-          newDirtyCells.add(key);
-        } else {
-          newDirtyCells.delete(key);
-        }
-
         return {
           cellFormat: next,
           allSheetsFormat,
-          dirtyCells: newDirtyCells,
-          hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
+          ...addDirtySheet(state),
         };
       });
     },
@@ -493,22 +459,6 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       }
 
       set(state => {
-        const newDirtyCells = new Set(state.dirtyCells);
-        const allKeys = new Set([...state.cellData.keys(), ...newCellData.keys()]);
-
-        allKeys.forEach(key => {
-          const nextValue = newCellData.get(key);
-          const baselineValue = state.baselineData.get(key);
-          const nextRaw = nextValue?.raw || '';
-          const baselineRaw = baselineValue?.raw || '';
-
-          if (nextRaw !== baselineRaw) {
-            newDirtyCells.add(key);
-          } else {
-            newDirtyCells.delete(key);
-          }
-        });
-
         // Mirror into allSheetsData for cross-sheet formula references
         let allSheetsData = state.allSheetsData;
         if (state.activeSheetId) {
@@ -524,8 +474,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           cellData: newCellData,
           allSheetsData,
           allSheetsComputed,
-          dirtyCells: newDirtyCells,
-          hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
+          ...addDirtySheet(state),
         };
       });
     },
@@ -555,22 +504,6 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       }
 
       set(state => {
-        const newDirtyCells = new Set(state.dirtyCells);
-        const allKeys = new Set([...state.cellFormat.keys(), ...newCellFormat.keys()]);
-
-        allKeys.forEach(key => {
-          const nextFormat = newCellFormat.get(key);
-          const baselineFmt = state.baselineFormat.get(key);
-          const nextStr = nextFormat ? JSON.stringify(nextFormat) : '';
-          const baselineStr = baselineFmt ? JSON.stringify(baselineFmt) : '';
-
-          if (nextStr !== baselineStr) {
-            newDirtyCells.add(key);
-          } else {
-            newDirtyCells.delete(key);
-          }
-        });
-
         // Mirror into allSheetsFormat
         let allSheetsFormat = state.allSheetsFormat;
         if (state.activeSheetId) {
@@ -581,8 +514,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
         return {
           cellFormat: newCellFormat,
           allSheetsFormat,
-          dirtyCells: newDirtyCells,
-          hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
+          ...addDirtySheet(state),
         };
       });
     },
@@ -594,10 +526,12 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
         sheetWidths.set(col, width);
         newWidths.set(sheetId, sheetWidths);
         const columnWidths = newWidths.get(state.activeSheetId || '') || new Map();
+        const nextDirty = new Set(state.dirtySheets);
+        nextDirty.add(sheetId);
         return {
           columnWidthsBySheet: newWidths,
           columnWidths,
-          dirtySettings: true,
+          dirtySheets: nextDirty,
           hasUnsavedChanges: true,
         };
       });
@@ -608,10 +542,12 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
         const newMap = new Map(state.frozenRowsBySheet);
         newMap.set(sheetId, rows);
         const frozenRows = newMap.get(state.activeSheetId || '') || 0;
+        const nextDirty = new Set(state.dirtySheets);
+        nextDirty.add(sheetId);
         return {
           frozenRowsBySheet: newMap,
           frozenRows,
-          dirtySettings: true,
+          dirtySheets: nextDirty,
           hasUnsavedChanges: true,
         };
       });
@@ -622,22 +558,33 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
         const newMap = new Map(state.frozenColumnsBySheet);
         newMap.set(sheetId, cols);
         const frozenColumns = newMap.get(state.activeSheetId || '') || 0;
+        const nextDirty = new Set(state.dirtySheets);
+        nextDirty.add(sheetId);
         return {
           frozenColumnsBySheet: newMap,
           frozenColumns,
-          dirtySettings: true,
+          dirtySheets: nextDirty,
           hasUnsavedChanges: true,
         };
       });
     },
 
-    markSaved: () => set(state => ({
-      baselineData: new Map(state.cellData),
-      baselineFormat: new Map(state.cellFormat),
-      dirtyCells: new Set(),
-      dirtySettings: false,
-      hasUnsavedChanges: false,
-    })),
+    markSaved: (sheetIds?) => set(state => {
+      if (sheetIds) {
+        const next = new Set(state.dirtySheets);
+        for (const id of sheetIds) {
+          next.delete(id);
+        }
+        return {
+          dirtySheets: next,
+          hasUnsavedChanges: next.size > 0,
+        };
+      }
+      return {
+        dirtySheets: new Set(),
+        hasUnsavedChanges: false,
+      };
+    }),
 
     undo: () => {
       const state = get();
@@ -661,35 +608,6 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
             newCellFormat.delete(key);
           } else {
             newCellFormat.set(key, delta.old);
-          }
-        });
-
-        // Update dirty tracking
-        const newDirtyCells = new Set(state.dirtyCells);
-        const allKeys = new Set([...action.dataDelta.keys(), ...action.formatDelta.keys()]);
-        allKeys.forEach(key => {
-          const baselineValue = state.baselineData.get(key);
-          const baselineFmt = state.baselineFormat.get(key);
-          let isDirty = false;
-
-          if (action.dataDelta.has(key)) {
-            const oldValue = action.dataDelta.get(key)!.old;
-            const oldRaw = oldValue?.raw || '';
-            const baselineRaw = baselineValue?.raw || '';
-            if (oldRaw !== baselineRaw) isDirty = true;
-          }
-
-          if (action.formatDelta.has(key)) {
-            const oldFmt = action.formatDelta.get(key)!.old;
-            const oldStr = oldFmt ? JSON.stringify(oldFmt) : '';
-            const baselineStr = baselineFmt ? JSON.stringify(baselineFmt) : '';
-            if (oldStr !== baselineStr) isDirty = true;
-          }
-
-          if (isDirty) {
-            newDirtyCells.add(key);
-          } else {
-            newDirtyCells.delete(key);
           }
         });
 
@@ -720,8 +638,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           cellFormat: newCellFormat,
           allSheetsData,
           allSheetsComputed,
-          dirtyCells: newDirtyCells,
-          hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
+          ...addDirtySheet(state),
           inputValue: newInputValue,
           undoStack: newUndoStack,
           redoStack: newRedoStack,
@@ -756,35 +673,6 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           }
         });
 
-        // Update dirty tracking
-        const newDirtyCells = new Set(state.dirtyCells);
-        const allKeys = new Set([...action.dataDelta.keys(), ...action.formatDelta.keys()]);
-        allKeys.forEach(key => {
-          const baselineValue = state.baselineData.get(key);
-          const baselineFmt = state.baselineFormat.get(key);
-          let isDirty = false;
-
-          if (action.dataDelta.has(key)) {
-            const newValue = action.dataDelta.get(key)!.new;
-            const newRaw = newValue?.raw || '';
-            const baselineRaw = baselineValue?.raw || '';
-            if (newRaw !== baselineRaw) isDirty = true;
-          }
-
-          if (action.formatDelta.has(key)) {
-            const newFmt = action.formatDelta.get(key)!.new;
-            const newStr = newFmt ? JSON.stringify(newFmt) : '';
-            const baselineStr = baselineFmt ? JSON.stringify(baselineFmt) : '';
-            if (newStr !== baselineStr) isDirty = true;
-          }
-
-          if (isDirty) {
-            newDirtyCells.add(key);
-          } else {
-            newDirtyCells.delete(key);
-          }
-        });
-
         // Update input value if selection matches
         let newInputValue = state.inputValue;
         if (state.selection) {
@@ -812,8 +700,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           cellFormat: newCellFormat,
           allSheetsData,
           allSheetsComputed,
-          dirtyCells: newDirtyCells,
-          hasUnsavedChanges: newDirtyCells.size > 0 || state.dirtySettings,
+          ...addDirtySheet(state),
           inputValue: newInputValue,
           undoStack: newUndoStack,
           redoStack: newRedoStack,
