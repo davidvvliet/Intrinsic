@@ -285,12 +285,13 @@ export default function Grid() {
     }
 
     // Find all cell references in the formula (skip cross-sheet refs like Sheet1!A1)
-    const cellRefPattern = /(?<!!)(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)/g;
+    const cellRefPattern = /(!?)(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)/g;
     const matches = Array.from(value.matchAll(cellRefPattern));
-    
+
     const selections: Selection[] = [];
     for (const match of matches) {
-      const ref = match[1];
+      if (match[1] === '!') continue;
+      const ref = match[2];
       const selection = parseCellReferenceToSelection(ref);
       if (selection) {
         selections.push(selection);

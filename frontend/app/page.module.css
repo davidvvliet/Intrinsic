@@ -505,7 +505,7 @@
 
   .gridContainer {
     grid-template-columns: 1fr;
-    grid-template-rows: 60px auto auto auto auto auto auto auto auto auto auto;
+    grid-template-rows: 60px auto auto auto auto auto auto auto auto auto;
   }
 
   .heroSection {
@@ -520,12 +520,17 @@
   }
 
   .heroSubheader {
-    font-size: 16px;
+    font-size: 15px;
     text-align: center;
   }
 
   .heroImage {
     max-width: 100%;
+    width: 95% !important;
+  }
+
+  .heroButtons {
+    padding-top: 24px;
   }
 
   .row3Cell {
@@ -538,8 +543,10 @@
     display: none;
   }
 
+  /* Row 4: stack vertically */
   .row4Cell {
     grid-template-columns: 1fr;
+    min-height: auto;
   }
 
   .row4Content {
@@ -548,53 +555,70 @@
     border-bottom: 1px solid rgba(0, 0, 0, 0.2);
   }
 
+  .row4Heading {
+    font-size: 26px;
+  }
+
+  .row4Subtext {
+    font-size: 15px;
+  }
+
   .row4ImageContainer {
     padding: 24px 16px;
+    min-height: auto;
   }
 
+  .featureImage {
+    width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+  }
+
+  /* Row 5: stack vertically, text then image */
   .row5Cell {
     grid-template-columns: 1fr;
+    min-height: auto;
   }
 
-  .row5LeftInnerCell {
+  .featureTextCell {
     border-right: none;
     border-bottom: 1px solid rgba(0, 0, 0, 0.2);
-    padding: 24px 16px;
-    min-height: 250px;
-  }
-
-  .row5RightInnerCell {
     padding: 32px 24px;
   }
 
+  .featureImageCell {
+    padding: 24px 16px;
+  }
+
+  /* Row 6: stack vertically, reorder so text comes first */
   .row6Cell {
     grid-template-columns: 1fr;
+    min-height: auto;
   }
 
-  .row6LeftInnerCell {
-    border-right: none;
+  .featureTextCellRight {
+    border-left: none;
     border-bottom: 1px solid rgba(0, 0, 0, 0.2);
     padding: 32px 24px;
+    order: -1;
   }
 
-  .row6RightInnerCell {
-    padding: 24px 16px;
-    min-height: 250px;
+  .featureHeroText {
+    font-size: 1.75rem;
   }
 
-  .row7Cell {
-    grid-template-columns: 1fr;
+  .featureSubtext {
+    font-size: 15px;
   }
 
-  .row7LeftInnerCell {
-    border-right: none;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
-    padding: 24px 16px;
-    min-height: 250px;
+  /* FAQ */
+  .row8Cell {
+    padding: 36px 24px;
   }
 
-  .row7RightInnerCell {
-    padding: 32px 24px;
+  .row8Text {
+    font-size: 28px;
+    text-align: center;
   }
 
   .faqRowCell {
@@ -607,12 +631,35 @@
   }
 
   .faqAccordion {
-    padding: 16px 24px 32px;
+    grid-template-columns: 1fr;
+    padding: 0 24px 32px;
   }
 
+  .faqItem {
+    border-right: none;
+  }
+
+  .faqItem:nth-child(2n) {
+    border-right: none;
+  }
+
+  .faqItem:nth-last-child(-n+2) {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+  }
+
+  .faqItem:last-child {
+    border-bottom: none;
+  }
+
+  /* CTA */
   .ctaSection {
     padding: 48px 24px;
     gap: 24px;
+  }
+
+  .ctaText {
+    font-size: 28px;
+    text-align: center;
   }
 
   .footerContent {

@@ -74,7 +74,7 @@ export default function Landing() {
           <button className={pageStyles.heroButtonTransparent} onClick={() => router.push('/pricing')}>See plans</button>
         </div>
         <Image
-          src="/intrinsic-dashboard-hero.png"
+          src="/DCF-model-showcase.png"
           alt="Intrinsic AI financial modeling dashboard showing a DCF model and spreadsheet workspace"
           priority
           width={1400}
@@ -101,7 +101,7 @@ export default function Landing() {
           </div>
         </div>
         <div className={pageStyles.row4ImageContainer}>
-          <Image src="/intrinsic-workspaces.png" alt="Intrinsic spreadsheet workspace with AI chat panel" width={800} height={600} className={pageStyles.featureImage} />
+          <Image src="/comps-showcase.png" alt="Intrinsic Comps model with AI chat panel" width={800} height={600} className={pageStyles.featureImage} />
         </div>
       </section>
 
