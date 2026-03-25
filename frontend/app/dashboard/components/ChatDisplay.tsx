@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import DotGridLoader from './DotGridLoader';
 import styles from './ChatDisplay.module.css';
@@ -11,6 +11,54 @@ interface ChatDisplayProps {
   isStreaming: boolean;
   isToolCalling: boolean;
   isCompacting?: boolean;
+  onCellRefClick?: (cellRef: string) => void;
+}
+
+// Matches: A1, B12, $A$1, Sheet1!C1, "DCF Model"!B5, Assumptions!C46
+const CELL_REF_REGEX = /(?:(?:"([^"]+)"|([A-Za-z][A-Za-z0-9_ ]*))!)?(\$?[A-Z]{1,3}\$?\d{1,5})\b/g;
+
+function CellRefText({ text, onCellRefClick }: { text: string; onCellRefClick?: (ref: string) => void }) {
+  if (!onCellRefClick) return <>{text}</>;
+
+  const parts: (string | React.ReactElement)[] = [];
+  let lastIndex = 0;
+  let match;
+
+  CELL_REF_REGEX.lastIndex = 0;
+
+  while ((match = CELL_REF_REGEX.exec(text)) !== null) {
+    const sheetName = match[1] || match[2] || null;
+    const cellRef = match[3];
+    const fullMatch = match[0];
+
+    const clean = cellRef.replace(/\$/g, '');
+    const col = clean.replace(/\d+/g, '');
+    const row = parseInt(clean.replace(/[A-Z]/g, ''));
+    if (col.length > 2 || row > 1000 || row < 1) continue;
+
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+
+    const clickRef = sheetName ? `${sheetName}!${clean}` : clean;
+    parts.push(
+      <span
+        key={match.index}
+        className={styles.cellRef}
+        onClick={() => onCellRefClick(clickRef)}
+      >
+        {fullMatch}
+      </span>
+    );
+    lastIndex = match.index + fullMatch.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  if (parts.length === 0) return <>{text}</>;
+  return <>{parts}</>;
 }
 
 export default function ChatDisplay({
@@ -18,7 +66,8 @@ export default function ChatDisplay({
   streamingText,
   isStreaming,
   isToolCalling,
-  isCompacting
+  isCompacting,
+  onCellRefClick
 }: ChatDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isNearBottom = useRef(true);
@@ -30,6 +79,32 @@ export default function ChatDisplay({
     }
   };
 
+  // Custom ReactMarkdown components to intercept text and make cell refs clickable
+  const markdownComponents = useCallback(() => ({
+    p: ({ children, ...props }: any) => <p {...props}>{processChildren(children)}</p>,
+    li: ({ children, ...props }: any) => <li {...props}>{processChildren(children)}</li>,
+    strong: ({ children, ...props }: any) => <strong {...props}>{processChildren(children)}</strong>,
+    em: ({ children, ...props }: any) => <em {...props}>{processChildren(children)}</em>,
+    td: ({ children, ...props }: any) => <td {...props}>{processChildren(children)}</td>,
+    th: ({ children, ...props }: any) => <th {...props}>{processChildren(children)}</th>,
+  }), [onCellRefClick]);
+
+  function processChildren(children: any): any {
+    if (!children) return children;
+    if (typeof children === 'string') {
+      return <CellRefText text={children} onCellRefClick={onCellRefClick} />;
+    }
+    if (Array.isArray(children)) {
+      return children.map((child, i) => {
+        if (typeof child === 'string') {
+          return <CellRefText key={i} text={child} onCellRefClick={onCellRefClick} />;
+        }
+        return child;
+      });
+    }
+    return children;
+  }
+
   // Render content with tool call markers styled separately
   const renderContent = (text: string) => {
     const parts = text.split(/(\|\|\|TOOL\|\|\|.*?\|\|\|\/TOOL\|\|\|)/);
@@ -39,7 +114,7 @@ export default function ChatDisplay({
         return <span key={i} className={styles.toolCallMessage}>{content}</span>;
       }
       if (!part) return null;
-      return <ReactMarkdown key={i}>{part}</ReactMarkdown>;
+      return <ReactMarkdown key={i} components={markdownComponents()}>{part}</ReactMarkdown>;
     });
   };
 
@@ -52,8 +127,8 @@ export default function ChatDisplay({
   return (
     <div ref={containerRef} className={styles.chatContainer} onScroll={handleScroll}>
       {messages.map((message, index) => (
-        <div 
-          key={index} 
+        <div
+          key={index}
           data-message-index={index}
           className={message.role === 'user' ? styles.userMessage : styles.message}
         >

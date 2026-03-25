@@ -18,6 +18,7 @@ import { useWorkspacesStore } from '../../stores/workspacesStore';
 import { useConversations } from '../../hooks/useConversations';
 import { useConversationsStore } from '../../stores/conversationsStore';
 import { getSheetContextForLLM } from '../../components/Spreadsheet/serializeUtils';
+import { a1ToRowCol } from '../../components/Spreadsheet/drawUtils';
 import styles from './page.module.css';
 
 const Spreadsheet = dynamic(
@@ -38,9 +39,31 @@ export default function WorkspacePage() {
   const setWorkspaceName = useSpreadsheetStore(state => state.setWorkspaceName);
   const setSheets = useSpreadsheetStore(state => state.setSheets);
   const setActiveSheetId = useSpreadsheetStore(state => state.setActiveSheetId);
+  const setSelection = useSpreadsheetStore(state => state.setSelection);
   const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
   const sheetId = activeSheet?.sheetId || null;
   const sheetName = activeSheet?.name || null;
+
+  const handleCellRefClick = useCallback((cellRef: string) => {
+    let cell = cellRef;
+    let switchedSheet = false;
+    if (cellRef.includes('!')) {
+      const [sheetName, ref] = cellRef.split('!');
+      const targetSheet = sheets.find(s => s.name === sheetName);
+      if (targetSheet && targetSheet.sheetId !== activeSheetId) {
+        setActiveSheetId(targetSheet.sheetId);
+        switchedSheet = true;
+      }
+      cell = ref;
+    }
+    const { row, col } = a1ToRowCol(cell);
+    const sel = { start: { row, col }, end: { row, col } };
+    if (switchedSheet) {
+      requestAnimationFrame(() => setSelection(sel));
+    } else {
+      setSelection(sel);
+    }
+  }, [sheets, activeSheetId, setActiveSheetId, setSelection]);
 
   // Fetch sheets for this workspace on mount
   useEffect(() => {
@@ -409,6 +432,7 @@ export default function WorkspacePage() {
                 isStreaming={isStreaming}
                 isToolCalling={isToolCalling}
                 isCompacting={isCompacting}
+                onCellRefClick={handleCellRefClick}
               />
             )}
             <div className={styles.searchInputWrapper}>
