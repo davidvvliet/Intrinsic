@@ -15,7 +15,7 @@ interface ChatDisplayProps {
 }
 
 // Matches: A1, B5:D10, $A$1, Sheet1!C1, "DCF Model"!B5:B20, Assumptions!C46
-const CELL_REF_REGEX = /(?:(?:"([^"]+)"|([A-Za-z][A-Za-z0-9_ ]*))!)?(\$?[A-Z]{1,3}\$?\d{1,5})(?::(\$?[A-Z]{1,3}\$?\d{1,5}))?\b/g;
+const CELL_REF_REGEX = /(?:(?:"([^"]+)"|([A-Za-z][A-Za-z0-9_]+))!)?(\$?[A-Z]{1,3}\$?\d{1,5})(?::(\$?[A-Z]{1,3}\$?\d{1,5}))?\b/g;
 
 function CellRefText({ text, onCellRefClick }: { text: string; onCellRefClick?: (ref: string) => void }) {
   if (!onCellRefClick) return <>{text}</>;
