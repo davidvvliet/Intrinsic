@@ -14,8 +14,8 @@ interface ChatDisplayProps {
   onCellRefClick?: (cellRef: string) => void;
 }
 
-// Matches: A1, B12, $A$1, Sheet1!C1, "DCF Model"!B5, Assumptions!C46
-const CELL_REF_REGEX = /(?:(?:"([^"]+)"|([A-Za-z][A-Za-z0-9_ ]*))!)?(\$?[A-Z]{1,3}\$?\d{1,5})\b/g;
+// Matches: A1, B5:D10, $A$1, Sheet1!C1, "DCF Model"!B5:B20, Assumptions!C46
+const CELL_REF_REGEX = /(?:(?:"([^"]+)"|([A-Za-z][A-Za-z0-9_ ]*))!)?(\$?[A-Z]{1,3}\$?\d{1,5})(?::(\$?[A-Z]{1,3}\$?\d{1,5}))?\b/g;
 
 function CellRefText({ text, onCellRefClick }: { text: string; onCellRefClick?: (ref: string) => void }) {
   if (!onCellRefClick) return <>{text}</>;
@@ -29,6 +29,7 @@ function CellRefText({ text, onCellRefClick }: { text: string; onCellRefClick?: 
   while ((match = CELL_REF_REGEX.exec(text)) !== null) {
     const sheetName = match[1] || match[2] || null;
     const cellRef = match[3];
+    const rangeEnd = match[4] || null;
     const fullMatch = match[0];
 
     const clean = cellRef.replace(/\$/g, '');
@@ -40,7 +41,9 @@ function CellRefText({ text, onCellRefClick }: { text: string; onCellRefClick?: 
       parts.push(text.slice(lastIndex, match.index));
     }
 
-    const clickRef = sheetName ? `${sheetName}!${clean}` : clean;
+    const cleanEnd = rangeEnd?.replace(/\$/g, '');
+    const cellPart = cleanEnd ? `${clean}:${cleanEnd}` : clean;
+    const clickRef = sheetName ? `${sheetName}!${cellPart}` : cellPart;
     parts.push(
       <span
         key={match.index}

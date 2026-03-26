@@ -56,8 +56,10 @@ export default function WorkspacePage() {
       }
       cell = ref;
     }
-    const { row, col } = a1ToRowCol(cell);
-    const sel = { start: { row, col }, end: { row, col } };
+    const rangeParts = cell.split(':');
+    const start = a1ToRowCol(rangeParts[0]);
+    const end = rangeParts[1] ? a1ToRowCol(rangeParts[1]) : start;
+    const sel = { start: { row: start.row, col: start.col }, end: { row: end.row, col: end.col } };
     if (switchedSheet) {
       requestAnimationFrame(() => setSelection(sel));
     } else {
