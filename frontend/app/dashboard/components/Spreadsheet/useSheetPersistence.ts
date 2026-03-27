@@ -5,6 +5,7 @@ import { useSheetRouter } from '../../hooks/useSheetRouter';
 import { useRefContext } from './RefContext';
 import { NUM_ROWS, NUM_COLS, AUTO_SAVE_DELAY_MS } from './config';
 import type { CellFormat, CellType } from './types';
+import type { ChartConfig } from './chartDataResolver';
 
 export function useSheetPersistence() {
   const { fetchWithAuth } = useAuthFetch();
@@ -38,6 +39,7 @@ export function useSheetPersistence() {
   const setSheetCellFormat = useSpreadsheetStore(state => state.setSheetCellFormat);
   const setScrollPosition = useSpreadsheetStore(state => state.setScrollPosition);
   const recalculateFormulas = useSpreadsheetStore(state => state.recalculateFormulas);
+  const setChartsBySheet = useSpreadsheetStore(state => state.setChartsBySheet);
 
   // Convert Maps to JSON format for API — works for any sheet
   const serializeSheetData = useCallback((sheetId: string) => {
@@ -91,6 +93,8 @@ export function useSheetPersistence() {
       });
     }
 
+    const charts = state.chartsBySheet.get(sheetId) || [];
+
     return {
       cells,
       dimensions: { rows: NUM_ROWS, cols: NUM_COLS },
@@ -100,6 +104,7 @@ export function useSheetPersistence() {
         frozenColumns,
       },
       formatting,
+      charts,
       name,
       preview_data,
     };
@@ -171,6 +176,15 @@ export function useSheetPersistence() {
       });
     }
 
+    // Deserialize charts
+    if (data.charts && Array.isArray(data.charts)) {
+      setChartsBySheet(prev => {
+        const next = new Map(prev);
+        next.set(sheetId, data.charts as ChartConfig[]);
+        return next;
+      });
+    }
+
     // Deserialize settings
     if (data.settings) {
       if (data.settings.columnWidths) {
@@ -200,7 +214,7 @@ export function useSheetPersistence() {
     }
 
     return { cellData: newCellData, cellFormat: newCellFormat };
-  }, [setColumnWidthsBySheet, setFrozenRowsBySheet, setFrozenColumnsBySheet]);
+  }, [setColumnWidthsBySheet, setFrozenRowsBySheet, setFrozenColumnsBySheet, setChartsBySheet]);
 
   // Load ALL sheets for the workspace into allSheetsData
   useEffect(() => {

@@ -1,0 +1,56 @@
+.overlay {
+  position: absolute;
+  background: #ffffef;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  z-index: 500;
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+}
+
+.overlay:active {
+  cursor: grabbing;
+}
+
+.selected {
+  border: 2px solid #0064c8;
+}
+
+.closeButton {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: #000;
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  opacity: 0.4;
+}
+
+.closeButton:hover {
+  opacity: 1;
+}
+
+.chartBody {
+  flex: 1;
+  min-height: 0;
+  padding: 16px 8px 8px 8px;
+}
+
+.resizeHandle {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  background: #0064c8;
+  cursor: nwse-resize;
+}

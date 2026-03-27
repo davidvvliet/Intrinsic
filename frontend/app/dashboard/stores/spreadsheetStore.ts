@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { CellData, CellFormat, CellFormatData, CellType, Selection, CopiedRange, ComputedData } from '../components/Spreadsheet/types';
+import type { ChartConfig } from '../components/Spreadsheet/chartDataResolver';
 import { getCellKey } from '../components/Spreadsheet/drawUtils';
 import { recalculateAll, recalculateDirty, getDisplayValue as computeDisplayValue } from '../components/Spreadsheet/formulaComputation';
 
@@ -67,6 +68,10 @@ interface SpreadsheetState {
   // View options
   showGridlines: boolean;
 
+  // Charts
+  chartsBySheet: Map<string, ChartConfig[]>;
+  editingChartId: string | null;
+
   // Undo/Redo
   undoStack: Action[];
   redoStack: Action[];
@@ -104,6 +109,13 @@ interface SpreadsheetActions {
   setFindMatches: (matches: { row: number; col: number }[]) => void;
   setFindMatchIndex: (index: number) => void;
   toggleGridlines: () => void;
+
+  // Charts
+  addChart: (chart: ChartConfig) => void;
+  removeChart: (sheetId: string, chartId: string) => void;
+  updateChart: (sheetId: string, chartId: string, updates: Partial<ChartConfig>) => void;
+  setEditingChartId: (id: string | null) => void;
+  setChartsBySheet: (charts: Map<string, ChartConfig[]> | ((prev: Map<string, ChartConfig[]>) => Map<string, ChartConfig[]>)) => void;
 
   // Actions
   updateCell: (key: string, value: { raw: string; type: CellType } | null, batchWithPrevious?: boolean) => void;
@@ -197,6 +209,8 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     findMatches: [],
     findMatchIndex: -1,
     showGridlines: true,
+    chartsBySheet: new Map(),
+    editingChartId: null,
     undoStack: [],
     redoStack: [],
     canUndo: false,
@@ -354,6 +368,30 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     setFindMatches: (matches) => set({ findMatches: matches }),
     setFindMatchIndex: (index) => set({ findMatchIndex: index }),
     toggleGridlines: () => set(state => ({ showGridlines: !state.showGridlines })),
+
+    // Charts
+    addChart: (chart) => set(state => {
+      const next = new Map(state.chartsBySheet);
+      const existing = next.get(chart.sheetId) || [];
+      next.set(chart.sheetId, [...existing, chart]);
+      return { chartsBySheet: next, ...addDirtySheet(state) };
+    }),
+    removeChart: (sheetId, chartId) => set(state => {
+      const next = new Map(state.chartsBySheet);
+      const existing = next.get(sheetId) || [];
+      next.set(sheetId, existing.filter(c => c.id !== chartId));
+      return { chartsBySheet: next, ...addDirtySheet(state) };
+    }),
+    updateChart: (sheetId, chartId, updates) => set(state => {
+      const next = new Map(state.chartsBySheet);
+      const existing = next.get(sheetId) || [];
+      next.set(sheetId, existing.map(c => c.id === chartId ? { ...c, ...updates } : c));
+      return { chartsBySheet: next, ...addDirtySheet(state) };
+    }),
+    setEditingChartId: (id) => set({ editingChartId: id }),
+    setChartsBySheet: (charts) => set(state => ({
+      chartsBySheet: typeof charts === 'function' ? charts(state.chartsBySheet) : charts,
+    })),
 
     // Actions
     updateCell: (key, value, batchWithPrevious = false) => {

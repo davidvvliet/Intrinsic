@@ -7,6 +7,7 @@ import type { CellFormat, NumberFormatSettings } from './types';
 import ColorButton from './ColorButton';
 import FormatDropdown from './FormatDropdown';
 import ViewDropdown from './ViewDropdown';
+import InsertDropdown from './InsertDropdown';
 import styles from './Toolbar.module.css';
 
 const UndoIcon = () => (
@@ -300,6 +301,7 @@ export default function Toolbar() {
       </button>
       <div className={styles.separator} />
       <ViewDropdown />
+      <InsertDropdown />
       <div className={styles.spacer} />
       {workspaceName && (
         <span className={styles.workspaceName}>

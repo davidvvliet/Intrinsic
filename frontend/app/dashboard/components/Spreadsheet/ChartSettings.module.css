@@ -1,0 +1,135 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #ffffef;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.title {
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+  letter-spacing: 0.01em;
+}
+
+.closeButton {
+  background: transparent;
+  border: none;
+  color: #000;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.4;
+}
+
+.closeButton:hover {
+  opacity: 1;
+}
+
+.content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #000;
+  letter-spacing: 0.01em;
+  opacity: 0.5;
+}
+
+.typeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.typeButton {
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: transparent;
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 14px;
+  color: #000;
+  cursor: pointer;
+  text-align: center;
+}
+
+.typeButton:hover {
+  border-color: #000;
+}
+
+.typeButtonActive {
+  background-color: #000;
+  border-color: #000;
+  color: #ffffef;
+}
+
+.input {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 10px 12px;
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 14px;
+  color: #000;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  border-color: #000;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 13px;
+  color: #000;
+  cursor: pointer;
+}
+
+.deleteButton {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 10px 12px;
+  font-family: 'Helvetica', Arial, sans-serif;
+  font-size: 14px;
+  color: #000;
+  cursor: pointer;
+  text-align: center;
+  opacity: 0.6;
+}
+
+.deleteButton:hover {
+  border-color: #000;
+  opacity: 1;
+}

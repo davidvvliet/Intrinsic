@@ -53,7 +53,7 @@ export default function ViewDropdown() {
       if (
         dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
         buttonRef.current && !buttonRef.current.contains(e.target as Node) &&
-        submenuRef.current && !submenuRef.current.contains(e.target as Node)
+        (!submenuRef.current || !submenuRef.current.contains(e.target as Node))
       ) {
         setIsOpen(false);
         setFreezeHovered(false);

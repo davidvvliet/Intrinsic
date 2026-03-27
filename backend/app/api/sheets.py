@@ -15,6 +15,7 @@ class SheetData(BaseModel):
     dimensions: Optional[Dict[str, int]] = None
     settings: Optional[Dict[str, Any]] = None
     formatting: Optional[Dict[str, Any]] = None
+    charts: Optional[List[Dict[str, Any]]] = None
     name: Optional[str] = None
     thumbnail: Optional[str] = None
     workspace_id: Optional[str] = None
@@ -122,7 +123,8 @@ async def create_sheet(
         "cells": sheet_data.cells,
         "dimensions": sheet_data.dimensions or {"rows": 1000, "cols": 26},
         "settings": sheet_data.settings or {},
-        "formatting": sheet_data.formatting or {}
+        "formatting": sheet_data.formatting or {},
+        "charts": sheet_data.charts or []
     }
     
     # Create new sheet
@@ -158,7 +160,8 @@ async def save_sheet(
         "cells": sheet_data.cells,
         "dimensions": sheet_data.dimensions or {"rows": 1000, "cols": 26},
         "settings": sheet_data.settings or {},
-        "formatting": sheet_data.formatting or {}
+        "formatting": sheet_data.formatting or {},
+        "charts": sheet_data.charts or []
     }
 
     # Check if sheet exists and user owns it

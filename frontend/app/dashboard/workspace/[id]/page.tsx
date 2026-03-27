@@ -9,6 +9,7 @@ import ChatDisplay from '../../components/ChatDisplay';
 import NoAccessModal from '../../components/NoAccessModal';
 import SearchInput from '../../components/SearchInput';
 import TabBar from '../../components/TabBar';
+import ChartSettings from '../../components/Spreadsheet/ChartSettings';
 import { useColumnMinimize } from '../../hooks/useColumnMinimize';
 import { useChatStream, ToolCall } from '../../hooks/useChatStream';
 import { useAuthFetch } from '../../hooks/useAuthFetch';
@@ -40,6 +41,7 @@ export default function WorkspacePage() {
   const setSheets = useSpreadsheetStore(state => state.setSheets);
   const setActiveSheetId = useSpreadsheetStore(state => state.setActiveSheetId);
   const setSelection = useSpreadsheetStore(state => state.setSelection);
+  const editingChartId = useSpreadsheetStore(state => state.editingChartId);
   const activeSheet = sheets.find(s => s.sheetId === activeSheetId);
   const sheetId = activeSheet?.sheetId || null;
   const sheetName = activeSheet?.name || null;
@@ -398,16 +400,14 @@ export default function WorkspacePage() {
         line2="Upgrade to Pro for unlimited messages."
       />
       <DashboardNavbar />
-      <div 
+      <div
         className={styles.dashboardContainer}
-        style={{ gridTemplateColumns: columnMinimize.getGridTemplateColumns() }}
+        style={{ gridTemplateColumns: `${editingChartId ? '250px' : '0px'} 1fr ${columnMinimize.rightMinimized ? '0px' : '300px'}` }}
       >
-        <div 
-          className={`${styles.leftColumn} ${columnMinimize.leftMinimized ? styles.hidden : ''}`}
+        <div
+          className={`${styles.leftColumn} ${!editingChartId ? styles.hidden : ''}`}
         >
-          {/* <div className={styles.globeContainer}>
-            <Globe size={250} color="#000000" speed={0.003} />
-          </div> */}
+          <ChartSettings />
         </div>
         <div className={styles.middleColumn}>
           <Spreadsheet
@@ -471,16 +471,6 @@ export default function WorkspacePage() {
             </div>
           </div>
         </div>
-        <button
-          className={`${styles.minimizeButton} ${
-            columnMinimize.leftMinimized 
-              ? styles.minimizeButtonLeftMinimized 
-              : styles.minimizeButtonLeft
-          }`}
-          onClick={columnMinimize.toggleLeftColumn}
-        >
-          {columnMinimize.leftMinimized ? '+' : '−'}
-        </button>
         <button
           className={`${styles.minimizeButton} ${
             columnMinimize.rightMinimized 

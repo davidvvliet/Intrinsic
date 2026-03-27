@@ -9,6 +9,7 @@ import FormulaBar from './FormulaBar';
 import Grid from './Grid';
 import SheetBar from './SheetBar';
 import FindBar from './FindBar';
+
 import { getCellKey, parseInputValue, a1ToRowCol } from './drawUtils';
 import { colToLetter } from './formulaEngine/cellRef';
 import type { CellFormat } from './types';
@@ -376,7 +377,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
     <div className={styles.spreadsheet}>
       <Toolbar />
       <FormulaBar />
-      <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+      <div style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <FindBar />
         <Grid />
       </div>

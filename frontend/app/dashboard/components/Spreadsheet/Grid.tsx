@@ -7,6 +7,7 @@ import { useRefContext } from './RefContext';
 import { useSpreadsheetActions } from './useSpreadsheetActions';
 import { useKeyboard } from './useKeyboard';
 import { useMouse } from './useMouse';
+import ChartPanel from './ChartPanel';
 import styles from './Grid.module.css';
 import {
   CELL_WIDTH,
@@ -606,6 +607,7 @@ export default function Grid() {
           }
         }}
       />
+      <ChartPanel />
       {selection && isEditing && (
         <>
           <input
