@@ -1,8 +1,5 @@
 import { useEffect } from 'react';
 import {
-  MIN_ZOOM,
-  MAX_ZOOM,
-  ZOOM_DELTA,
   DASH_OFFSET_MODULO,
   MARCHING_ANTS_INTERVAL_MS,
 } from '../components/Spreadsheet/config';
@@ -16,7 +13,6 @@ export function useSpreadsheet({
   canvasRef,
   containerRef,
   zoom,
-  setZoom,
   drawGrid,
   copiedRange,
   animatingRanges,
@@ -28,7 +24,6 @@ export function useSpreadsheet({
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   containerRef: React.RefObject<HTMLDivElement | null>;
   zoom: number;
-  setZoom: React.Dispatch<React.SetStateAction<number>>;
   drawGrid: () => void;
   copiedRange: CopiedRange;
   animatingRanges: CopiedRange[];
@@ -79,23 +74,6 @@ export function useSpreadsheet({
   useEffect(() => {
     drawGrid();
   }, [drawGrid]);
-
-  // Zoom with Ctrl/Cmd + wheel
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? -ZOOM_DELTA : ZOOM_DELTA;
-        setZoom(prev => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prev + delta)));
-      }
-    };
-
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => container.removeEventListener('wheel', handleWheel);
-  }, [containerRef, setZoom]);
 
   // Marching ants animation for copied range, highlighted cells, and animating ranges
   useEffect(() => {

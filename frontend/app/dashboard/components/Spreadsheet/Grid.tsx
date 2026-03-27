@@ -66,7 +66,7 @@ export default function Grid() {
   const { saveCurrentCell, moveToCell, getColumnX, autoResizeColumn } = useSpreadsheetActions();
 
   // Grid-specific state
-  const [zoom, setZoom] = useState(1.0);
+  const zoom = 1;
   const [isDragging, setIsDragging] = useState(false);
   const [dashOffset, setDashOffset] = useState(0);
   const [showFunctionDropdown, setShowFunctionDropdown] = useState(false);
@@ -558,7 +558,6 @@ export default function Grid() {
     canvasRef,
     containerRef,
     zoom,
-    setZoom,
     drawGrid,
     copiedRange,
     animatingRanges,

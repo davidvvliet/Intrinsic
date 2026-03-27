@@ -54,11 +54,6 @@ export const EDITING_OUTLINE_WIDTH = 4;
 export const FREEZE_PANE_DIVIDER_COLOR = '#000000';
 export const FREEZE_PANE_DIVIDER_WIDTH = 2;
 
-// Zoom
-export const MIN_ZOOM = 0.25;
-export const MAX_ZOOM = 4;
-export const ZOOM_DELTA = 0.01;
-
 // Marching ants
 export const DASH_PATTERN = [5, 5];
 export const DASH_OFFSET_MODULO = 10;
