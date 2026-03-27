@@ -9,17 +9,17 @@
 
 ## What It Is
 
-Intrinsic combines a natural language AI interface with a fully functional spreadsheet workspace. Describe what you need — "build a DCF for Apple using 5 years of historical data" — and Intrinsic builds a real, editable model populated with verified numbers from SEC filings.
+Intrinsic combines a natural language AI interface with a fully functional spreadsheet workspace. Describe what you need ("build a DCF for Apple using 5 years of historical data") and Intrinsic builds a real, editable model populated with verified numbers from SEC filings.
 
 The output is a working spreadsheet with live formulas. Users retain full control: override any cell, change assumptions, add scenarios, reformat, export.
 
 ## What It Does
 
-- **Build financial models** — DCF, LBO, comparable company analysis, three-statement models, operating forecasts
-- **Pull verified data** — directly from SEC EDGAR (10-K and 10-Q) via XBRL tagging; covers all ~7,000 SEC-filing companies
-- **Edit via natural language** — change assumptions, add sensitivity tables, extend historical data, insert sheets
-- **Upload existing models** — import `.xlsx` or `.csv` files with formatting and formulas preserved
-- **Templates** — built-in DCF, LBO, and comps templates; save any workspace as a custom template
+- **Build financial models:** DCF, LBO, comparable company analysis, three-statement models, operating forecasts
+- **Pull verified data:** SEC EDGAR (10-K and 10-Q) via XBRL tagging for financials; yfinance for real-time and historical stock data; covers all ~7,000 SEC-filing companies
+- **Edit via natural language:** change assumptions, add sensitivity tables, extend historical data, insert sheets
+- **Upload existing models:** import `.xlsx` or `.csv` files with formatting and formulas preserved
+- **Templates:** built-in DCF, LBO, and comps templates; save any workspace as a custom template
 
 ## Stack
 
@@ -31,7 +31,7 @@ The output is a working spreadsheet with live formulas. Users retain full contro
 | State | Zustand |
 | Auth | WorkOS |
 | Payments | Stripe |
-| Data | SEC EDGAR (XBRL) |
+| Data | SEC EDGAR (XBRL), yfinance |
 
 ## Project Structure
 
