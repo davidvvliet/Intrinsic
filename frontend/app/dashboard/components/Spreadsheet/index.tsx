@@ -32,6 +32,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
   const setSheetCellData = useSpreadsheetStore(state => state.setSheetCellData);
   const setSheetCellFormat = useSpreadsheetStore(state => state.setSheetCellFormat);
   const markSheetDirty = useSpreadsheetStore(state => state.markSheetDirty);
+  const recalculateFormulas = useSpreadsheetStore(state => state.recalculateFormulas);
 
   // Hook handles auto-save and load on mount
   useSheetPersistence();
@@ -84,6 +85,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
             sheetFormat.set(cellKey, { ...existingFormat, numberFormat: undefined });
             setSheetCellFormat(targetSheet.sheetId, sheetFormat);
           }
+          recalculateFormulas();
         } else {
           // Active sheet - use existing logic with animation
           const range = { minRow: row, maxRow: row, minCol: col, maxCol: col };
@@ -164,6 +166,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           setSheetCellData(targetSheet.sheetId, mergedCellData);
           setSheetCellFormat(targetSheet.sheetId, mergedCellFormat);
           markSheetDirty(targetSheet.sheetId);
+          recalculateFormulas();
         } else {
           const range = { minRow: start.row, maxRow: end.row, minCol: start.col, maxCol: end.col };
           flushSync(() => {
