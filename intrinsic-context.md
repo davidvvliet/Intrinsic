@@ -32,7 +32,7 @@ This matters because:
 - **Standardized extraction** — XBRL tags allow consistent extraction across all ~7,000 SEC-filing companies, even when companies change how they present line items
 - **Automatic updates** — models can update when new filings drop without manual re-entry
 
-Intrinsic also provides **real-time stock quotes** for use in models.
+Intrinsic also uses **yfinance** for real-time and historical stock price data, market cap, trading volumes, and other market data used in models.
 
 ---
 
@@ -120,7 +120,7 @@ Billing is handled via **Stripe** (checkout sessions + billing portal). Authenti
 | Auth | WorkOS (`@workos-inc/authkit-nextjs`) |
 | Payments | Stripe |
 | Formula engine | Custom (recalculateAll / recalculateDirty) |
-| Data source | SEC EDGAR (XBRL) |
+| Data source | SEC EDGAR (XBRL), yfinance |
 
 ---
 
