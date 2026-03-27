@@ -15,9 +15,12 @@ type SheetMetadata = {
 
 type DeltaEntry<T> = { old: T | null; new: T | null };
 
+type ChartDelta = { sheetId: string; old: ChartConfig | null; new: ChartConfig | null };
+
 type Action = {
   dataDelta: Map<string, DeltaEntry<{ raw: string; type: CellType }>>;
   formatDelta: Map<string, DeltaEntry<CellFormat>>;
+  chartDeltas: ChartDelta[];
   timestamp: number;
 };
 
@@ -160,6 +163,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           const merged: Action = {
             dataDelta: new Map([...lastAction.dataDelta, ...action.dataDelta]),
             formatDelta: new Map([...lastAction.formatDelta, ...action.formatDelta]),
+            chartDeltas: [...lastAction.chartDeltas, ...action.chartDeltas],
             timestamp: lastAction.timestamp,
           };
           newUndoStack = [...newUndoStack.slice(0, -1), merged];
@@ -370,24 +374,59 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     toggleGridlines: () => set(state => ({ showGridlines: !state.showGridlines })),
 
     // Charts
-    addChart: (chart) => set(state => {
-      const next = new Map(state.chartsBySheet);
-      const existing = next.get(chart.sheetId) || [];
-      next.set(chart.sheetId, [...existing, chart]);
-      return { chartsBySheet: next, ...addDirtySheet(state) };
-    }),
-    removeChart: (sheetId, chartId) => set(state => {
-      const next = new Map(state.chartsBySheet);
-      const existing = next.get(sheetId) || [];
-      next.set(sheetId, existing.filter(c => c.id !== chartId));
-      return { chartsBySheet: next, ...addDirtySheet(state) };
-    }),
-    updateChart: (sheetId, chartId, updates) => set(state => {
-      const next = new Map(state.chartsBySheet);
-      const existing = next.get(sheetId) || [];
-      next.set(sheetId, existing.map(c => c.id === chartId ? { ...c, ...updates } : c));
-      return { chartsBySheet: next, ...addDirtySheet(state) };
-    }),
+    addChart: (chart) => {
+      pushAction({
+        dataDelta: new Map(),
+        formatDelta: new Map(),
+        chartDeltas: [{ sheetId: chart.sheetId, old: null, new: chart }],
+        timestamp: Date.now(),
+      });
+      set(state => {
+        const next = new Map(state.chartsBySheet);
+        const existing = next.get(chart.sheetId) || [];
+        next.set(chart.sheetId, [...existing, chart]);
+        return { chartsBySheet: next, ...addDirtySheet(state) };
+      });
+    },
+    removeChart: (sheetId, chartId) => {
+      const state = get();
+      const existing = state.chartsBySheet.get(sheetId) || [];
+      const oldChart = existing.find(c => c.id === chartId) || null;
+      if (oldChart) {
+        pushAction({
+          dataDelta: new Map(),
+          formatDelta: new Map(),
+          chartDeltas: [{ sheetId, old: oldChart, new: null }],
+          timestamp: Date.now(),
+        });
+      }
+      set(state => {
+        const next = new Map(state.chartsBySheet);
+        const ex = next.get(sheetId) || [];
+        next.set(sheetId, ex.filter(c => c.id !== chartId));
+        return { chartsBySheet: next, ...addDirtySheet(state) };
+      });
+    },
+    updateChart: (sheetId, chartId, updates) => {
+      const state = get();
+      const existing = state.chartsBySheet.get(sheetId) || [];
+      const oldChart = existing.find(c => c.id === chartId) || null;
+      const newChart = oldChart ? { ...oldChart, ...updates } : null;
+      if (oldChart && newChart) {
+        pushAction({
+          dataDelta: new Map(),
+          formatDelta: new Map(),
+          chartDeltas: [{ sheetId, old: oldChart, new: newChart }],
+          timestamp: Date.now(),
+        });
+      }
+      set(state => {
+        const next = new Map(state.chartsBySheet);
+        const ex = next.get(sheetId) || [];
+        next.set(sheetId, ex.map(c => c.id === chartId ? { ...c, ...updates } : c));
+        return { chartsBySheet: next, ...addDirtySheet(state) };
+      });
+    },
     setEditingChartId: (id) => set({ editingChartId: id }),
     setChartsBySheet: (charts) => set(state => ({
       chartsBySheet: typeof charts === 'function' ? charts(state.chartsBySheet) : charts,
@@ -401,6 +440,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       const action: Action = {
         dataDelta: new Map([[key, { old: oldValue, new: value }]]),
         formatDelta: new Map(),
+        chartDeltas: [],
         timestamp: Date.now(),
       };
 
@@ -444,6 +484,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       const action: Action = {
         dataDelta: new Map(),
         formatDelta: new Map([[key, { old: oldFormat, new: format }]]),
+        chartDeltas: [],
         timestamp: Date.now(),
       };
 
@@ -491,6 +532,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
         const action: Action = {
           dataDelta,
           formatDelta: new Map(),
+          chartDeltas: [],
           timestamp: Date.now(),
         };
         pushAction(action, batchWithPrevious);
@@ -536,6 +578,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
         const action: Action = {
           dataDelta: new Map(),
           formatDelta,
+          chartDeltas: [],
           timestamp: Date.now(),
         };
         pushAction(action, batchWithPrevious);
@@ -659,6 +702,25 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           }
         }
 
+        // Undo chart deltas
+        let newChartsBySheet = state.chartsBySheet;
+        if (action.chartDeltas.length > 0) {
+          newChartsBySheet = new Map(state.chartsBySheet);
+          for (const delta of action.chartDeltas) {
+            const charts = [...(newChartsBySheet.get(delta.sheetId) || [])];
+            if (delta.new && !delta.old) {
+              // Was an add — remove it
+              newChartsBySheet.set(delta.sheetId, charts.filter(c => c.id !== delta.new!.id));
+            } else if (delta.old && !delta.new) {
+              // Was a delete — restore it
+              newChartsBySheet.set(delta.sheetId, [...charts, delta.old]);
+            } else if (delta.old && delta.new) {
+              // Was an update — revert to old
+              newChartsBySheet.set(delta.sheetId, charts.map(c => c.id === delta.old!.id ? delta.old! : c));
+            }
+          }
+        }
+
         const newUndoStack = state.undoStack.slice(0, -1);
         const newRedoStack = [...state.redoStack, action];
 
@@ -674,6 +736,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
         return {
           cellData: newCellData,
           cellFormat: newCellFormat,
+          chartsBySheet: newChartsBySheet,
           allSheetsData,
           allSheetsComputed,
           ...addDirtySheet(state),
@@ -721,6 +784,25 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
           }
         }
 
+        // Redo chart deltas
+        let newChartsBySheet = state.chartsBySheet;
+        if (action.chartDeltas.length > 0) {
+          newChartsBySheet = new Map(state.chartsBySheet);
+          for (const delta of action.chartDeltas) {
+            const charts = [...(newChartsBySheet.get(delta.sheetId) || [])];
+            if (delta.new && !delta.old) {
+              // Was an add — re-add it
+              newChartsBySheet.set(delta.sheetId, [...charts, delta.new]);
+            } else if (delta.old && !delta.new) {
+              // Was a delete — re-delete it
+              newChartsBySheet.set(delta.sheetId, charts.filter(c => c.id !== delta.old!.id));
+            } else if (delta.old && delta.new) {
+              // Was an update — re-apply new
+              newChartsBySheet.set(delta.sheetId, charts.map(c => c.id === delta.new!.id ? delta.new! : c));
+            }
+          }
+        }
+
         const newRedoStack = state.redoStack.slice(0, -1);
         const newUndoStack = [...state.undoStack, action];
 
@@ -736,6 +818,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
         return {
           cellData: newCellData,
           cellFormat: newCellFormat,
+          chartsBySheet: newChartsBySheet,
           allSheetsData,
           allSheetsComputed,
           ...addDirtySheet(state),

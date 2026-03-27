@@ -73,7 +73,8 @@ Today's date is {current_date}.
 
 - Default cell background color is #FFFFEF. Be aware of this when setting fill colors.
 - When using colors, use pleasant bright pastels by default unless the user specifies colors.
-- When styling a sheet without specific color instructions, read the contents first with get_cell_range to choose contextually appropriate colors (green for revenue, red for expenses, blue for headers, etc.)."""
+- When styling a sheet without specific color instructions, read the contents first with get_cell_range to choose contextually appropriate colors (green for revenue, red for expenses, blue for headers, etc.).
+- When inserting charts, always provide positionCell pointing to an empty area near the data — typically to the right of or below the data range. Do not overlap existing content."""
 
 # Define tools for spreadsheet editing
 SPREADSHEET_TOOLS = [
@@ -243,6 +244,46 @@ SPREADSHEET_TOOLS = [
                 }
             },
             "required": ["startCell", "endCell", "format"]
+        }
+    },
+    {
+        "type": "function",
+        "name": "insert_chart",
+        "description": "Insert a chart into the spreadsheet. The chart visualizes data from the specified cell range. Works like Google Sheets chart insertion.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "startCell": {
+                    "type": "string",
+                    "description": "Starting cell of the data range in A1 notation (e.g., 'A1')"
+                },
+                "endCell": {
+                    "type": "string",
+                    "description": "Ending cell of the data range in A1 notation (e.g., 'D10')"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": ["bar", "line", "pie", "doughnut", "scatter", "area"],
+                    "description": "Chart type. Defaults to 'bar'."
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Chart title. Optional."
+                },
+                "useFirstRowAsHeaders": {
+                    "type": "boolean",
+                    "description": "Whether the first row of the range contains series/column headers. Defaults to true."
+                },
+                "useFirstColAsLabels": {
+                    "type": "boolean",
+                    "description": "Whether the first column of the range contains category/row labels. Defaults to true."
+                },
+                "positionCell": {
+                    "type": "string",
+                    "description": "Cell reference (A1 notation) for the top-left corner of where the chart should appear on the sheet. Pick an empty area near the data. Defaults to the cell right of the data range's end column."
+                }
+            },
+            "required": ["startCell", "endCell"]
         }
     },
     {

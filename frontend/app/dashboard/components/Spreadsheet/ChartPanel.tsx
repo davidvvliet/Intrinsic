@@ -58,6 +58,7 @@ function ChartOverlay({ chart, selected, onSelect, onRemove, onDoubleClick }: Ov
   const [size, setSize] = useState({ width: chart.position.width, height: chart.position.height });
   const updateChart = useSpreadsheetStore(state => state.updateChart);
   const activeSheetId = useSpreadsheetStore(state => state.activeSheetId);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);
   const posRef = useRef(pos);
@@ -65,8 +66,16 @@ function ChartOverlay({ chart, selected, onSelect, onRemove, onDoubleClick }: Ov
   posRef.current = pos;
   sizeRef.current = size;
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault();
+      onRemove();
+    }
+  }, [onRemove]);
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     onSelect();
+    overlayRef.current?.focus();
     if ((e.target as HTMLElement).closest(`.${styles.closeButton}`) ||
         (e.target as HTMLElement).closest(`.${styles.resizeHandle}`)) return;
     e.preventDefault();
@@ -117,9 +126,12 @@ function ChartOverlay({ chart, selected, onSelect, onRemove, onDoubleClick }: Ov
 
   return (
     <div
+      ref={overlayRef}
+      tabIndex={0}
       className={`${styles.overlay} ${selected ? styles.selected : ''}`}
-      style={{ left: pos.x, top: pos.y, width: size.width, height: size.height }}
+      style={{ left: pos.x, top: pos.y, width: size.width, height: size.height, outline: 'none' }}
       onMouseDown={handleMouseDown}
+      onKeyDown={handleKeyDown}
       onDoubleClick={onDoubleClick}
     >
       {selected && (
