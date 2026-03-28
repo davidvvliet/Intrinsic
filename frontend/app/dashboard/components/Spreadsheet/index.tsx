@@ -373,7 +373,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
 
         return results;
       } else if (name === 'insert_chart') {
-        const { startCell, endCell, type, title, useFirstRowAsHeaders, useFirstColAsLabels, positionCell } = args;
+        const { startCell, endCell, type, title, useFirstRowAsHeaders, useFirstColAsLabels, positionCell, sheet } = args;
         if (!startCell || !endCell) {
           return { error: 'Missing required arguments: startCell and endCell' };
         }
@@ -381,8 +381,11 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
         const start = a1ToRowCol(startCell);
         const end = a1ToRowCol(endCell);
         const storeState = useSpreadsheetStore.getState();
-        const activeSheet = storeState.activeSheetId;
-        if (!activeSheet) return { error: 'No active sheet' };
+
+        // Resolve target sheet
+        const targetSheet = sheet ? storeState.sheets.find((s: any) => s.name === sheet) : null;
+        const chartSheetId = targetSheet ? targetSheet.sheetId : storeState.activeSheetId;
+        if (!chartSheetId) return { error: 'No active sheet' };
 
         // Calculate pixel position from positionCell or default to right of data range
         let posX: number;
@@ -408,7 +411,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           },
           useFirstRowAsHeaders: useFirstRowAsHeaders !== false,
           useFirstColAsLabels: useFirstColAsLabels !== false,
-          sheetId: activeSheet,
+          sheetId: chartSheetId,
           position: { x: posX, y: posY, width: 500, height: 350 },
         };
 

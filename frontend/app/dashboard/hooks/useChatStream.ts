@@ -10,7 +10,7 @@ export interface ToolCall {
 
 export function useChatStream(
   onMessageComplete: (message: string, toolCalls?: ToolCall[], responseId?: string) => void,
-  onToolCall?: (name: string, args: any) => void,
+  onToolCall?: (name: string, args: any, callId?: string) => void,
   onSheetsChanged?: () => void,
   onTitleUpdate?: (title: string) => void
 ): UseChatStreamReturn {
@@ -142,7 +142,7 @@ export function useChatStream(
                 
                 // Execute tool call immediately
                 if (onToolCall) {
-                  onToolCall(parsed.tool_call.name, parsed.tool_call.arguments);
+                  onToolCall(parsed.tool_call.name, parsed.tool_call.arguments, parsed.tool_call.call_id);
                 }
               }
 

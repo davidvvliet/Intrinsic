@@ -175,6 +175,7 @@ export default function WorkspacePage() {
   const [isCompacting, setIsCompacting] = useState<boolean>(false);
   const [rateLimitDismissed, setRateLimitDismissed] = useState(false);
   const toolCallHandlerRef = useRef<((name: string, args: any) => any) | null>(null);
+  const toolResultsRef = useRef<Map<string, any>>(new Map());
   const iterationCountRef = useRef<number>(0);
   const maxIterations = 50;
 
@@ -204,16 +205,14 @@ export default function WorkspacePage() {
     if (toolCalls && toolCalls.length > 0 && iterationCountRef.current < maxIterations && sendMessageRef.current && responseId) {
       iterationCountRef.current++;
 
-      // Execute tool calls and collect results
+      // Use already-executed tool results (captured during streaming) instead of re-executing
       const toolResults: Array<{call_id: string, result: any}> = [];
       for (const toolCall of toolCalls) {
-        if (toolCallHandlerRef.current) {
-          const result = toolCallHandlerRef.current(toolCall.name, toolCall.args);
-          toolResults.push({
-            call_id: toolCall.call_id,
-            result: result !== undefined ? result : { status: 'success' }
-          });
-        }
+        const storedResult = toolResultsRef.current.get(toolCall.call_id);
+        toolResults.push({
+          call_id: toolCall.call_id,
+          result: storedResult !== undefined ? storedResult : { status: 'success' }
+        });
       }
 
       // Build function_call_output items (convert results to JSON strings)
@@ -249,6 +248,8 @@ export default function WorkspacePage() {
           workspaceName: useSpreadsheetStore.getState().workspaceName,
           conversationId: convId,
         });
+        // Clear stored tool results after sending
+        toolResultsRef.current.clear();
       }
     } else if (toolCalls && toolCalls.length > 0 && iterationCountRef.current >= maxIterations) {
       // Hit iteration limit - add warning message
@@ -258,15 +259,20 @@ export default function WorkspacePage() {
         content: 'I made many changes but had to stop due to iteration limits. Let me know if you need me to continue.'
       });
       iterationCountRef.current = 0;
+      toolResultsRef.current.clear();
     } else {
       // No tool calls - reset iteration count
       iterationCountRef.current = 0;
+      toolResultsRef.current.clear();
     }
   }, [addMessage, updateLastResponseId]);
 
-  const handleToolCall = useCallback((name: string, args: any) => {
+  const handleToolCall = useCallback((name: string, args: any, callId?: string) => {
     if (toolCallHandlerRef.current) {
-      toolCallHandlerRef.current(name, args);
+      const result = toolCallHandlerRef.current(name, args);
+      if (callId) {
+        toolResultsRef.current.set(callId, result);
+      }
     }
   }, []);
 

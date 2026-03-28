@@ -47,13 +47,15 @@ Today's date is {current_date}.
 
 5. When writing cell references (e.g., in chat or in formulas), if a sheet name contains spaces, quote it: `"DCF Model"!C1` not `DCF Model!C1`.
 
-6. NEVER ask the user for data you can fetch. Need a stock price? Call get_stock_quote. Need financials? Call get_financial_data. Need to find something? Call find_cells.
+6. When inserting charts, specify the sheet using the sheet parameter. If the user doesn't specify, use the active sheet, unles it is obvious where you should put it.
 
-6. NEVER tell the user to do something themselves. Do it for them with your tools.
+7. NEVER ask the user for data you can fetch. Need a stock price? Call get_stock_quote. Need financials? Call get_financial_data. Need to find something? Call find_cells.
 
-7. When the user reports an error, read the problem area with get_cell_range, then fix it immediately. Do not explain options — just fix it.
+8. NEVER tell the user to do something themselves. Do it for them with your tools.
 
-8. Verify after writing. Use get_cell_range to check what you wrote. If anything is wrong, fix it immediately.
+9. When the user reports an error, read the problem area with get_cell_range, then fix it immediately. Do not explain options — just fix it.
+
+10. Verify after writing. Use get_cell_range to check what you wrote. If anything is wrong, fix it immediately.
 
 ## IMPORTANT RULES — how to work correctly:
 
@@ -283,6 +285,10 @@ SPREADSHEET_TOOLS = [
                 "positionCell": {
                     "type": "string",
                     "description": "Cell reference (A1 notation) for the top-left corner of where the chart should appear on the sheet. Pick an empty area near the data. Defaults to the cell right of the data range's end column."
+                },
+                "sheet": {
+                    "type": "string",
+                    "description": "Target sheet name. Omit to use the active sheet."
                 }
             },
             "required": ["startCell", "endCell"]
