@@ -55,6 +55,33 @@ frontend/
 ├── proxy.ts                      # WorkOS auth middleware
 └── public/                       # Static assets, SVGs, images
 backend/
+├── app/
+│   ├── main.py                   # FastAPI app entry point, route registration
+│   ├── api/
+│   │   ├── chat.py               # AI chat endpoint, model building logic
+│   │   ├── conversation_service.py  # Conversation history management
+│   │   ├── conversations.py      # Conversation CRUD routes
+│   │   ├── sec.py                # SEC EDGAR data fetching (10-K, 10-Q, XBRL)
+│   │   ├── market.py             # Market data (yfinance)
+│   │   ├── sheets.py             # Sheet CRUD routes
+│   │   ├── workspaces.py         # Workspace CRUD routes
+│   │   ├── templates.py          # Template management routes
+│   │   ├── reports.py            # Reports routes
+│   │   ├── lists.py              # Lists routes
+│   │   ├── stripe_webhook.py     # Stripe webhook handler
+│   │   ├── schemas.py            # Pydantic request/response schemas
+│   │   └── company_tickers.json  # SEC company ticker lookup
+│   ├── core/
+│   │   ├── deps.py               # Shared dependencies (auth, DB)
+│   │   └── limits.py             # Plan-based usage limits (free vs pro)
+│   └── storage/
+│       └── async_db.py           # Async database client
+├── templates/
+│   ├── DCF_Template.xlsx
+│   ├── LBO_Template.xlsx
+│   └── Trading_Comps_Template.xlsx
+├── requirements.txt
+└── Dockerfile
 ```
 
 ## Pricing

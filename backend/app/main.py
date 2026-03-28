@@ -10,7 +10,6 @@ from app.api.reports import router as reports_router
 from app.api.stripe_webhook import router as stripe_router
 from app.api.sec import load_company_tickers
 from app.storage.async_db import get_pool, close_pool as close_async_pool
-from app.storage.search_db import close_pool as close_search_pool
 
 app = FastAPI()
 
@@ -44,5 +43,4 @@ async def startup_event():
 async def shutdown_event():
     """Close database connection pools on FastAPI shutdown."""
     await close_async_pool()
-    close_search_pool()
     print("Database pools closed")
