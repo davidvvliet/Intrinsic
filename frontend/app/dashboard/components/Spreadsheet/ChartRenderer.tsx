@@ -44,12 +44,22 @@ export default function ChartRenderer({ chart }: Props) {
     state.allSheetsData.get(chart.sheetId) || EMPTY_CELLS
   );
 
+  // Migrate old single-range format to new multi-range format
+  const dataRanges = chart.dataRanges || (
+    (chart as any).dataRange
+      ? [{
+          start: { row: (chart as any).dataRange.startRow, col: (chart as any).dataRange.startCol },
+          end: { row: (chart as any).dataRange.endRow, col: (chart as any).dataRange.endCol }
+        }]
+      : []
+  );
+
   const resolved = useMemo(
     () => resolveChartData(
-      chart.dataRange, computedData, cellData,
+      dataRanges, computedData, cellData,
       chart.useFirstRowAsHeaders, chart.useFirstColAsLabels,
     ),
-    [chart.dataRange, computedData, cellData, chart.useFirstRowAsHeaders, chart.useFirstColAsLabels],
+    [dataRanges, computedData, cellData, chart.useFirstRowAsHeaders, chart.useFirstColAsLabels],
   );
 
   const chartJsData = useMemo(() => ({
@@ -83,7 +93,23 @@ export default function ChartRenderer({ chart }: Props) {
         labels: { font: { size: 11 } },
       },
     },
-  }), [chart.title]);
+    scales: {
+      x: {
+        title: {
+          display: !!chart.xAxisLabel,
+          text: chart.xAxisLabel || '',
+          font: { size: 12 },
+        },
+      },
+      y: {
+        title: {
+          display: !!chart.yAxisLabel,
+          text: chart.yAxisLabel || '',
+          font: { size: 12 },
+        },
+      },
+    },
+  }), [chart.title, chart.xAxisLabel, chart.yAxisLabel]);
 
   switch (chart.type) {
     case 'bar':

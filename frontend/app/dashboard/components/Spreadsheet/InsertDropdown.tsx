@@ -10,9 +10,11 @@ export default function InsertDropdown() {
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
   const selection = useSpreadsheetStore(state => state.selection);
+  const selectedRanges = useSpreadsheetStore(state => state.selectedRanges);
   const activeSheetId = useSpreadsheetStore(state => state.activeSheetId);
   const addChart = useSpreadsheetStore(state => state.addChart);
   const setEditingChartId = useSpreadsheetStore(state => state.setEditingChartId);
+  const clearSelectedRanges = useSpreadsheetStore(state => state.clearSelectedRanges);
 
   // Position the dropdown directly below the button when it opens
   useEffect(() => {
@@ -58,26 +60,36 @@ export default function InsertDropdown() {
 
   const handleInsertChart = () => {
     setIsOpen(false);
-    if (!selection || !activeSheetId) return;
+    if (!activeSheetId) return;
+
+    const selectionAsRange = selection ? [{
+      start: { row: Math.min(selection.start.row, selection.end.row), col: Math.min(selection.start.col, selection.end.col) },
+      end: { row: Math.max(selection.start.row, selection.end.row), col: Math.max(selection.start.col, selection.end.col) },
+    }] : [];
+
+    // Combine locked ranges with current selection (like Google Sheets)
+    const ranges = selectedRanges.length > 0
+      ? [...selectedRanges, ...selectionAsRange]
+      : selectionAsRange;
+
+    if (!ranges || ranges.length === 0) return;
 
     const id = `chart_${Date.now()}`;
     const chart: ChartConfig = {
       id,
       type: 'bar',
       title: '',
-      dataRange: {
-        startRow: Math.min(selection.start.row, selection.end.row),
-        startCol: Math.min(selection.start.col, selection.end.col),
-        endRow: Math.max(selection.start.row, selection.end.row),
-        endCol: Math.max(selection.start.col, selection.end.col),
-      },
+      dataRanges: ranges,
       useFirstRowAsHeaders: true,
       useFirstColAsLabels: true,
       sheetId: activeSheetId,
       position: { x: 100, y: 100, width: 500, height: 350 },
+      xAxisLabel: '',
+      yAxisLabel: '',
     };
 
     addChart(chart);
+    clearSelectedRanges();
     setEditingChartId(id);
   };
 
@@ -104,7 +116,7 @@ export default function InsertDropdown() {
           <button
             className={styles.option}
             onClick={handleInsertChart}
-            disabled={!selection}
+            disabled={!selection && selectedRanges.length === 0}
           >
             <span className={styles.checkmark} />
             <span className={styles.optionLabel}>Chart</span>

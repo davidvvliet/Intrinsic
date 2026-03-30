@@ -79,6 +79,10 @@ export default function Grid() {
   const [fillDragStart, setFillDragStart] = useState<{ row: number; col: number } | null>(null);
   const [fillDragEnd, setFillDragEnd] = useState<{ row: number; col: number } | null>(null);
 
+  const addSelectedRange = useSpreadsheetStore(state => state.addSelectedRange);
+  const clearSelectedRanges = useSpreadsheetStore(state => state.clearSelectedRanges);
+  const selectedRanges = useSpreadsheetStore(state => state.selectedRanges);
+
   const drawGrid = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -108,8 +112,9 @@ export default function Grid() {
       showGridlines,
       findMatches,
       findMatchIndex,
+      selectedRanges,
     });
-  }, [cellData, cellFormat, computedData, selection, highlightedCells, zoom, copiedRange, animatingRanges, dashOffset, isEditing, containerRef, columnWidths, getColumnX, frozenRows, frozenColumns, showGridlines, findMatches, findMatchIndex]);
+  }, [cellData, cellFormat, computedData, selection, highlightedCells, zoom, copiedRange, animatingRanges, dashOffset, isEditing, containerRef, columnWidths, getColumnX, frozenRows, frozenColumns, showGridlines, findMatches, findMatchIndex, selectedRanges]);
 
   const handleScroll = useCallback(() => {
     drawGrid();
@@ -328,6 +333,8 @@ export default function Grid() {
     parseCellReferencesFromFormula,
     setHighlightedCells,
     inputRef,
+    addSelectedRange,
+    clearSelectedRanges,
   });
 
   // Filter functions based on input

@@ -74,6 +74,7 @@ interface SpreadsheetState {
   // Charts
   chartsBySheet: Map<string, ChartConfig[]>;
   editingChartId: string | null;
+  selectedRanges: Array<{start: {row: number; col: number}; end: {row: number; col: number}}>;
 
   // Undo/Redo
   undoStack: Action[];
@@ -119,6 +120,9 @@ interface SpreadsheetActions {
   updateChart: (sheetId: string, chartId: string, updates: Partial<ChartConfig>) => void;
   setEditingChartId: (id: string | null) => void;
   setChartsBySheet: (charts: Map<string, ChartConfig[]> | ((prev: Map<string, ChartConfig[]>) => Map<string, ChartConfig[]>)) => void;
+  addSelectedRange: (range: {start: {row: number; col: number}; end: {row: number; col: number}}) => void;
+  clearSelectedRanges: () => void;
+  setSelectedRanges: (ranges: Array<{start: {row: number; col: number}; end: {row: number; col: number}}>) => void;
 
   // Actions
   updateCell: (key: string, value: { raw: string; type: CellType } | null, batchWithPrevious?: boolean) => void;
@@ -215,6 +219,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     showGridlines: true,
     chartsBySheet: new Map(),
     editingChartId: null,
+    selectedRanges: [],
     undoStack: [],
     redoStack: [],
     canUndo: false,
@@ -431,6 +436,11 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
     setChartsBySheet: (charts) => set(state => ({
       chartsBySheet: typeof charts === 'function' ? charts(state.chartsBySheet) : charts,
     })),
+    addSelectedRange: (range) => set(state => ({
+      selectedRanges: [...state.selectedRanges, range],
+    })),
+    clearSelectedRanges: () => set({ selectedRanges: [] }),
+    setSelectedRanges: (ranges) => set({ selectedRanges: ranges }),
 
     // Actions
     updateCell: (key, value, batchWithPrevious = false) => {

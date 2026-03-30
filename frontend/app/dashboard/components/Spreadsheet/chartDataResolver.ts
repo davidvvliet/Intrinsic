@@ -7,16 +7,16 @@ export type ChartConfig = {
   id: string;
   type: ChartType;
   title: string;
-  dataRange: {
-    startRow: number;
-    startCol: number;
-    endRow: number;
-    endCol: number;
-  };
+  dataRanges: Array<{
+    start: { row: number; col: number };
+    end: { row: number; col: number };
+  }>;
   useFirstRowAsHeaders: boolean;
   useFirstColAsLabels: boolean;
   sheetId: string;
   position: { x: number; y: number; width: number; height: number };
+  xAxisLabel?: string;
+  yAxisLabel?: string;
 };
 
 export type ResolvedChartData = {
@@ -44,13 +44,18 @@ export type ResolvedChartData = {
  *   ]
  */
 export function resolveChartData(
-  range: ChartConfig['dataRange'],
+  dataRanges: ChartConfig['dataRanges'],
   computedData: ComputedData,
   cellData: CellData,
   useFirstRowAsHeaders: boolean,
   useFirstColAsLabels: boolean,
 ): ResolvedChartData {
-  const { startRow, startCol, endRow, endCol } = range;
+  const labels: string[] = [];
+  const datasets: ResolvedChartData['datasets'] = [];
+
+  if (dataRanges.length === 0) {
+    return { labels, datasets };
+  }
 
   const getValue = (row: number, col: number): string | number => {
     const key = getCellKey(row, col);
@@ -66,35 +71,52 @@ export function resolveChartData(
     return isNaN(num) ? cell.raw : num;
   };
 
-  const dataStartRow = useFirstRowAsHeaders ? startRow + 1 : startRow;
-  const dataStartCol = useFirstColAsLabels ? startCol + 1 : startCol;
+  // Use first range for header extraction
+  const firstRange = dataRanges[0];
+  const firstRangeStartRow = firstRange.start.row;
+  const firstRangeStartCol = firstRange.start.col;
+  const firstRangeEndCol = firstRange.end.col;
 
-  // Labels from the header row
-  const labels: string[] = [];
+  const dataStartCol = useFirstColAsLabels ? firstRangeStartCol + 1 : firstRangeStartCol;
+  const headerRow = firstRangeStartRow;
+
+  // Extract labels from first range's first row
   if (useFirstRowAsHeaders) {
-    for (let col = dataStartCol; col <= endCol; col++) {
-      labels.push(String(getValue(startRow, col)));
+    for (let col = dataStartCol; col <= firstRangeEndCol; col++) {
+      labels.push(String(getValue(headerRow, col)));
     }
   } else {
-    for (let col = dataStartCol; col <= endCol; col++) {
+    for (let col = dataStartCol; col <= firstRangeEndCol; col++) {
       labels.push(String(col - dataStartCol + 1));
     }
   }
 
-  // Each data row becomes a dataset (series)
-  const datasets: ResolvedChartData['datasets'] = [];
-  for (let row = dataStartRow; row <= endRow; row++) {
-    const seriesLabel = useFirstColAsLabels
-      ? String(getValue(row, startCol))
-      : `Series ${row - dataStartRow + 1}`;
+  // Process each range to extract datasets
+  for (const range of dataRanges) {
+    const rangeStartRow = range.start.row;
+    const rangeStartCol = range.start.col;
+    const rangeEndRow = range.end.row;
+    const rangeEndCol = range.end.col;
 
-    const data: number[] = [];
-    for (let col = dataStartCol; col <= endCol; col++) {
-      const val = getValue(row, col);
-      data.push(typeof val === 'number' ? val : (parseFloat(String(val)) || 0));
+    // For the first range, skip the header row if useFirstRowAsHeaders is true
+    const thisRangeDataStartRow = useFirstRowAsHeaders && range === firstRange
+      ? rangeStartRow + 1
+      : rangeStartRow;
+
+    // Process each row in this range as a dataset
+    for (let row = thisRangeDataStartRow; row <= rangeEndRow; row++) {
+      const seriesLabel = useFirstColAsLabels
+        ? String(getValue(row, rangeStartCol))
+        : `Series ${datasets.length + 1}`;
+
+      const data: number[] = [];
+      for (let col = dataStartCol; col <= rangeEndCol; col++) {
+        const val = getValue(row, col);
+        data.push(typeof val === 'number' ? val : (parseFloat(String(val)) || 0));
+      }
+
+      datasets.push({ label: seriesLabel, data });
     }
-
-    datasets.push({ label: seriesLabel, data });
   }
 
   return { labels, datasets };

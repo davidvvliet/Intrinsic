@@ -238,6 +238,7 @@ export function drawGrid({
   showGridlines = true,
   findMatches = [],
   findMatchIndex = -1,
+  selectedRanges = [],
 }: {
   ctx: CanvasRenderingContext2D;
   canvas: HTMLCanvasElement;
@@ -259,6 +260,7 @@ export function drawGrid({
   showGridlines?: boolean;
   findMatches?: { row: number; col: number }[];
   findMatchIndex?: number;
+  selectedRanges?: Array<{start: {row: number; col: number}; end: {row: number; col: number}}>;
 }) {
   // Apply DPR scaling for crisp rendering on all displays
   const dpr = window.devicePixelRatio || 1;
@@ -371,6 +373,21 @@ export function drawGrid({
     if (inSelection && isMultiCellSelection) {
       ctx.fillStyle = SELECTION_HIGHLIGHT;
       ctx.fillRect(x, y, cellWidth, cellHeight);
+    }
+
+    // Draw selectedRanges highlight (for multi-range chart selection)
+    for (let i = 0; i < selectedRanges.length; i++) {
+      const range = selectedRanges[i];
+      const rangeMinRow = Math.min(range.start.row, range.end.row);
+      const rangeMaxRow = Math.max(range.start.row, range.end.row);
+      const rangeMinCol = Math.min(range.start.col, range.end.col);
+      const rangeMaxCol = Math.max(range.start.col, range.end.col);
+
+      if (row >= rangeMinRow && row <= rangeMaxRow && col >= rangeMinCol && col <= rangeMaxCol) {
+        ctx.fillStyle = SELECTION_HIGHLIGHT;
+        ctx.fillRect(x, y, cellWidth, cellHeight);
+        break;
+      }
     }
 
     // Draw highlighted cells
@@ -695,6 +712,38 @@ export function drawGrid({
       drawSelectionBorder(0, 0);
       ctx.restore();
     }
+
+    ctx.strokeStyle = CELL_BORDER;
+    ctx.lineWidth = DEFAULT_BORDER_WIDTH;
+  }
+
+  // Draw borders around locked selectedRanges
+  if (selectedRanges.length > 0) {
+    ctx.strokeStyle = ACTIVE_CELL_BORDER;
+    ctx.lineWidth = DEFAULT_BORDER_WIDTH;
+
+    const drawRangeBorder = (rMinRow: number, rMaxRow: number, rMinCol: number, rMaxCol: number, scrollX: number, scrollY: number) => {
+      const rx = headerWidth + getColumnX(rMinCol) * zoom - scrollX;
+      const ry = headerHeight + rMinRow * cellHeight - scrollY;
+      let rWidth = 0;
+      for (let col = rMinCol; col <= rMaxCol; col++) rWidth += getColumnWidth(col);
+      const rHeight = (rMaxRow - rMinRow + 1) * cellHeight;
+      ctx.strokeRect(rx, ry, rWidth, rHeight);
+    };
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(headerWidth + frozenWidth, headerHeight + frozenHeight,
+             cssWidth - headerWidth - frozenWidth, cssHeight - headerHeight - frozenHeight);
+    ctx.clip();
+    for (const range of selectedRanges) {
+      drawRangeBorder(
+        Math.min(range.start.row, range.end.row), Math.max(range.start.row, range.end.row),
+        Math.min(range.start.col, range.end.col), Math.max(range.start.col, range.end.col),
+        scrollLeft, scrollTop,
+      );
+    }
+    ctx.restore();
 
     ctx.strokeStyle = CELL_BORDER;
     ctx.lineWidth = DEFAULT_BORDER_WIDTH;

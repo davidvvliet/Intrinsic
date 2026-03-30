@@ -19,6 +19,8 @@ export function useMouse({
   parseCellReferencesFromFormula,
   setHighlightedCells,
   inputRef,
+  addSelectedRange,
+  clearSelectedRanges,
 }: {
   getCellFromEvent: (e: MouseEvent | React.MouseEvent) => CellPosition;
   selection: Selection | null;
@@ -36,6 +38,8 @@ export function useMouse({
   parseCellReferencesFromFormula: (value: string) => Selection[];
   setHighlightedCells: React.Dispatch<React.SetStateAction<Selection[] | null>>;
   inputRef: React.RefObject<HTMLInputElement | null>;
+  addSelectedRange: (range: {start: {row: number; col: number}; end: {row: number; col: number}}) => void;
+  clearSelectedRanges: () => void;
 }) {
   const isFormulaMode = isEditing && inputValue.startsWith('=');
 
@@ -104,18 +108,32 @@ export function useMouse({
       // Get existing references from current formula
       const existingRefs = parseCellReferencesFromFormula(inputValue);
       const lastSel = existingRefs.length > 0 ? existingRefs[existingRefs.length - 1] : null;
-      
+
       const newSel = e.shiftKey && lastSel
         ? { start: lastSel.start, end: cell }
         : { start: cell, end: cell };
-      
+
       // Update formula with new reference
       updateFormulaWithReference(newSel);
-      
+
       // Synchronously update highlightedCells: existing refs + navigating cell
       const allSelections = [...existingRefs, newSel];
       setHighlightedCells(allSelections);
-      
+
+      setIsDragging(true);
+      return;
+    }
+
+    // Cmd/Ctrl+click: lock current selection into selectedRanges, start new selection at clicked cell
+    const isCmdClick = (e.metaKey || e.ctrlKey) && !e.shiftKey;
+    if (isCmdClick && selection) {
+      e.preventDefault();
+      addSelectedRange({
+        start: { row: Math.min(selection.start.row, selection.end.row), col: Math.min(selection.start.col, selection.end.col) },
+        end: { row: Math.max(selection.start.row, selection.end.row), col: Math.max(selection.start.col, selection.end.col) },
+      });
+      setSelection({ start: cell, end: cell });
+      setInputValue(cellData.get(getCellKey(cell.row, cell.col))?.raw || '');
       setIsDragging(true);
       return;
     }
@@ -124,15 +142,16 @@ export function useMouse({
       // Shift+click: extend selection from anchor
       setSelection(prev => prev ? { start: prev.start, end: cell } : null);
     } else {
-      // Normal click: new selection
+      // Normal click: new selection, clear multi-range selection
       if (isEditing) saveCurrentCell();
+      clearSelectedRanges();
       setSelection({ start: cell, end: cell });
       setInputValue(cellData.get(getCellKey(cell.row, cell.col))?.raw || '');
       setIsEditing(false);
     }
     setIsDragging(true);
     containerRef.current?.focus();
-  }, [getCellFromEvent, selection, isEditing, isFormulaMode, saveCurrentCell, cellData, setSelection, setInputValue, setIsEditing, setIsDragging, containerRef, inputValue, parseCellReferencesFromFormula, setHighlightedCells]);
+  }, [getCellFromEvent, selection, isEditing, isFormulaMode, saveCurrentCell, cellData, setSelection, setInputValue, setIsEditing, setIsDragging, containerRef, inputValue, parseCellReferencesFromFormula, setHighlightedCells, addSelectedRange, clearSelectedRanges]);
 
   const handleCanvasDoubleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const cell = getCellFromEvent(e);

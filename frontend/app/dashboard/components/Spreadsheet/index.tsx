@@ -373,13 +373,21 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
 
         return results;
       } else if (name === 'insert_chart') {
-        const { startCell, endCell, type, title, useFirstRowAsHeaders, useFirstColAsLabels, positionCell, sheet } = args;
-        if (!startCell || !endCell) {
-          return { error: 'Missing required arguments: startCell and endCell' };
+        const { dataRanges, type, title, useFirstRowAsHeaders, useFirstColAsLabels, positionCell, sheet, xAxisLabel, yAxisLabel } = args;
+        if (!dataRanges) {
+          return { error: 'Missing required argument: dataRanges' };
         }
 
-        const start = a1ToRowCol(startCell);
-        const end = a1ToRowCol(endCell);
+        // Parse comma-separated ranges: "A1:H1,A3:H3"
+        const ranges = dataRanges.split(',').map((r: string) => {
+          const [start, end] = r.trim().split(':');
+          return { start: a1ToRowCol(start), end: a1ToRowCol(end) };
+        });
+
+        if (ranges.length === 0) {
+          return { error: 'Invalid dataRanges format' };
+        }
+
         const storeState = useSpreadsheetStore.getState();
 
         // Resolve target sheet
@@ -387,7 +395,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
         const chartSheetId = targetSheet ? targetSheet.sheetId : storeState.activeSheetId;
         if (!chartSheetId) return { error: 'No active sheet' };
 
-        // Calculate pixel position from positionCell or default to right of data range
+        // Calculate pixel position from positionCell or default to right of first data range
         let posX: number;
         let posY: number;
         if (positionCell) {
@@ -395,24 +403,22 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           posX = HEADER_WIDTH + pos.col * CELL_WIDTH;
           posY = HEADER_HEIGHT + pos.row * CELL_HEIGHT;
         } else {
-          posX = HEADER_WIDTH + (end.col + 1) * CELL_WIDTH;
-          posY = HEADER_HEIGHT + start.row * CELL_HEIGHT;
+          const lastRange = ranges[ranges.length - 1];
+          posX = HEADER_WIDTH + (lastRange.end.col + 1) * CELL_WIDTH;
+          posY = HEADER_HEIGHT + ranges[0].start.row * CELL_HEIGHT;
         }
 
         const chart: ChartConfig = {
           id: `chart_${Date.now()}`,
           type: (type as ChartType) || 'bar',
           title: title || '',
-          dataRange: {
-            startRow: start.row,
-            startCol: start.col,
-            endRow: end.row,
-            endCol: end.col,
-          },
+          dataRanges: ranges,
           useFirstRowAsHeaders: useFirstRowAsHeaders !== false,
           useFirstColAsLabels: useFirstColAsLabels !== false,
           sheetId: chartSheetId,
           position: { x: posX, y: posY, width: 500, height: 350 },
+          xAxisLabel: xAxisLabel || '',
+          yAxisLabel: yAxisLabel || '',
         };
 
         storeState.addChart(chart);

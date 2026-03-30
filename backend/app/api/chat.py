@@ -47,7 +47,7 @@ Today's date is {current_date}.
 
 5. When writing cell references (e.g., in chat or in formulas), if a sheet name contains spaces, quote it: `"DCF Model"!C1` not `DCF Model!C1`.
 
-6. When inserting charts, specify the sheet using the sheet parameter. If the user doesn't specify, use the active sheet, unles it is obvious where you should put it.
+6. When inserting charts: identify the exact populated cells from the data shown. Use `dataRanges` as comma-separated ranges of only those cells, excluding empty rows and columns (e.g., `"C9:I9,C12:I12"`). Always set `useFirstRowAsHeaders: true` when the first range is a labels row (e.g. years, quarters) — this makes those values become X-axis tick labels instead of a plotted series. `xAxisLabel`/`yAxisLabel` are axis *titles* (e.g. "Year", "Revenue ($mm)"), not tick labels — set both independently. Specify sheet if needed.
 
 7. NEVER ask the user for data you can fetch. Need a stock price? Call get_stock_quote. Need financials? Call get_financial_data. Need to find something? Call find_cells.
 
@@ -257,13 +257,9 @@ SPREADSHEET_TOOLS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "startCell": {
+                "dataRanges": {
                     "type": "string",
-                    "description": "Starting cell of the data range in A1 notation (e.g., 'A1')"
-                },
-                "endCell": {
-                    "type": "string",
-                    "description": "Ending cell of the data range in A1 notation (e.g., 'D10')"
+                    "description": "Cell ranges to include in the chart, comma-separated (e.g., 'A1:H1,A3:H3'). Each entry must be a range with start:end notation — never a single cell. First range is typically headers, subsequent ranges are data series."
                 },
                 "type": {
                     "type": "string",
@@ -289,9 +285,17 @@ SPREADSHEET_TOOLS = [
                 "sheet": {
                     "type": "string",
                     "description": "Target sheet name. Omit to use the active sheet."
+                },
+                "xAxisLabel": {
+                    "type": "string",
+                    "description": "Label for the X-axis. Optional."
+                },
+                "yAxisLabel": {
+                    "type": "string",
+                    "description": "Label for the Y-axis. Optional."
                 }
             },
-            "required": ["startCell", "endCell"]
+            "required": ["dataRanges"]
         }
     },
     {

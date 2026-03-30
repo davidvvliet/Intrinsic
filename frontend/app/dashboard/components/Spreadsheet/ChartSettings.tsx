@@ -82,6 +82,26 @@ export default function ChartSettings() {
         </div>
 
         <div className={styles.field}>
+          <label className={styles.label}>X-Axis Label</label>
+          <input
+            className={styles.input}
+            value={chart.xAxisLabel || ''}
+            onChange={e => update({ xAxisLabel: e.target.value })}
+            placeholder="X-axis label (optional)"
+          />
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label}>Y-Axis Label</label>
+          <input
+            className={styles.input}
+            value={chart.yAxisLabel || ''}
+            onChange={e => update({ yAxisLabel: e.target.value })}
+            placeholder="Y-axis label (optional)"
+          />
+        </div>
+
+        <div className={styles.field}>
           <label className={styles.checkbox}>
             <input
               type="checkbox"
