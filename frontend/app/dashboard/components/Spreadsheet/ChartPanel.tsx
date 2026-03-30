@@ -69,6 +69,7 @@ function ChartOverlay({ chart, selected, onSelect, onRemove, onDoubleClick }: Ov
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Backspace' || e.key === 'Delete') {
       e.preventDefault();
+      e.stopPropagation();
       onRemove();
     }
   }, [onRemove]);
