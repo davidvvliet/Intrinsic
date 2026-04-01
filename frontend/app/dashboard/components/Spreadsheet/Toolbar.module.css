@@ -74,6 +74,26 @@
   cursor: pointer;
 }
 
+.exportButton {
+  padding: 4px 4px;
+  border: 1px solid #000;
+  border-radius: 0;
+  background: #000;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.exportButton:hover {
+  background: #333;
+}
+
 .renameInput {
   height: 100%;
   padding: 0;

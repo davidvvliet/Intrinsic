@@ -44,6 +44,23 @@ export default function Toolbar() {
   const [editingName, setEditingName] = useState('');
   const nameInputRef = useRef<HTMLInputElement>(null);
 
+  const handleExport = useCallback(async () => {
+    if (!workspaceId) return;
+    try {
+      const response = await fetchWithAuth(`/api/workspaces/${workspaceId}/export`);
+      if (!response.ok) throw new Error('Failed to export');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${workspaceName || 'workspace'}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export workspace:', err);
+    }
+  }, [workspaceId, workspaceName, fetchWithAuth]);
+
   const handleStartRename = () => {
     if (!workspaceName) return;
     setIsEditingName(true);
@@ -318,6 +335,16 @@ export default function Toolbar() {
           ) : (
             <strong onClick={handleStartRename}>{workspaceName}</strong>
           )}
+          <button
+            className={styles.exportButton}
+            onClick={handleExport}
+            title="Export as .xlsx"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 2v8M8 10L5 7M8 10l3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
         </span>
       )}
     </div>

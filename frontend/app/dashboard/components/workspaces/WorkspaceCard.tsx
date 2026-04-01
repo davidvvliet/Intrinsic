@@ -70,7 +70,10 @@ export default function WorkspaceCard({ workspace, onOpen, onDelete, onRename, o
           <span className={styles.name} onClick={handleNameClick}>{workspace.name}</span>
         )}
         <button className={styles.exportButton} onClick={handleExport} title="Export as XLSX">
-          <img src="/export.svg" alt="Export" width="20" height="20" />
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 2v8M8 10L5 7M8 10l3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
         </button>
       </div>
     </div>

@@ -103,19 +103,19 @@
 }
 
 .exportButton {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
+  padding: 4px 4px;
+  border: 1px solid #000;
+  border-radius: 0;
+  background: #000;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  display: flex;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  opacity: 0.5;
-  transition: opacity 0.15s ease;
-  margin-left: 8px;
 }
 
 .exportButton:hover {
-  opacity: 1;
+  background: #333;
 }
