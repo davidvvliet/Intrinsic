@@ -10,6 +10,8 @@ from app.api.templates import parse_xlsx_all_sheets, parse_csv, extract_preview_
 from pydantic import BaseModel
 from typing import Optional
 from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
 
 router = APIRouter()
 
@@ -273,6 +275,56 @@ async def export_workspace(
                     cell.value = raw_value
             else:
                 cell.value = raw_value
+
+        # Apply formatting
+        formatting = data.get("formatting", {})
+        for key, fmt in formatting.items():
+            row_str, col_str = key.split(",")
+            row = int(row_str) + 1
+            col = int(col_str) + 1
+            cell = ws.cell(row=row, column=col)
+
+            # Font properties
+            font_kwargs = {}
+            if fmt.get("bold"):
+                font_kwargs["bold"] = True
+            if fmt.get("italic"):
+                font_kwargs["italic"] = True
+            if fmt.get("textColor"):
+                font_kwargs["color"] = fmt["textColor"].lstrip("#")
+            if font_kwargs:
+                cell.font = Font(**font_kwargs)
+
+            # Fill color
+            if fmt.get("fillColor"):
+                cell.fill = PatternFill(
+                    start_color=fmt["fillColor"].lstrip("#"),
+                    end_color=fmt["fillColor"].lstrip("#"),
+                    fill_type="solid"
+                )
+
+            # Number format
+            nf = fmt.get("numberFormat")
+            if nf:
+                nf_type = nf.get("type") if isinstance(nf, dict) else nf
+                if nf_type == "currency":
+                    cell.number_format = "$#,##0.00"
+                elif nf_type == "percent":
+                    cell.number_format = "0.00%"
+                elif nf_type == "number":
+                    cell.number_format = "#,##0.00"
+
+        # Column widths
+        settings = data.get("settings", {})
+        for col_idx, width in settings.get("columnWidths", []):
+            col_letter = get_column_letter(col_idx + 1)
+            ws.column_dimensions[col_letter].width = width / 7  # px to approximate Excel units
+
+        # Frozen panes
+        frozen_rows = settings.get("frozenRows", 0)
+        frozen_cols = settings.get("frozenColumns", 0)
+        if frozen_rows or frozen_cols:
+            ws.freeze_panes = ws.cell(row=frozen_rows + 1, column=frozen_cols + 1).coordinate
 
     # If no sheets, create empty one
     if len(wb.sheetnames) == 0:
