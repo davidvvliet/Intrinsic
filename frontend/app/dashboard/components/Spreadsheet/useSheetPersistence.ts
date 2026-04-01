@@ -11,7 +11,8 @@ export function useSheetPersistence() {
   const { fetchWithAuth } = useAuthFetch();
   const { updateSheetName, markSheetSaved } = useSheetRouter();
   const { containerRef } = useRefContext();
-  const loadedSheetIdsRef = useRef<string | null>(null); // tracks which sheets have been bulk-loaded
+  const loadedSheetKeyRef = useRef<string | null>(null); // set after fetch completes — gates tab-switch logic
+  const loadingSheetKeyRef = useRef<string | null>(null); // set before fetch starts — prevents duplicate fetches
   const prevActiveSheetIdRef = useRef<string | null>(null);
 
   // Subscribe to store state
@@ -222,9 +223,9 @@ export function useSheetPersistence() {
     if (!activeSheetId) return;
     if (sheets.length === 0) return;
     const sheetKey = workspaceId + ':' + sheets.map(s => s.sheetId).sort().join(',');
-    if (loadedSheetIdsRef.current === sheetKey) return;
-
-    loadedSheetIdsRef.current = sheetKey;
+    if (loadedSheetKeyRef.current === sheetKey) return;
+    if (loadingSheetKeyRef.current === sheetKey) return;
+    loadingSheetKeyRef.current = sheetKey;
 
     const loadAllSheets = async () => {
       // Fetch each sheet that has been saved to the backend
@@ -293,6 +294,8 @@ export function useSheetPersistence() {
       // Recalculate all formulas now that all data is loaded
       recalculateFormulas();
 
+      // Data is ready — allow tab-switch logic
+      loadedSheetKeyRef.current = sheetKey;
       prevActiveSheetIdRef.current = activeSheetId;
     };
 
@@ -305,7 +308,7 @@ export function useSheetPersistence() {
   // Handle tab switch: swap cellData from allSheetsData
   useEffect(() => {
     if (!activeSheetId) return;
-    if (!loadedSheetIdsRef.current) return; // Wait for bulk load to finish
+    if (!loadedSheetKeyRef.current) return; // Wait for bulk load to finish
     if (prevActiveSheetIdRef.current === activeSheetId) return;
     const switchState = useSpreadsheetStore.getState();
     const switchFmtSize = switchState.allSheetsFormat.get(activeSheetId)?.size ?? 0;
