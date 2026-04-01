@@ -12,8 +12,91 @@ from typing import Optional
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
+from openpyxl.chart import BarChart, LineChart, PieChart, DoughnutChart, ScatterChart, AreaChart, Reference
 
 router = APIRouter()
+
+CHART_TYPE_MAP = {
+    "bar": BarChart,
+    "line": LineChart,
+    "pie": PieChart,
+    "doughnut": DoughnutChart,
+    "scatter": ScatterChart,
+    "area": AreaChart,
+}
+
+# Approximate pixel-to-cell conversion (default cell dimensions)
+DEFAULT_COL_WIDTH_PX = 100
+DEFAULT_ROW_HEIGHT_PX = 25
+
+
+def _add_charts_to_sheet(ws, charts):
+    print(f"[export] Adding {len(charts)} chart(s) to sheet '{ws.title}'")
+    for chart_data in charts:
+        chart_cls = CHART_TYPE_MAP.get(chart_data.get("type", "bar"), BarChart)
+        chart = chart_cls()
+
+        if chart_data.get("title"):
+            chart.title = chart_data["title"]
+        if chart_data.get("xAxisLabel") and hasattr(chart, "x_axis"):
+            chart.x_axis.title = chart_data["xAxisLabel"]
+        if chart_data.get("yAxisLabel") and hasattr(chart, "y_axis"):
+            chart.y_axis.title = chart_data["yAxisLabel"]
+
+        data_ranges = chart_data.get("dataRanges", [])
+        if not data_ranges and "dataRange" in chart_data:
+            dr = chart_data["dataRange"]
+            data_ranges = [{
+                "start": {"row": dr["startRow"], "col": dr["startCol"]},
+                "end": {"row": dr["endRow"], "col": dr["endCol"]},
+            }]
+        if not data_ranges:
+            print(f"[export] Chart '{chart_data.get('title', 'untitled')}' has no dataRanges, skipping")
+            continue
+
+        print(f"[export] Chart '{chart_data.get('title', 'untitled')}' has {len(data_ranges)} dataRange(s): {data_ranges}")
+
+        use_headers = chart_data.get("useFirstRowAsHeaders", True)
+
+        # First range = categories (x-axis labels)
+        first = data_ranges[0]
+        print(f"[export] Categories: row {first['start']['row']+1}-{first['end']['row']+1}, col {first['start']['col']+1}-{first['end']['col']+1}")
+        cat_ref = Reference(
+            ws,
+            min_col=first["start"]["col"] + 1,
+            min_row=first["start"]["row"] + 1,
+            max_col=first["end"]["col"] + 1,
+            max_row=first["end"]["row"] + 1,
+        )
+
+        # Remaining ranges = data series
+        for dr in data_ranges[1:]:
+            data_ref = Reference(
+                ws,
+                min_col=dr["start"]["col"] + 1,
+                min_row=dr["start"]["row"] + 1,
+                max_col=dr["end"]["col"] + 1,
+                max_row=dr["end"]["row"] + 1,
+            )
+            print(f"[export] Data series: row {dr['start']['row']+1}-{dr['end']['row']+1}, col {dr['start']['col']+1}-{dr['end']['col']+1}")
+            chart.add_data(data_ref, from_rows=True, titles_from_data=False)
+
+        chart.set_categories(cat_ref)
+
+        # Position: convert pixel coordinates to cell anchor
+        pos = chart_data.get("position", {})
+        anchor_col = max(1, int(pos.get("x", 0) / DEFAULT_COL_WIDTH_PX) + 1)
+        anchor_row = max(1, int(pos.get("y", 0) / DEFAULT_ROW_HEIGHT_PX) + 1)
+        anchor = f"{get_column_letter(anchor_col)}{anchor_row}"
+
+        # Size
+        if pos.get("width"):
+            chart.width = pos["width"] / 7  # approximate px to cm
+        if pos.get("height"):
+            chart.height = pos["height"] / 7
+
+        print(f"[export] Chart '{chart_data.get('title', 'untitled')}' type={chart_data.get('type')} ranges={len(data_ranges)} anchor={anchor}")
+        ws.add_chart(chart, anchor)
 
 
 class CreateWorkspaceRequest(BaseModel):
@@ -325,6 +408,11 @@ async def export_workspace(
         frozen_cols = settings.get("frozenColumns", 0)
         if frozen_rows or frozen_cols:
             ws.freeze_panes = ws.cell(row=frozen_rows + 1, column=frozen_cols + 1).coordinate
+
+        # Charts
+        sheet_charts = data.get("charts", [])
+        if sheet_charts:
+            _add_charts_to_sheet(ws, sheet_charts)
 
     # If no sheets, create empty one
     if len(wb.sheetnames) == 0:
