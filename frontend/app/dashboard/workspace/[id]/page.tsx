@@ -408,7 +408,7 @@ export default function WorkspacePage() {
       <DashboardNavbar />
       <div
         className={styles.dashboardContainer}
-        style={{ gridTemplateColumns: `${editingChartId ? '250px' : '0px'} 1fr ${columnMinimize.rightMinimized ? '0px' : '300px'}` }}
+        style={{ gridTemplateColumns: `${editingChartId ? '250px' : '0px'} 1fr ${columnMinimize.rightMinimized ? '0px' : `${columnMinimize.rightWidth}px`}` }}
       >
         <div
           className={`${styles.leftColumn} ${!editingChartId ? styles.hidden : ''}`}
@@ -421,9 +421,30 @@ export default function WorkspacePage() {
             onSelectionChange={setSelectedRange}
           />
         </div>
-        <div 
+        <div
           className={`${styles.rightColumn} ${columnMinimize.rightMinimized ? styles.hidden : ''}`}
         >
+          {!columnMinimize.rightMinimized && (
+            <div
+              className={styles.dragHandle}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const onMouseMove = (ev: MouseEvent) => {
+                  columnMinimize.setRightWidth(window.innerWidth - ev.clientX);
+                };
+                const onMouseUp = () => {
+                  window.removeEventListener('mousemove', onMouseMove);
+                  window.removeEventListener('mouseup', onMouseUp);
+                  document.body.style.cursor = '';
+                  document.body.style.userSelect = '';
+                };
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('mouseup', onMouseUp);
+              }}
+            />
+          )}
           <div className={styles.rightColumnContent}>
             <TabBar
               tabs={tabs}
@@ -479,10 +500,11 @@ export default function WorkspacePage() {
         </div>
         <button
           className={`${styles.minimizeButton} ${
-            columnMinimize.rightMinimized 
-              ? styles.minimizeButtonRightMinimized 
+            columnMinimize.rightMinimized
+              ? styles.minimizeButtonRightMinimized
               : styles.minimizeButtonRight
           }`}
+          style={!columnMinimize.rightMinimized ? { right: `${columnMinimize.rightWidth - 15}px` } : undefined}
           onClick={columnMinimize.toggleRightColumn}
         >
           {columnMinimize.rightMinimized ? '+' : '−'}

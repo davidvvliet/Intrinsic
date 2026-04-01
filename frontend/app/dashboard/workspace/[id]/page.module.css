@@ -44,6 +44,21 @@
   flex-direction: column;
   overflow-y: auto;
   height: 100%;
+  position: relative;
+}
+
+.dragHandle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.dragHandle:hover {
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .rightColumnContent {
