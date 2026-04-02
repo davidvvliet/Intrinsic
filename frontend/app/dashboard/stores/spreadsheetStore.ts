@@ -306,7 +306,7 @@ export const useSpreadsheetStore = create<SpreadsheetStore>((set, get) => {
       const columnWidths = state.columnWidthsBySheet.get(newId || '') || new Map();
       const frozenRows = state.frozenRowsBySheet.get(newId || '') || 0;
       const frozenColumns = state.frozenColumnsBySheet.get(newId || '') || 0;
-      return { activeSheetId: newId, columnWidths, frozenRows, frozenColumns };
+      return { activeSheetId: newId, columnWidths, frozenRows, frozenColumns, editingChartId: null };
     }),
 
     setSheets: (sheets) => set(state => {

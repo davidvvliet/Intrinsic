@@ -198,8 +198,15 @@ SPREADSHEET_TOOLS = [
                             "fillColor": {"type": "string", "description": "Hex color code (e.g., '#FF0000')"},
                             "textColor": {"type": "string", "description": "Hex color code (e.g., '#0000FF')"},
                             "numberFormat": {
-                                "type": "string",
-                                "description": "Number format type: 'currency', 'percent', 'number', 'date', etc."
+                                "type": "object",
+                                "description": "Number format settings. Omit if not setting.",
+                                "properties": {
+                                    "type": {"type": "string", "description": "Format type: 'currency', 'percent', 'number', 'date', 'time', 'datetime', 'accounting', 'scientific', 'text'"},
+                                    "decimals": {"type": "integer", "description": "Number of decimal places (e.g., 2). Omit to use default."},
+                                    "currencySymbol": {"type": "string", "description": "Currency symbol (e.g., '$', '€'). Only for currency/accounting formats. Defaults to '$'."},
+                                    "datePattern": {"type": "string", "description": "Date format pattern (e.g., 'MM/DD/YYYY'). Only for date/time formats."}
+                                },
+                                "required": ["type"]
                             }
                         },
                         "required": ["cell"],
@@ -238,8 +245,15 @@ SPREADSHEET_TOOLS = [
                         "fillColor": {"type": "string", "description": "Hex color code for cell background (e.g., '#FF0000'). Omit if not setting."},
                         "textColor": {"type": "string", "description": "Hex color code for text (e.g., '#0000FF'). Omit if not setting."},
                         "numberFormat": {
-                            "type": "string",
-                            "description": "Number format type: 'currency', 'percent', 'number', 'date', etc. Omit if not setting."
+                            "type": "object",
+                            "description": "Number format settings. Omit if not setting.",
+                            "properties": {
+                                "type": {"type": "string", "description": "Format type: 'currency', 'percent', 'number', 'date', 'time', 'datetime', 'accounting', 'scientific', 'text'"},
+                                "decimals": {"type": "integer", "description": "Number of decimal places (e.g., 2). Omit to use default."},
+                                "currencySymbol": {"type": "string", "description": "Currency symbol (e.g., '$', '€'). Only for currency/accounting formats. Defaults to '$'."},
+                                "datePattern": {"type": "string", "description": "Date format pattern (e.g., 'MM/DD/YYYY'). Only for date/time formats."}
+                            },
+                            "required": ["type"]
                         }
                     },
                     "additionalProperties": False

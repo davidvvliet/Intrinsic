@@ -268,6 +268,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
           if (item.italic !== undefined) newFormat.italic = item.italic;
           if (item.fillColor !== undefined) newFormat.fillColor = item.fillColor;
           if (item.textColor !== undefined) newFormat.textColor = item.textColor;
+          if (item.numberFormat !== undefined) newFormat.numberFormat = item.numberFormat;
 
           if (isOtherSheet) {
             mergedCellFormat!.set(cellKey, newFormat);
@@ -310,6 +311,7 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
         if (format.italic !== undefined) formatToApply.italic = format.italic;
         if (format.fillColor !== undefined) formatToApply.fillColor = format.fillColor;
         if (format.textColor !== undefined) formatToApply.textColor = format.textColor;
+        if (format.numberFormat !== undefined) formatToApply.numberFormat = format.numberFormat;
 
         const sourceCellFormat = isOtherSheet
           ? (storeState.allSheetsFormat.get(targetSheet.sheetId) || new Map())
