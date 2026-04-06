@@ -249,7 +249,7 @@ SPREADSHEET_TOOLS = [
                             "description": "Number format settings. Omit if not setting.",
                             "properties": {
                                 "type": {"type": "string", "description": "Format type: 'currency', 'percent', 'number', 'date', 'time', 'datetime', 'accounting', 'scientific', 'text'"},
-                                "decimals": {"type": "integer", "description": "Number of decimal places (e.g., 2). Omit to use default."},
+                                "decimals": {"type": "integer", "description": "Number of decimal places (e.g., 2). Defaults to (2 decimal places)."},
                                 "currencySymbol": {"type": "string", "description": "Currency symbol (e.g., '$', '€'). Only for currency/accounting formats. Defaults to '$'."},
                                 "datePattern": {"type": "string", "description": "Date format pattern (e.g., 'MM/DD/YYYY'). Only for date/time formats."}
                             },
@@ -371,6 +371,36 @@ SPREADSHEET_TOOLS = [
                 }
             },
             "required": ["template_name"]
+        }
+    },
+    {
+        "type": "function",
+        "name": "create_sheet",
+        "description": "Create a new sheet in the workbook. Does NOT switch to it. Use the 'sheet' parameter in subsequent tool calls to write to it. Optionally populate it with initial data.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Name for the new sheet. Omit to auto-name (e.g., 'Sheet 2')."
+                },
+                "startCell": {
+                    "type": "string",
+                    "description": "Top-left cell for initial data in A1 notation (e.g., 'A1'). Required if values is provided."
+                },
+                "endCell": {
+                    "type": "string",
+                    "description": "Bottom-right cell for initial data in A1 notation (e.g., 'D10'). Required if values is provided."
+                },
+                "values": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "description": "2D array of cell values (rows of columns). Same format as set_cell_range."
+                }
+            }
         }
     }
 ]

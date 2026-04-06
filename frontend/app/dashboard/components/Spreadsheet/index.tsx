@@ -12,7 +12,7 @@ import FindBar from './FindBar';
 
 import { getCellKey, parseInputValue, a1ToRowCol } from './drawUtils';
 import { colToLetter } from './formulaEngine/cellRef';
-import type { CellFormat } from './types';
+import type { CellFormat, CellData, CellFormatData } from './types';
 import type { ChartConfig, ChartType } from './chartDataResolver';
 import { CELL_HEIGHT, CELL_WIDTH, HEADER_WIDTH, HEADER_HEIGHT } from './config';
 import styles from './Spreadsheet.module.css';
@@ -425,6 +425,52 @@ function SpreadsheetContent({ onToolCall, onSelectionChange }: SpreadsheetConten
 
         storeState.addChart(chart);
         return { status: 'success', chartId: chart.id };
+      } else if (name === 'create_sheet') {
+        const { name: sheetName, startCell, endCell, values } = args;
+        const storeState = useSpreadsheetStore.getState();
+        const sheetId = crypto.randomUUID();
+        const newSheet = {
+          sheetId,
+          name: sheetName || `Sheet ${storeState.sheets.length + 1}`,
+          createdAt: new Date().toISOString(),
+          isSaved: false,
+        };
+        storeState.setSheets([...storeState.sheets, newSheet]);
+
+        // Populate with initial data if provided
+        if (values && startCell && endCell) {
+          const start = a1ToRowCol(startCell);
+          const end = a1ToRowCol(endCell);
+          const cellData: CellData = new Map();
+          const cellFormat: CellFormatData = new Map();
+
+          for (let rowIdx = 0; rowIdx < values.length; rowIdx++) {
+            const row = start.row + rowIdx;
+            if (row > end.row) break;
+            const rowValues = values[rowIdx];
+            for (let colIdx = 0; colIdx < rowValues.length; colIdx++) {
+              const col = start.col + colIdx;
+              if (col > end.col) break;
+              const value = rowValues[colIdx];
+              const cellKey = getCellKey(row, col);
+              const parsed = parseInputValue(value);
+              cellData.set(cellKey, { raw: parsed.value, type: parsed.type });
+
+              const trimmed = value.trim();
+              if (trimmed.endsWith('%')) {
+                cellFormat.set(cellKey, { numberFormat: { type: 'percent' } });
+              } else if (/^[\$£€¥]/.test(trimmed)) {
+                cellFormat.set(cellKey, { numberFormat: { type: 'currency' } });
+              }
+            }
+          }
+
+          setSheetCellData(sheetId, cellData);
+          setSheetCellFormat(sheetId, cellFormat);
+        }
+
+        markSheetDirty(sheetId);
+        return { status: 'success', sheetName: newSheet.name, sheetId };
       }
     };
 
